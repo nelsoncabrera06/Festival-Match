@@ -120,10 +120,29 @@
         <div id="my-genres" class="tags-container"></div>
       </div>
 
+      <!-- Last.fm Suggestions (Collapsible) -->
+      <div class="preference-section lastfm-section collapsible">
+        <button class="collapsible-header" id="lastfm-toggle">
+          <div class="collapsible-title">
+            <span class="lastfm-logo">last.fm</span>
+            Sugerencias de Last.fm
+          </div>
+          <span class="collapsible-icon">+</span>
+        </button>
+        <div class="collapsible-content" id="lastfm-content">
+          <p class="section-description">Importa artistas desde tu perfil de Last.fm</p>
+          <div class="lastfm-connect">
+            <input type="text" id="lastfm-username" class="search-input" placeholder="Tu usuario de Last.fm" autocomplete="off">
+            <button id="lastfm-load-btn" class="btn-lastfm">Cargar</button>
+          </div>
+          <div id="lastfm-suggestions" class="suggestions-container"></div>
+        </div>
+      </div>
+
       <!-- Action Buttons -->
       <div class="preferences-actions">
         <button id="view-festivals-btn" class="btn-primary">
-          Ver mis festivales
+          Guardar y ver festivales
         </button>
       </div>
     </section>
@@ -165,6 +184,7 @@
       <div class="tabs-container">
         <button class="tab active" data-tab="festivals">Festivales</button>
         <button class="tab" data-tab="artists">Mis Artistas</button>
+        <button class="tab tab-admin" data-tab="admin" style="display: none;">Admin</button>
       </div>
 
       <!-- Tab: Festivales -->
@@ -206,6 +226,12 @@
 
           <!-- Festivals Grid -->
           <div id="festivals-grid" class="festivals-grid"></div>
+
+          <!-- Suggest Festival -->
+          <div class="suggest-festival-cta">
+            <p>¿No encuentras un festival?</p>
+            <button id="suggest-festival-btn" class="btn-suggest">Sugerir un festival</button>
+          </div>
         </div>
 
         <!-- Vista Calendario -->
@@ -235,6 +261,24 @@
         <!-- Artists with Tour Dates -->
         <div id="artists-tours" class="artists-tours"></div>
       </div>
+
+      <!-- Tab: Admin (solo visible para admins) -->
+      <div id="tab-admin" class="tab-content">
+        <div class="admin-panel">
+          <div class="admin-header">
+            <h3>Panel de Administracion</h3>
+            <div class="admin-filters">
+              <button class="admin-filter-btn active" data-status="pending">Pendientes</button>
+              <button class="admin-filter-btn" data-status="approved">Aprobadas</button>
+              <button class="admin-filter-btn" data-status="rejected">Rechazadas</button>
+              <button class="admin-filter-btn" data-status="">Todas</button>
+            </div>
+          </div>
+          <div id="admin-suggestions" class="admin-suggestions">
+            <!-- Las sugerencias se cargan dinamicamente -->
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- Error Section -->
@@ -246,6 +290,73 @@
         <button id="retry-btn" class="btn-primary">Intentar de nuevo</button>
       </div>
     </section>
+
+    <!-- Modal: Sugerir Festival -->
+    <div id="suggest-modal" class="modal" style="display: none;">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Sugerir un Festival</h3>
+          <button class="modal-close" id="suggest-modal-close">&times;</button>
+        </div>
+        <form id="suggest-festival-form" class="modal-form">
+          <div class="form-group">
+            <label for="suggest-name">Nombre del festival *</label>
+            <input type="text" id="suggest-name" class="form-input" placeholder="Ej: Ultra Music Festival" required>
+          </div>
+          <div class="form-group">
+            <label for="suggest-country">Pais *</label>
+            <select id="suggest-country" class="form-select" required>
+              <option value="">Seleccionar pais...</option>
+              <optgroup label="USA">
+                <option value="US">Estados Unidos</option>
+              </optgroup>
+              <optgroup label="Latinoamerica">
+                <option value="AR">Argentina</option>
+                <option value="BR">Brasil</option>
+                <option value="CL">Chile</option>
+                <option value="CO">Colombia</option>
+                <option value="MX">Mexico</option>
+              </optgroup>
+              <optgroup label="Europa">
+                <option value="ES">Espana</option>
+                <option value="DE">Alemania</option>
+                <option value="BE">Belgica</option>
+                <option value="DK">Dinamarca</option>
+                <option value="FI">Finlandia</option>
+                <option value="GB">Reino Unido</option>
+                <option value="HR">Croacia</option>
+                <option value="HU">Hungria</option>
+                <option value="NL">Paises Bajos</option>
+                <option value="PL">Polonia</option>
+                <option value="PT">Portugal</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="suggest-city">Ciudad *</label>
+            <input type="text" id="suggest-city" class="form-input" placeholder="Ej: Miami" required>
+          </div>
+          <div class="form-group">
+            <label for="suggest-dates">Fechas (aproximadas)</label>
+            <input type="text" id="suggest-dates" class="form-input" placeholder="Ej: 28-30 Marzo 2026">
+          </div>
+          <div class="form-group">
+            <label for="suggest-website">Sitio web oficial</label>
+            <input type="url" id="suggest-website" class="form-input" placeholder="https://...">
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" id="suggest-cancel">Cancelar</button>
+            <button type="submit" class="btn-primary">Enviar sugerencia</button>
+          </div>
+        </form>
+        <div id="suggest-success" class="suggest-success" style="display: none;">
+          <span class="success-icon">✓</span>
+          <p>¡Gracias! Revisaremos tu sugerencia pronto.</p>
+          <button type="button" class="btn-primary" id="suggest-close-success">Cerrar</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>

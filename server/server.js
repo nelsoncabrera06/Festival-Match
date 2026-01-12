@@ -12,8 +12,10 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const cookieParser = require('cookie-parser');
 const festivals = require('./festivals.json');
+const FESTIVALS_PATH = path.join(__dirname, 'festivals.json');
 
 // Base de datos y autenticacion
 const db = require('./db');
@@ -212,6 +214,186 @@ app.delete('/api/user/favorite-festivals/:festivalId', auth.requireAuth, (req, r
 
   if (!removed) {
     return res.status(404).json({ error: 'Festival no encontrado en favoritos' });
+  }
+
+  res.json({ success: true });
+});
+
+// ==========================================
+// LAST.FM USERNAME
+// ==========================================
+
+// Obtener username de Last.fm guardado
+app.get('/api/user/lastfm-username', auth.requireAuth, (req, res) => {
+  const username = db.getLastfmUsername(req.user.id);
+  res.json({ username });
+});
+
+// Guardar username de Last.fm
+app.post('/api/user/lastfm-username', auth.requireAuth, (req, res) => {
+  const { username } = req.body;
+
+  // Permitir null/vacío para "desconectar"
+  const cleanUsername = username?.trim() || null;
+
+  db.setLastfmUsername(req.user.id, cleanUsername);
+  res.json({ success: true, username: cleanUsername });
+});
+
+// ==========================================
+// SUGERENCIAS DE FESTIVALES
+// ==========================================
+
+// Enviar sugerencia de festival (no requiere auth, pero guarda user si está logueado)
+app.post('/api/festival-suggestions', (req, res) => {
+  const { festivalName, country, city, datesInfo, website } = req.body;
+
+  // Validaciones
+  if (!festivalName || festivalName.trim().length === 0) {
+    return res.status(400).json({ error: 'Nombre del festival requerido' });
+  }
+  if (!country || country.trim().length === 0) {
+    return res.status(400).json({ error: 'País requerido' });
+  }
+  if (!city || city.trim().length === 0) {
+    return res.status(400).json({ error: 'Ciudad requerida' });
+  }
+
+  // Obtener user_id si está logueado (opcional)
+  let userId = null;
+  const sessionId = req.cookies?.session;
+  if (sessionId) {
+    const session = db.getSession(sessionId);
+    if (session) {
+      userId = session.user_id;
+    }
+  }
+
+  try {
+    const suggestion = db.createFestivalSuggestion({
+      userId,
+      festivalName,
+      country,
+      city,
+      datesInfo,
+      website
+    });
+
+    res.status(201).json({ success: true, suggestion });
+  } catch (err) {
+    console.error('Error creating festival suggestion:', err);
+    res.status(500).json({ error: 'Error al guardar la sugerencia' });
+  }
+});
+
+// ==========================================
+// ADMIN - Gestion de Sugerencias
+// ==========================================
+
+// Middleware para verificar si es admin
+const requireAdmin = (req, res, next) => {
+  if (!req.user || !db.isAdmin(req.user.id)) {
+    return res.status(403).json({ error: 'Acceso denegado. Se requiere rol de admin.' });
+  }
+  next();
+};
+
+// Obtener rol del usuario actual
+app.get('/api/user/role', auth.requireAuth, (req, res) => {
+  const role = db.getUserRole(req.user.id);
+  res.json({ role, isAdmin: db.isAdmin(req.user.id), isDev: db.isDev(req.user.id) });
+});
+
+// Obtener todas las sugerencias (solo admin)
+app.get('/api/admin/suggestions', auth.requireAuth, requireAdmin, (req, res) => {
+  const status = req.query.status || null; // 'pending', 'approved', 'rejected', o null para todas
+  const suggestions = db.getFestivalSuggestions(status);
+  res.json({ suggestions });
+});
+
+// Aprobar sugerencia - auto-agrega a festivals.json
+app.post('/api/admin/suggestions/:id/approve', auth.requireAuth, requireAdmin, (req, res) => {
+  const suggestionId = parseInt(req.params.id);
+  const suggestion = db.getSuggestionById(suggestionId);
+
+  if (!suggestion) {
+    return res.status(404).json({ error: 'Sugerencia no encontrada' });
+  }
+
+  // Leer festivals.json actualizado
+  let festivalsData;
+  try {
+    festivalsData = JSON.parse(fs.readFileSync(FESTIVALS_PATH, 'utf8'));
+  } catch (err) {
+    console.error('Error leyendo festivals.json:', err);
+    return res.status(500).json({ error: 'Error al leer la lista de festivales' });
+  }
+
+  // Verificar si el festival ya existe (por nombre, case-insensitive)
+  const festivalExists = festivalsData.some(
+    f => f.name.toLowerCase() === suggestion.festival_name.toLowerCase()
+  );
+
+  if (festivalExists) {
+    // Ya existe: eliminar la sugerencia
+    db.deleteSuggestion(suggestionId);
+    return res.json({
+      success: true,
+      alreadyExists: true,
+      message: 'Este festival ya estaba en la lista. Sugerencia eliminada.'
+    });
+  }
+
+  // Mapeo de codigos de pais a nombres
+  const countryNames = {
+    'US': 'Estados Unidos', 'AR': 'Argentina', 'BR': 'Brasil', 'CL': 'Chile',
+    'CO': 'Colombia', 'MX': 'Mexico', 'ES': 'Espana', 'DE': 'Alemania',
+    'BE': 'Belgica', 'DK': 'Dinamarca', 'FI': 'Finlandia', 'GB': 'Reino Unido',
+    'HR': 'Croacia', 'HU': 'Hungria', 'NL': 'Paises Bajos', 'PL': 'Polonia',
+    'PT': 'Portugal', 'FR': 'Francia', 'IT': 'Italia', 'SE': 'Suecia',
+    'NO': 'Noruega', 'AT': 'Austria', 'CH': 'Suiza', 'CZ': 'Republica Checa'
+  };
+
+  // Crear nuevo festival
+  const newFestival = {
+    id: suggestion.festival_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+    name: suggestion.festival_name,
+    city: suggestion.city,
+    location: `${suggestion.city}, ${countryNames[suggestion.country] || suggestion.country}`,
+    country: suggestion.country,
+    dates: suggestion.dates_info || 'TBA',
+    website: suggestion.website || '',
+    lineupStatus: 'unannounced',
+    lineup: []
+  };
+
+  // Agregar al array y guardar
+  festivalsData.push(newFestival);
+  try {
+    fs.writeFileSync(FESTIVALS_PATH, JSON.stringify(festivalsData, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Error escribiendo festivals.json:', err);
+    return res.status(500).json({ error: 'Error al guardar el festival' });
+  }
+
+  // Actualizar status en DB
+  db.updateSuggestionStatus(suggestionId, 'approved');
+
+  res.json({
+    success: true,
+    alreadyExists: false,
+    message: 'Festival agregado a la lista!',
+    festival: newFestival
+  });
+});
+
+// Rechazar sugerencia
+app.post('/api/admin/suggestions/:id/reject', auth.requireAuth, requireAdmin, (req, res) => {
+  const suggestionId = parseInt(req.params.id);
+  const updated = db.updateSuggestionStatus(suggestionId, 'rejected');
+
+  if (!updated) {
+    return res.status(404).json({ error: 'Sugerencia no encontrada' });
   }
 
   res.json({ success: true });
@@ -748,6 +930,57 @@ app.get('/api/current-year', (req, res) => {
 });
 
 // ==========================================
+// LAST.FM API - Sugerencias de Artistas
+// ==========================================
+
+app.get('/api/lastfm/top-artists', async (req, res) => {
+  const { user } = req.query;
+
+  if (!user || user.trim().length === 0) {
+    return res.status(400).json({ error: 'Usuario de Last.fm requerido' });
+  }
+
+  const apiKey = process.env.LASTFM_API_KEY;
+  if (!apiKey || apiKey === 'tu_lastfm_api_key') {
+    return res.status(500).json({ error: 'Last.fm API no configurada' });
+  }
+
+  try {
+    const response = await axios.get('http://ws.audioscrobbler.com/2.0/', {
+      params: {
+        method: 'user.gettopartists',
+        user: user.trim(),
+        api_key: apiKey,
+        format: 'json',
+        limit: 30,
+        period: 'overall' // overall, 7day, 1month, 3month, 6month, 12month
+      }
+    });
+
+    if (response.data.error) {
+      return res.status(404).json({ error: 'Usuario no encontrado en Last.fm' });
+    }
+
+    const artists = response.data.topartists?.artist || [];
+
+    res.json({
+      user: user.trim(),
+      artists: artists.map(a => ({
+        name: a.name,
+        playcount: parseInt(a.playcount) || 0,
+        url: a.url
+      }))
+    });
+  } catch (err) {
+    console.error('Error fetching Last.fm top artists:', err.message);
+    if (err.response?.status === 404) {
+      return res.status(404).json({ error: 'Usuario no encontrado en Last.fm' });
+    }
+    res.status(500).json({ error: 'Error al conectar con Last.fm' });
+  }
+});
+
+// ==========================================
 // INICIAR SERVIDOR
 // ==========================================
 
@@ -756,5 +989,6 @@ app.listen(PORT, async () => {
   console.log(`🎵 Festival Match ${currentYear} corriendo en http://localhost:${PORT}`);
   console.log('📋 Configuracion:');
   console.log('   - Google OAuth: ' + (process.env.GOOGLE_CLIENT_ID ? 'Configurado' : 'No configurado'));
-  console.log('   - Spotify API: ' + (process.env.SPOTIFY_CLIENT_ID ? 'Configurado' : 'No configurado (deshabilitado)'));
+  console.log('   - Spotify API: ' + (process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_ID !== 'tu_spotify_client_id' ? 'Configurado' : 'No configurado (deshabilitado)'));
+  console.log('   - Last.fm API: ' + (process.env.LASTFM_API_KEY && process.env.LASTFM_API_KEY !== 'tu_lastfm_api_key' ? 'Configurado' : 'No configurado'));
 });

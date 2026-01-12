@@ -47,6 +47,9 @@ db.exec(`
     UNIQUE(user_id, festival_id)
   );
 
+  -- Agregar columna lastfm_username si no existe (para DBs existentes)
+  -- SQLite no soporta ADD COLUMN IF NOT EXISTS, lo manejamos con try/catch abajo
+
   CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     user_id INTEGER NOT NULL,
@@ -63,7 +66,45 @@ db.exec(`
     fetched_at INTEGER NOT NULL,
     UNIQUE(artist_name, region)
   );
+
+  CREATE TABLE IF NOT EXISTS festival_suggestions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    festival_name TEXT NOT NULL,
+    country TEXT NOT NULL,
+    city TEXT NOT NULL,
+    dates_info TEXT,
+    website TEXT,
+    status TEXT DEFAULT 'pending',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+  );
 `);
+
+// Agregar columna lastfm_username a users si no existe (migracion)
+try {
+  db.exec('ALTER TABLE users ADD COLUMN lastfm_username TEXT');
+} catch (err) {
+  // La columna ya existe, ignorar el error
+}
+
+// Agregar columna role a users si no existe (migracion)
+// Roles: 'user' (default), 'admin', 'dev', o combinaciones separadas por coma: 'admin,dev'
+try {
+  db.exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'");
+} catch (err) {
+  // La columna ya existe, ignorar el error
+}
+
+// Lista de emails con roles especiales (admins/devs)
+const ADMIN_EMAILS = [
+  'nelsoncabrera06@gmail.com', // Nelson Cabrera - admin,dev
+];
+
+// Asignar roles a admins existentes
+ADMIN_EMAILS.forEach(email => {
+  db.prepare("UPDATE users SET role = 'admin,dev' WHERE email = ? AND (role IS NULL OR role = 'user')").run(email);
+});
 
 // ==========================================
 // Funciones de Usuario
@@ -93,6 +134,31 @@ function findOrCreateUser(googleProfile) {
 
 function getUserById(userId) {
   return db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+}
+
+function getLastfmUsername(userId) {
+  const row = db.prepare('SELECT lastfm_username FROM users WHERE id = ?').get(userId);
+  return row?.lastfm_username || null;
+}
+
+function setLastfmUsername(userId, username) {
+  db.prepare('UPDATE users SET lastfm_username = ? WHERE id = ?').run(username || null, userId);
+  return true;
+}
+
+function getUserRole(userId) {
+  const row = db.prepare('SELECT role FROM users WHERE id = ?').get(userId);
+  return row?.role || 'user';
+}
+
+function isAdmin(userId) {
+  const role = getUserRole(userId);
+  return role.includes('admin');
+}
+
+function isDev(userId) {
+  const role = getUserRole(userId);
+  return role.includes('dev');
 }
 
 // ==========================================
@@ -296,6 +362,67 @@ function cleanExpiredTourCache() {
 }
 
 // ==========================================
+// Sugerencias de Festivales
+// ==========================================
+
+function createFestivalSuggestion({ userId, festivalName, country, city, datesInfo, website }) {
+  const result = db.prepare(`
+    INSERT INTO festival_suggestions (user_id, festival_name, country, city, dates_info, website)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(userId || null, festivalName.trim(), country, city.trim(), datesInfo?.trim() || null, website?.trim() || null);
+
+  return {
+    id: result.lastInsertRowid,
+    festival_name: festivalName.trim(),
+    country,
+    city: city.trim(),
+    dates_info: datesInfo?.trim() || null,
+    website: website?.trim() || null,
+    status: 'pending'
+  };
+}
+
+function getFestivalSuggestions(status = null) {
+  if (status) {
+    return db.prepare(`
+      SELECT fs.*, u.name as user_name, u.email as user_email
+      FROM festival_suggestions fs
+      LEFT JOIN users u ON fs.user_id = u.id
+      WHERE fs.status = ?
+      ORDER BY fs.created_at DESC
+    `).all(status);
+  }
+
+  return db.prepare(`
+    SELECT fs.*, u.name as user_name, u.email as user_email
+    FROM festival_suggestions fs
+    LEFT JOIN users u ON fs.user_id = u.id
+    ORDER BY fs.created_at DESC
+  `).all();
+}
+
+function updateSuggestionStatus(suggestionId, status) {
+  const result = db.prepare(`
+    UPDATE festival_suggestions SET status = ? WHERE id = ?
+  `).run(status, suggestionId);
+  return result.changes > 0;
+}
+
+function getSuggestionById(suggestionId) {
+  return db.prepare(`
+    SELECT fs.*, u.name as user_name, u.email as user_email
+    FROM festival_suggestions fs
+    LEFT JOIN users u ON fs.user_id = u.id
+    WHERE fs.id = ?
+  `).get(suggestionId);
+}
+
+function deleteSuggestion(suggestionId) {
+  const result = db.prepare('DELETE FROM festival_suggestions WHERE id = ?').run(suggestionId);
+  return result.changes > 0;
+}
+
+// ==========================================
 // Utilidades
 // ==========================================
 
@@ -318,6 +445,12 @@ module.exports = {
   db,
   findOrCreateUser,
   getUserById,
+  getLastfmUsername,
+  setLastfmUsername,
+  // Roles
+  getUserRole,
+  isAdmin,
+  isDev,
   createSession,
   getSession,
   deleteSession,
@@ -337,4 +470,10 @@ module.exports = {
   getTourCache,
   setTourCache,
   cleanExpiredTourCache,
+  // Sugerencias de festivales
+  createFestivalSuggestion,
+  getFestivalSuggestions,
+  updateSuggestionStatus,
+  getSuggestionById,
+  deleteSuggestion,
 };

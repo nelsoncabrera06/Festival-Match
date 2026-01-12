@@ -20,6 +20,9 @@ let currentRegion = 'europe'; // Región actual (europe, usa, latam)
 let currentCountry = ''; // Filtro de país ('' = todos)
 let currentCity = ''; // Filtro de ciudad ('' = todas)
 let currentYear = new Date().getFullYear(); // Año actual (se actualiza desde el servidor)
+let userRole = 'user'; // Rol del usuario
+let isUserAdmin = false; // Es admin?
+let currentAdminFilter = 'pending'; // Filtro actual de sugerencias admin
 
 // Mapeo de códigos de país a nombres con banderas
 const COUNTRY_INFO = {
@@ -157,6 +160,32 @@ function cacheElements() {
   // Cascade filters
   elements.countryFilter = document.getElementById('country-filter');
   elements.cityFilter = document.getElementById('city-filter');
+
+  // Last.fm
+  elements.lastfmUsername = document.getElementById('lastfm-username');
+  elements.lastfmLoadBtn = document.getElementById('lastfm-load-btn');
+  elements.lastfmSuggestions = document.getElementById('lastfm-suggestions');
+  elements.lastfmToggle = document.getElementById('lastfm-toggle');
+  elements.lastfmSection = document.querySelector('.lastfm-section.collapsible');
+
+  // Suggest Festival Modal
+  elements.suggestFestivalBtn = document.getElementById('suggest-festival-btn');
+  elements.suggestModal = document.getElementById('suggest-modal');
+  elements.suggestModalClose = document.getElementById('suggest-modal-close');
+  elements.suggestForm = document.getElementById('suggest-festival-form');
+  elements.suggestCancel = document.getElementById('suggest-cancel');
+  elements.suggestSuccess = document.getElementById('suggest-success');
+  elements.suggestCloseSuccess = document.getElementById('suggest-close-success');
+  elements.suggestModalBackdrop = document.querySelector('#suggest-modal .modal-backdrop');
+
+  // Admin
+  elements.tabAdmin = document.querySelector('.tab-admin');
+  elements.tabAdminContent = document.getElementById('tab-admin');
+  elements.adminSuggestions = document.getElementById('admin-suggestions');
+  elements.adminFilterBtns = document.querySelectorAll('.admin-filter-btn');
+
+  // Edit preferences button
+  elements.editPreferencesBtn = document.getElementById('edit-preferences-btn');
 }
 
 function setupEventListeners() {
@@ -226,6 +255,232 @@ function setupEventListeners() {
       elements.festivalSearchResults.style.display = 'block';
     }
   });
+
+  // Last.fm
+  elements.lastfmLoadBtn?.addEventListener('click', loadLastfmSuggestions);
+  elements.lastfmUsername?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      loadLastfmSuggestions();
+    }
+  });
+  elements.lastfmToggle?.addEventListener('click', toggleLastfmSection);
+
+  // Suggest Festival Modal
+  elements.suggestFestivalBtn?.addEventListener('click', openSuggestFestivalModal);
+  elements.suggestModalClose?.addEventListener('click', closeSuggestFestivalModal);
+  elements.suggestCancel?.addEventListener('click', closeSuggestFestivalModal);
+  elements.suggestModalBackdrop?.addEventListener('click', closeSuggestFestivalModal);
+  elements.suggestCloseSuccess?.addEventListener('click', closeSuggestFestivalModal);
+  elements.suggestForm?.addEventListener('submit', submitFestivalSuggestion);
+
+  // Admin filters
+  elements.adminFilterBtns?.forEach(btn => {
+    btn.addEventListener('click', () => {
+      elements.adminFilterBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentAdminFilter = btn.dataset.status;
+      loadAdminSuggestions();
+    });
+  });
+
+  // Edit preferences button
+  elements.editPreferencesBtn?.addEventListener('click', goToPreferences);
+}
+
+function toggleLastfmSection() {
+  elements.lastfmSection?.classList.toggle('expanded');
+}
+
+// ==========================================
+// Modal: Sugerir Festival
+// ==========================================
+
+function openSuggestFestivalModal() {
+  elements.suggestModal.style.display = 'flex';
+  elements.suggestForm.style.display = 'block';
+  elements.suggestSuccess.style.display = 'none';
+  elements.suggestForm.reset();
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSuggestFestivalModal() {
+  elements.suggestModal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+async function submitFestivalSuggestion(e) {
+  e.preventDefault();
+
+  const festivalName = document.getElementById('suggest-name').value.trim();
+  const country = document.getElementById('suggest-country').value;
+  const city = document.getElementById('suggest-city').value.trim();
+  const datesInfo = document.getElementById('suggest-dates').value.trim();
+  const website = document.getElementById('suggest-website').value.trim();
+
+  if (!festivalName || !country || !city) {
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/festival-suggestions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ festivalName, country, city, datesInfo, website })
+    });
+
+    if (response.ok) {
+      // Mostrar mensaje de éxito
+      elements.suggestForm.style.display = 'none';
+      elements.suggestSuccess.style.display = 'flex';
+    } else {
+      const data = await response.json();
+      alert(data.error || 'Error al enviar la sugerencia');
+    }
+  } catch (err) {
+    console.error('Error submitting festival suggestion:', err);
+    alert('Error al enviar la sugerencia. Intenta de nuevo.');
+  }
+}
+
+// ==========================================
+// Admin Panel
+// ==========================================
+
+async function checkUserRole() {
+  if (isDemo || !currentUser) {
+    isUserAdmin = false;
+    userRole = 'user';
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/user/role', { credentials: 'include' });
+    const data = await response.json();
+    userRole = data.role;
+    isUserAdmin = data.isAdmin;
+
+    // Mostrar/ocultar tab de admin
+    if (elements.tabAdmin) {
+      elements.tabAdmin.style.display = isUserAdmin ? 'block' : 'none';
+    }
+  } catch (err) {
+    console.error('Error checking user role:', err);
+    isUserAdmin = false;
+  }
+}
+
+async function loadAdminSuggestions() {
+  if (!isUserAdmin) return;
+
+  elements.adminSuggestions.innerHTML = `
+    <div class="admin-loading">
+      <div class="mini-loader"></div>
+      <span>Cargando sugerencias...</span>
+    </div>
+  `;
+
+  try {
+    const url = currentAdminFilter
+      ? `/api/admin/suggestions?status=${currentAdminFilter}`
+      : '/api/admin/suggestions';
+
+    const response = await fetch(url, { credentials: 'include' });
+    const data = await response.json();
+
+    renderAdminSuggestions(data.suggestions);
+  } catch (err) {
+    console.error('Error loading admin suggestions:', err);
+    elements.adminSuggestions.innerHTML = `
+      <div class="admin-error">Error al cargar sugerencias</div>
+    `;
+  }
+}
+
+function renderAdminSuggestions(suggestions) {
+  if (!suggestions || suggestions.length === 0) {
+    elements.adminSuggestions.innerHTML = `
+      <div class="admin-empty">No hay sugerencias ${currentAdminFilter ? currentAdminFilter : ''}</div>
+    `;
+    return;
+  }
+
+  const countryNames = {
+    'US': 'Estados Unidos', 'AR': 'Argentina', 'BR': 'Brasil', 'CL': 'Chile',
+    'CO': 'Colombia', 'MX': 'Mexico', 'ES': 'Espana', 'DE': 'Alemania',
+    'BE': 'Belgica', 'DK': 'Dinamarca', 'FI': 'Finlandia', 'GB': 'Reino Unido',
+    'HR': 'Croacia', 'HU': 'Hungria', 'NL': 'Paises Bajos', 'PL': 'Polonia', 'PT': 'Portugal'
+  };
+
+  const html = suggestions.map(s => {
+    const countryName = countryNames[s.country] || s.country;
+    const statusClass = s.status === 'approved' ? 'status-approved' : s.status === 'rejected' ? 'status-rejected' : 'status-pending';
+    const statusText = s.status === 'approved' ? 'Aprobada' : s.status === 'rejected' ? 'Rechazada' : 'Pendiente';
+
+    return `
+      <div class="admin-suggestion-card" data-id="${s.id}">
+        <div class="suggestion-info">
+          <h4>${escapeHtml(s.festival_name)}</h4>
+          <p class="suggestion-location">${escapeHtml(s.city)}, ${countryName}</p>
+          ${s.dates_info ? `<p class="suggestion-dates">${escapeHtml(s.dates_info)}</p>` : ''}
+          ${s.website ? `<a href="${escapeHtml(s.website)}" target="_blank" class="suggestion-website">${escapeHtml(s.website)}</a>` : ''}
+          <p class="suggestion-user">Sugerido por: ${s.user_name || 'Anonimo'}</p>
+          <p class="suggestion-date">${new Date(s.created_at).toLocaleDateString('es-ES')}</p>
+        </div>
+        <div class="suggestion-status">
+          <span class="status-badge ${statusClass}">${statusText}</span>
+        </div>
+        ${s.status === 'pending' ? `
+          <div class="suggestion-actions">
+            <button class="btn-approve" onclick="approveSuggestion(${s.id})">Aprobar</button>
+            <button class="btn-reject" onclick="rejectSuggestion(${s.id})">Rechazar</button>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+
+  elements.adminSuggestions.innerHTML = html;
+}
+
+async function approveSuggestion(id) {
+  try {
+    const response = await fetch(`/api/admin/suggestions/${id}/approve`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      // Mostrar mensaje segun el resultado
+      alert(data.message);
+      loadAdminSuggestions();
+    } else {
+      alert(data.error || 'Error al aprobar la sugerencia');
+    }
+  } catch (err) {
+    console.error('Error approving suggestion:', err);
+    alert('Error al aprobar la sugerencia');
+  }
+}
+
+async function rejectSuggestion(id) {
+  if (!confirm('¿Rechazar esta sugerencia?')) return;
+
+  try {
+    const response = await fetch(`/api/admin/suggestions/${id}/reject`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+
+    if (response.ok) {
+      loadAdminSuggestions();
+    }
+  } catch (err) {
+    console.error('Error rejecting suggestion:', err);
+    alert('Error al rechazar la sugerencia');
+  }
 }
 
 // ==========================================
@@ -245,6 +500,10 @@ function showSection(section) {
   elements.logoutBtn.style.display = showUserUI ? 'block' : 'none';
 }
 
+function goToPreferences() {
+  showSection('preferences');
+}
+
 // ==========================================
 // Autenticacion
 // ==========================================
@@ -258,7 +517,16 @@ async function checkAuth() {
       currentUser = data.user;
       updateUserUI();
       await loadUserPreferences();
-      showSection('preferences');
+      await checkUserRole(); // Verificar si es admin
+
+      // Si tiene preferencias guardadas → Resultados
+      // Si es usuario nuevo (sin preferencias) → Preferencias (onboarding)
+      if (myArtists.length > 0 || myGenres.length > 0) {
+        await loadUserFestivals();
+        showSection('results');
+      } else {
+        showSection('preferences');
+      }
     } else {
       showSection('landing');
     }
@@ -329,22 +597,29 @@ async function startDemo() {
 
 async function loadUserPreferences() {
   try {
-    const [artistsRes, genresRes, availableGenresRes, favoriteFestivalsRes] = await Promise.all([
+    const [artistsRes, genresRes, availableGenresRes, favoriteFestivalsRes, lastfmUsernameRes] = await Promise.all([
       fetch('/api/user/artists', { credentials: 'include' }),
       fetch('/api/user/genres', { credentials: 'include' }),
       fetch('/api/genres'),
       fetch('/api/user/favorite-festivals', { credentials: 'include' }),
+      fetch('/api/user/lastfm-username', { credentials: 'include' }),
     ]);
 
     const artistsData = await artistsRes.json();
     const genresData = await genresRes.json();
     const availableGenresData = await availableGenresRes.json();
     const favoriteFestivalsData = await favoriteFestivalsRes.json();
+    const lastfmUsernameData = await lastfmUsernameRes.json();
 
     myArtists = artistsData.artists || [];
     myGenres = genresData.genres || [];
     availableGenres = availableGenresData.genres || [];
     myFavoriteFestivals = (favoriteFestivalsData.festivals || []).map(f => f.festival_id);
+
+    // Pre-llenar username de Last.fm si está guardado
+    if (lastfmUsernameData.username && elements.lastfmUsername) {
+      elements.lastfmUsername.value = lastfmUsernameData.username;
+    }
 
     renderMyArtists();
     renderGenreSelector();
@@ -955,10 +1230,18 @@ function switchTab(tabName) {
   // Mostrar/ocultar contenido
   elements.tabFestivals.classList.toggle('active', tabName === 'festivals');
   elements.tabArtists.classList.toggle('active', tabName === 'artists');
+  if (elements.tabAdminContent) {
+    elements.tabAdminContent.classList.toggle('active', tabName === 'admin');
+  }
 
   // Si es tab de artistas, cargar tour dates
   if (tabName === 'artists') {
     loadArtistsTours();
+  }
+
+  // Si es tab de admin, cargar sugerencias
+  if (tabName === 'admin' && isUserAdmin) {
+    loadAdminSuggestions();
   }
 }
 
@@ -1598,6 +1881,138 @@ function getCountryFlagByName(countryName) {
     'Iceland': '🇮🇸', 'Turkey': '🇹🇷', 'Ukraine': '🇺🇦', 'Russia': '🇷🇺',
   };
   return flags[countryName] || '🌍';
+}
+
+// ==========================================
+// Last.fm Sugerencias
+// ==========================================
+
+async function loadLastfmSuggestions() {
+  const username = elements.lastfmUsername?.value.trim();
+
+  if (!username) {
+    elements.lastfmSuggestions.innerHTML = `
+      <div class="lastfm-error">
+        <span>Ingresa tu usuario de Last.fm</span>
+      </div>
+    `;
+    return;
+  }
+
+  // Mostrar loading
+  elements.lastfmSuggestions.innerHTML = `
+    <div class="lastfm-loading">
+      <div class="mini-loader"></div>
+      <span>Cargando artistas de ${escapeHtml(username)}...</span>
+    </div>
+  `;
+
+  try {
+    const response = await fetch(`/api/lastfm/top-artists?user=${encodeURIComponent(username)}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al cargar artistas');
+    }
+
+    renderLastfmSuggestions(data.artists);
+
+    // Guardar el username de Last.fm en la base de datos (si el usuario está logueado)
+    if (currentUser && !isDemo) {
+      fetch('/api/user/lastfm-username', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ username })
+      }).catch(err => console.log('No se pudo guardar el username de Last.fm:', err));
+    }
+  } catch (err) {
+    console.error('Error loading Last.fm suggestions:', err);
+    elements.lastfmSuggestions.innerHTML = `
+      <div class="lastfm-error">
+        <span>${escapeHtml(err.message)}</span>
+      </div>
+    `;
+  }
+}
+
+function renderLastfmSuggestions(artists) {
+  if (!artists || artists.length === 0) {
+    elements.lastfmSuggestions.innerHTML = `
+      <div class="lastfm-empty">
+        <span>No se encontraron artistas. Escucha más música en Spotify para que Last.fm aprenda tus gustos.</span>
+      </div>
+    `;
+    return;
+  }
+
+  // Filtrar artistas que ya están en favoritos
+  const myArtistNames = myArtists.map(a => a.artist_name.toLowerCase());
+
+  const html = artists.map(artist => {
+    const isAlreadyAdded = myArtistNames.includes(artist.name.toLowerCase());
+    const playcountText = artist.playcount > 0
+      ? `${artist.playcount.toLocaleString()} reproducciones`
+      : '';
+
+    return `
+      <div class="suggestion-tag ${isAlreadyAdded ? 'already-added' : ''}"
+           data-name="${escapeHtml(artist.name)}"
+           ${isAlreadyAdded ? '' : 'role="button" tabindex="0"'}>
+        ${isAlreadyAdded ? '✓' : '+'}
+        <span class="suggestion-name">${escapeHtml(artist.name)}</span>
+        ${playcountText ? `<span class="suggestion-playcount">${playcountText}</span>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  elements.lastfmSuggestions.innerHTML = html;
+
+  // Event listeners para agregar artistas
+  elements.lastfmSuggestions.querySelectorAll('.suggestion-tag:not(.already-added)').forEach(tag => {
+    tag.addEventListener('click', () => addLastfmSuggestionToFavorites(tag.dataset.name));
+    tag.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        addLastfmSuggestionToFavorites(tag.dataset.name);
+      }
+    });
+  });
+}
+
+async function addLastfmSuggestionToFavorites(artistName) {
+  // Verificar si ya existe
+  if (myArtists.some(a => a.artist_name.toLowerCase() === artistName.toLowerCase())) {
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/user/artists', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ artistName }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      myArtists.push(data.artist);
+      renderMyArtists();
+
+      // Actualizar la lista de sugerencias para marcar el artista como agregado
+      const suggestionTag = elements.lastfmSuggestions.querySelector(`[data-name="${artistName}"]`);
+      if (suggestionTag) {
+        suggestionTag.classList.add('already-added');
+        suggestionTag.removeAttribute('role');
+        suggestionTag.removeAttribute('tabindex');
+        const plusSign = suggestionTag.childNodes[0];
+        if (plusSign && plusSign.nodeType === Node.TEXT_NODE) {
+          plusSign.textContent = '✓';
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error adding Last.fm suggestion:', err);
+  }
 }
 
 // ==========================================

@@ -440,5 +440,29 @@
     "image": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800",
     "lineupStatus": "unannounced",
     "lineup": []
+  },
+  {
+    "id": "ultra-miami",
+    "name": "Ultra Music Festival",
+    "city": "Miami",
+    "location": "Miami, Estados Unidos",
+    "country": "US",
+    "dates": "27-29 Marzo 2026",
+    "website": "https://ultramusicfestival.com",
+    "image": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800",
+    "lineupStatus": "unannounced",
+    "lineup": []
+  },
+  {
+    "id": "ultra-buenos-aires",
+    "name": "Ultra Buenos Aires",
+    "city": "Buenos Aires",
+    "location": "Buenos Aires, Argentina",
+    "country": "AR",
+    "dates": "Octubre 2026",
+    "website": "https://ultrabuenosaires.com",
+    "image": "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800",
+    "lineupStatus": "unannounced",
+    "lineup": []
   }
 ]

@@ -23,6 +23,8 @@ let currentYear = new Date().getFullYear(); // Año actual (se actualiza desde e
 let userRole = 'user'; // Rol del usuario
 let isUserAdmin = false; // Es admin?
 let currentAdminFilter = 'pending'; // Filtro actual de sugerencias admin
+let currentAdminTab = 'suggestions'; // Tab activo del admin (suggestions, festivals)
+let adminFestivalsData = []; // Cache de festivales para admin
 
 // Mapeo de códigos de país a nombres con banderas
 const COUNTRY_INFO = {
@@ -183,6 +185,24 @@ function cacheElements() {
   elements.tabAdminContent = document.getElementById('tab-admin');
   elements.adminSuggestions = document.getElementById('admin-suggestions');
   elements.adminFilterBtns = document.querySelectorAll('.admin-filter-btn');
+  elements.adminTabBtns = document.querySelectorAll('.admin-tab-btn');
+  elements.adminSuggestionsSection = document.getElementById('admin-suggestions-section');
+  elements.adminFestivalsSection = document.getElementById('admin-festivals-section');
+  elements.adminFestivalsTbody = document.getElementById('admin-festivals-tbody');
+  elements.adminFestivalsCount = document.getElementById('admin-festivals-count');
+
+  // Edit Festival Modal
+  elements.editFestivalModal = document.getElementById('edit-festival-modal');
+  elements.editFestivalForm = document.getElementById('edit-festival-form');
+  elements.editFestivalModalClose = document.getElementById('edit-festival-modal-close');
+  elements.editFestivalCancel = document.getElementById('edit-festival-cancel');
+  elements.editFestivalId = document.getElementById('edit-festival-id');
+  elements.editFestivalName = document.getElementById('edit-festival-name');
+  elements.editFestivalCountry = document.getElementById('edit-festival-country');
+  elements.editFestivalCity = document.getElementById('edit-festival-city');
+  elements.editFestivalDates = document.getElementById('edit-festival-dates');
+  elements.editFestivalWebsite = document.getElementById('edit-festival-website');
+  elements.editFestivalStatus = document.getElementById('edit-festival-status');
 
   // Edit preferences button
   elements.editPreferencesBtn = document.getElementById('edit-preferences-btn');
@@ -282,6 +302,19 @@ function setupEventListeners() {
       loadAdminSuggestions();
     });
   });
+
+  // Admin tabs (Sugerencias / Festivales)
+  elements.adminTabBtns?.forEach(btn => {
+    btn.addEventListener('click', () => {
+      switchAdminTab(btn.dataset.adminTab);
+    });
+  });
+
+  // Edit Festival Modal
+  elements.editFestivalModalClose?.addEventListener('click', closeEditFestivalModal);
+  elements.editFestivalCancel?.addEventListener('click', closeEditFestivalModal);
+  elements.editFestivalForm?.addEventListener('submit', saveEditFestival);
+  elements.editFestivalModal?.querySelector('.modal-backdrop')?.addEventListener('click', closeEditFestivalModal);
 
   // Edit preferences button
   elements.editPreferencesBtn?.addEventListener('click', goToPreferences);
@@ -480,6 +513,220 @@ async function rejectSuggestion(id) {
   } catch (err) {
     console.error('Error rejecting suggestion:', err);
     alert('Error al rechazar la sugerencia');
+  }
+}
+
+// ==========================================
+// Admin - Gestion de Festivales
+// ==========================================
+
+function switchAdminTab(tab) {
+  currentAdminTab = tab;
+
+  // Actualizar botones de tabs
+  elements.adminTabBtns.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.adminTab === tab);
+  });
+
+  // Mostrar/ocultar secciones
+  if (elements.adminSuggestionsSection) {
+    elements.adminSuggestionsSection.style.display = tab === 'suggestions' ? 'block' : 'none';
+  }
+  if (elements.adminFestivalsSection) {
+    elements.adminFestivalsSection.style.display = tab === 'festivals' ? 'block' : 'none';
+  }
+
+  // Cargar datos si es necesario
+  if (tab === 'festivals' && adminFestivalsData.length === 0) {
+    loadAdminFestivals();
+  }
+}
+
+async function loadAdminFestivals() {
+  if (!isUserAdmin) return;
+
+  if (elements.adminFestivalsTbody) {
+    elements.adminFestivalsTbody.innerHTML = `
+      <tr>
+        <td colspan="5" class="admin-loading-cell">
+          <div class="mini-loader"></div>
+          <span>Cargando festivales...</span>
+        </td>
+      </tr>
+    `;
+  }
+
+  try {
+    const response = await fetch('/api/admin/festivals', { credentials: 'include' });
+    const data = await response.json();
+
+    if (response.ok) {
+      adminFestivalsData = data.festivals;
+      renderAdminFestivalsTable();
+    } else {
+      throw new Error(data.error || 'Error al cargar festivales');
+    }
+  } catch (err) {
+    console.error('Error loading admin festivals:', err);
+    if (elements.adminFestivalsTbody) {
+      elements.adminFestivalsTbody.innerHTML = `
+        <tr>
+          <td colspan="5" class="admin-error-cell">Error al cargar festivales</td>
+        </tr>
+      `;
+    }
+  }
+}
+
+function renderAdminFestivalsTable() {
+  if (!elements.adminFestivalsTbody) return;
+
+  // Actualizar contador
+  if (elements.adminFestivalsCount) {
+    elements.adminFestivalsCount.textContent = `${adminFestivalsData.length} festivales`;
+  }
+
+  if (adminFestivalsData.length === 0) {
+    elements.adminFestivalsTbody.innerHTML = `
+      <tr>
+        <td colspan="5" class="admin-empty-cell">No hay festivales</td>
+      </tr>
+    `;
+    return;
+  }
+
+  const statusLabels = {
+    'confirmed': 'Confirmado',
+    'partial': 'Parcial',
+    'unannounced': 'Sin anunciar',
+    'hiatus': 'En pausa'
+  };
+
+  const html = adminFestivalsData.map(f => {
+    const countryInfo = COUNTRY_INFO[f.country] || { name: f.country, flag: '' };
+    const statusLabel = statusLabels[f.lineupStatus] || f.lineupStatus;
+
+    return `
+      <tr data-id="${f.id}">
+        <td class="festival-name-cell">
+          <strong>${escapeHtml(f.name)}</strong>
+          ${f.website ? `<a href="${escapeHtml(f.website)}" target="_blank" class="festival-link-icon" title="Sitio web">🔗</a>` : ''}
+        </td>
+        <td>${countryInfo.flag} ${escapeHtml(f.city)}, ${countryInfo.name}</td>
+        <td>${escapeHtml(f.dates || 'TBA')}</td>
+        <td><span class="lineup-status-badge ${f.lineupStatus}">${statusLabel}</span></td>
+        <td class="actions-cell">
+          <button class="btn-edit-festival" onclick="openEditFestivalModal('${f.id}')">Editar</button>
+          <button class="btn-delete-festival" onclick="deleteFestival('${f.id}')">Eliminar</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  elements.adminFestivalsTbody.innerHTML = html;
+}
+
+function openEditFestivalModal(festivalId) {
+  const festival = adminFestivalsData.find(f => f.id === festivalId);
+  if (!festival) {
+    alert('Festival no encontrado');
+    return;
+  }
+
+  // Rellenar el formulario
+  elements.editFestivalId.value = festival.id;
+  elements.editFestivalName.value = festival.name || '';
+  elements.editFestivalCountry.value = festival.country || '';
+  elements.editFestivalCity.value = festival.city || '';
+  elements.editFestivalDates.value = festival.dates || '';
+  elements.editFestivalWebsite.value = festival.website || '';
+  elements.editFestivalStatus.value = festival.lineupStatus || 'unannounced';
+
+  // Mostrar modal
+  elements.editFestivalModal.style.display = 'flex';
+}
+
+function closeEditFestivalModal() {
+  elements.editFestivalModal.style.display = 'none';
+  elements.editFestivalForm.reset();
+}
+
+async function saveEditFestival(e) {
+  e.preventDefault();
+
+  const festivalId = elements.editFestivalId.value;
+  const countryCode = elements.editFestivalCountry.value;
+  const city = elements.editFestivalCity.value;
+
+  // Construir location
+  const countryInfo = COUNTRY_INFO[countryCode] || { name: countryCode };
+  const location = `${city}, ${countryInfo.name}`;
+
+  const updates = {
+    name: elements.editFestivalName.value,
+    country: countryCode,
+    city: city,
+    location: location,
+    dates: elements.editFestivalDates.value,
+    website: elements.editFestivalWebsite.value,
+    lineupStatus: elements.editFestivalStatus.value
+  };
+
+  try {
+    const response = await fetch(`/api/admin/festivals/${festivalId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(updates)
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      closeEditFestivalModal();
+      // Actualizar cache local
+      const index = adminFestivalsData.findIndex(f => f.id === festivalId);
+      if (index !== -1) {
+        adminFestivalsData[index] = { ...adminFestivalsData[index], ...updates };
+      }
+      renderAdminFestivalsTable();
+      alert('Festival actualizado correctamente');
+    } else {
+      alert(data.error || 'Error al actualizar el festival');
+    }
+  } catch (err) {
+    console.error('Error saving festival:', err);
+    alert('Error al guardar los cambios');
+  }
+}
+
+async function deleteFestival(festivalId) {
+  const festival = adminFestivalsData.find(f => f.id === festivalId);
+  if (!festival) return;
+
+  if (!confirm(`¿Eliminar el festival "${festival.name}"? Esta accion no se puede deshacer.`)) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/admin/festivals/${festivalId}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      // Eliminar del cache local
+      adminFestivalsData = adminFestivalsData.filter(f => f.id !== festivalId);
+      renderAdminFestivalsTable();
+      alert('Festival eliminado correctamente');
+    } else {
+      alert(data.error || 'Error al eliminar el festival');
+    }
+  } catch (err) {
+    console.error('Error deleting festival:', err);
+    alert('Error al eliminar el festival');
   }
 }
 

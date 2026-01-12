@@ -400,6 +400,71 @@ app.post('/api/admin/suggestions/:id/reject', auth.requireAuth, requireAdmin, (r
 });
 
 // ==========================================
+// ADMIN - Gestion de Festivales
+// ==========================================
+
+// Obtener todos los festivales (admin)
+app.get('/api/admin/festivals', auth.requireAuth, requireAdmin, (req, res) => {
+  try {
+    const festivalsData = JSON.parse(fs.readFileSync(FESTIVALS_PATH, 'utf8'));
+    res.json({ festivals: festivalsData });
+  } catch (err) {
+    console.error('Error leyendo festivals.json:', err);
+    res.status(500).json({ error: 'Error al leer festivales' });
+  }
+});
+
+// Actualizar festival (admin)
+app.put('/api/admin/festivals/:id', auth.requireAuth, requireAdmin, (req, res) => {
+  const festivalId = req.params.id;
+  const updates = req.body;
+
+  try {
+    let festivalsData = JSON.parse(fs.readFileSync(FESTIVALS_PATH, 'utf8'));
+    const index = festivalsData.findIndex(f => f.id === festivalId);
+
+    if (index === -1) {
+      return res.status(404).json({ error: 'Festival no encontrado' });
+    }
+
+    // Actualizar campos permitidos
+    const allowedFields = ['name', 'city', 'location', 'country', 'dates', 'website', 'lineupStatus', 'lineup', 'image'];
+    allowedFields.forEach(field => {
+      if (updates[field] !== undefined) {
+        festivalsData[index][field] = updates[field];
+      }
+    });
+
+    fs.writeFileSync(FESTIVALS_PATH, JSON.stringify(festivalsData, null, 2), 'utf8');
+    res.json({ success: true, festival: festivalsData[index] });
+  } catch (err) {
+    console.error('Error actualizando festival:', err);
+    res.status(500).json({ error: 'Error al actualizar festival' });
+  }
+});
+
+// Eliminar festival (admin)
+app.delete('/api/admin/festivals/:id', auth.requireAuth, requireAdmin, (req, res) => {
+  const festivalId = req.params.id;
+
+  try {
+    let festivalsData = JSON.parse(fs.readFileSync(FESTIVALS_PATH, 'utf8'));
+    const index = festivalsData.findIndex(f => f.id === festivalId);
+
+    if (index === -1) {
+      return res.status(404).json({ error: 'Festival no encontrado' });
+    }
+
+    const deletedFestival = festivalsData.splice(index, 1)[0];
+    fs.writeFileSync(FESTIVALS_PATH, JSON.stringify(festivalsData, null, 2), 'utf8');
+    res.json({ success: true, deleted: deletedFestival });
+  } catch (err) {
+    console.error('Error eliminando festival:', err);
+    res.status(500).json({ error: 'Error al eliminar festival' });
+  }
+});
+
+// ==========================================
 // BUSQUEDA DE ARTISTAS (MusicBrainz)
 // ==========================================
 

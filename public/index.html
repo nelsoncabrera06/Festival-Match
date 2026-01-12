@@ -267,15 +267,47 @@
         <div class="admin-panel">
           <div class="admin-header">
             <h3>Panel de Administracion</h3>
+            <!-- Tabs internos del admin -->
+            <div class="admin-tabs">
+              <button class="admin-tab-btn active" data-admin-tab="suggestions">Sugerencias</button>
+              <button class="admin-tab-btn" data-admin-tab="festivals">Festivales</button>
+            </div>
+          </div>
+
+          <!-- Seccion: Sugerencias -->
+          <div id="admin-suggestions-section" class="admin-section active">
             <div class="admin-filters">
               <button class="admin-filter-btn active" data-status="pending">Pendientes</button>
               <button class="admin-filter-btn" data-status="approved">Aprobadas</button>
               <button class="admin-filter-btn" data-status="rejected">Rechazadas</button>
               <button class="admin-filter-btn" data-status="">Todas</button>
             </div>
+            <div id="admin-suggestions" class="admin-suggestions">
+              <!-- Las sugerencias se cargan dinamicamente -->
+            </div>
           </div>
-          <div id="admin-suggestions" class="admin-suggestions">
-            <!-- Las sugerencias se cargan dinamicamente -->
+
+          <!-- Seccion: Festivales -->
+          <div id="admin-festivals-section" class="admin-section" style="display: none;">
+            <div class="admin-festivals-header">
+              <span id="admin-festivals-count">0 festivales</span>
+            </div>
+            <div id="admin-festivals-table-container">
+              <table class="admin-festivals-table">
+                <thead>
+                  <tr>
+                    <th>Festival</th>
+                    <th>Ubicacion</th>
+                    <th>Fechas</th>
+                    <th>Lineup</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-festivals-tbody">
+                  <!-- Filas se cargan dinamicamente -->
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -356,6 +388,91 @@
           <button type="button" class="btn-primary" id="suggest-close-success">Cerrar</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal: Editar Festival (Admin) -->
+  <div id="edit-festival-modal" class="modal" style="display: none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-wide">
+      <div class="modal-header">
+        <h3>Editar Festival</h3>
+        <button class="modal-close" id="edit-festival-modal-close">&times;</button>
+      </div>
+      <form id="edit-festival-form" class="modal-form">
+        <input type="hidden" id="edit-festival-id">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-festival-name">Nombre *</label>
+            <input type="text" id="edit-festival-name" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-festival-country">Pais *</label>
+            <select id="edit-festival-country" class="form-select" required>
+              <option value="">Seleccionar...</option>
+              <optgroup label="USA">
+                <option value="US">Estados Unidos</option>
+              </optgroup>
+              <optgroup label="Latinoamerica">
+                <option value="AR">Argentina</option>
+                <option value="BR">Brasil</option>
+                <option value="CL">Chile</option>
+                <option value="CO">Colombia</option>
+                <option value="MX">Mexico</option>
+              </optgroup>
+              <optgroup label="Europa">
+                <option value="ES">Espana</option>
+                <option value="DE">Alemania</option>
+                <option value="BE">Belgica</option>
+                <option value="DK">Dinamarca</option>
+                <option value="FI">Finlandia</option>
+                <option value="FR">Francia</option>
+                <option value="GB">Reino Unido</option>
+                <option value="HR">Croacia</option>
+                <option value="HU">Hungria</option>
+                <option value="IT">Italia</option>
+                <option value="NL">Paises Bajos</option>
+                <option value="PL">Polonia</option>
+                <option value="PT">Portugal</option>
+                <option value="SE">Suecia</option>
+                <option value="NO">Noruega</option>
+                <option value="AT">Austria</option>
+                <option value="CH">Suiza</option>
+                <option value="CZ">Republica Checa</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-festival-city">Ciudad *</label>
+            <input type="text" id="edit-festival-city" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-festival-dates">Fechas</label>
+            <input type="text" id="edit-festival-dates" class="form-input" placeholder="Ej: 3-7 Junio 2026">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-festival-website">Website</label>
+            <input type="url" id="edit-festival-website" class="form-input" placeholder="https://...">
+          </div>
+          <div class="form-group">
+            <label for="edit-festival-status">Estado del Lineup</label>
+            <select id="edit-festival-status" class="form-select">
+              <option value="unannounced">Sin anunciar</option>
+              <option value="partial">Parcial</option>
+              <option value="confirmed">Confirmado</option>
+              <option value="hiatus">En pausa</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" id="edit-festival-cancel">Cancelar</button>
+          <button type="submit" class="btn-primary">Guardar cambios</button>
+        </div>
+      </form>
     </div>
   </div>
 

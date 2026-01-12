@@ -1,163 +1,151 @@
-const Database = require('better-sqlite3');
-const path = require('path');
+const { Pool } = require('pg');
 
-// Inicializar base de datos SQLite
-const dbPath = path.join(__dirname, 'festival-match.db');
-const db = new Database(dbPath);
-
-// Habilitar foreign keys
-db.pragma('foreign_keys = ON');
-
-// Crear tablas si no existen
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    google_id TEXT UNIQUE NOT NULL,
-    email TEXT NOT NULL,
-    name TEXT,
-    picture TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-
-  CREATE TABLE IF NOT EXISTS user_artists (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    artist_name TEXT NOT NULL,
-    musicbrainz_id TEXT,
-    added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    UNIQUE(user_id, artist_name COLLATE NOCASE)
-  );
-
-  CREATE TABLE IF NOT EXISTS user_genres (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    genre TEXT NOT NULL,
-    added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    UNIQUE(user_id, genre COLLATE NOCASE)
-  );
-
-  CREATE TABLE IF NOT EXISTS user_festivals (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    festival_id TEXT NOT NULL,
-    added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    UNIQUE(user_id, festival_id)
-  );
-
-  -- Agregar columna lastfm_username si no existe (para DBs existentes)
-  -- SQLite no soporta ADD COLUMN IF NOT EXISTS, lo manejamos con try/catch abajo
-
-  CREATE TABLE IF NOT EXISTS sessions (
-    id TEXT PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    expires_at DATETIME NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS tour_cache (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    artist_name TEXT NOT NULL,
-    region TEXT NOT NULL,
-    data TEXT NOT NULL,
-    fetched_at INTEGER NOT NULL,
-    UNIQUE(artist_name, region)
-  );
-
-  CREATE TABLE IF NOT EXISTS festival_suggestions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    festival_name TEXT NOT NULL,
-    country TEXT NOT NULL,
-    city TEXT NOT NULL,
-    dates_info TEXT,
-    website TEXT,
-    status TEXT DEFAULT 'pending',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-  );
-`);
-
-// Agregar columna lastfm_username a users si no existe (migracion)
-try {
-  db.exec('ALTER TABLE users ADD COLUMN lastfm_username TEXT');
-} catch (err) {
-  // La columna ya existe, ignorar el error
-}
-
-// Agregar columna role a users si no existe (migracion)
-// Roles: 'user' (default), 'admin', 'dev', o combinaciones separadas por coma: 'admin,dev'
-try {
-  db.exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'");
-} catch (err) {
-  // La columna ya existe, ignorar el error
-}
+// Configurar pool de conexiones PostgreSQL
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || 'postgresql://localhost/festival_match'
+});
 
 // Lista de emails con roles especiales (admins/devs)
 const ADMIN_EMAILS = [
   'nelsoncabrera06@gmail.com', // Nelson Cabrera - admin,dev
 ];
 
-// Asignar roles a admins existentes
-ADMIN_EMAILS.forEach(email => {
-  db.prepare("UPDATE users SET role = 'admin,dev' WHERE email = ? AND (role IS NULL OR role = 'user')").run(email);
-});
+// Inicializar base de datos (crear tablas)
+async function initDatabase() {
+  // Crear tablas si no existen
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      google_id TEXT UNIQUE NOT NULL,
+      email TEXT NOT NULL,
+      name TEXT,
+      picture TEXT,
+      lastfm_username TEXT,
+      role TEXT DEFAULT 'user',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS user_artists (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      artist_name TEXT NOT NULL,
+      musicbrainz_id TEXT,
+      added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, artist_name)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_genres (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      genre TEXT NOT NULL,
+      added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, genre)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_festivals (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      festival_id TEXT NOT NULL,
+      added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, festival_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      expires_at TIMESTAMP NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS tour_cache (
+      id SERIAL PRIMARY KEY,
+      artist_name TEXT NOT NULL,
+      region TEXT NOT NULL,
+      data TEXT NOT NULL,
+      fetched_at BIGINT NOT NULL,
+      UNIQUE(artist_name, region)
+    );
+
+    CREATE TABLE IF NOT EXISTS festival_suggestions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      festival_name TEXT NOT NULL,
+      country TEXT NOT NULL,
+      city TEXT NOT NULL,
+      dates_info TEXT,
+      website TEXT,
+      status TEXT DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // Asignar roles a admins existentes
+  for (const email of ADMIN_EMAILS) {
+    await pool.query(
+      "UPDATE users SET role = 'admin,dev' WHERE email = $1 AND (role IS NULL OR role = 'user')",
+      [email]
+    );
+  }
+
+  console.log('Base de datos PostgreSQL inicializada');
+}
 
 // ==========================================
 // Funciones de Usuario
 // ==========================================
 
-function findOrCreateUser(googleProfile) {
+async function findOrCreateUser(googleProfile) {
   const { sub: googleId, email, name, picture } = googleProfile;
 
   // Buscar usuario existente
-  let user = db.prepare('SELECT * FROM users WHERE google_id = ?').get(googleId);
+  const result = await pool.query('SELECT * FROM users WHERE google_id = $1', [googleId]);
+  let user = result.rows[0];
 
   if (user) {
     // Actualizar datos si cambiaron
-    db.prepare(`
-      UPDATE users SET email = ?, name = ?, picture = ? WHERE id = ?
-    `).run(email, name, picture, user.id);
+    await pool.query(
+      'UPDATE users SET email = $1, name = $2, picture = $3 WHERE id = $4',
+      [email, name, picture, user.id]
+    );
   } else {
     // Crear nuevo usuario
-    const result = db.prepare(`
-      INSERT INTO users (google_id, email, name, picture) VALUES (?, ?, ?, ?)
-    `).run(googleId, email, name, picture);
-    user = { id: result.lastInsertRowid, google_id: googleId, email, name, picture };
+    const insertResult = await pool.query(
+      'INSERT INTO users (google_id, email, name, picture) VALUES ($1, $2, $3, $4) RETURNING *',
+      [googleId, email, name, picture]
+    );
+    user = insertResult.rows[0];
   }
 
   return user;
 }
 
-function getUserById(userId) {
-  return db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+async function getUserById(userId) {
+  const result = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+  return result.rows[0];
 }
 
-function getLastfmUsername(userId) {
-  const row = db.prepare('SELECT lastfm_username FROM users WHERE id = ?').get(userId);
-  return row?.lastfm_username || null;
+async function getLastfmUsername(userId) {
+  const result = await pool.query('SELECT lastfm_username FROM users WHERE id = $1', [userId]);
+  return result.rows[0]?.lastfm_username || null;
 }
 
-function setLastfmUsername(userId, username) {
-  db.prepare('UPDATE users SET lastfm_username = ? WHERE id = ?').run(username || null, userId);
+async function setLastfmUsername(userId, username) {
+  await pool.query('UPDATE users SET lastfm_username = $1 WHERE id = $2', [username || null, userId]);
   return true;
 }
 
-function getUserRole(userId) {
-  const row = db.prepare('SELECT role FROM users WHERE id = ?').get(userId);
-  return row?.role || 'user';
+async function getUserRole(userId) {
+  const result = await pool.query('SELECT role FROM users WHERE id = $1', [userId]);
+  return result.rows[0]?.role || 'user';
 }
 
-function isAdmin(userId) {
-  const role = getUserRole(userId);
+async function isAdmin(userId) {
+  const role = await getUserRole(userId);
   return role.includes('admin');
 }
 
-function isDev(userId) {
-  const role = getUserRole(userId);
+async function isDev(userId) {
+  const role = await getUserRole(userId);
   return role.includes('dev');
 }
 
@@ -165,69 +153,72 @@ function isDev(userId) {
 // Funciones de Sesion
 // ==========================================
 
-function createSession(userId) {
+async function createSession(userId) {
   const sessionId = generateSessionId();
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 dias
 
-  db.prepare(`
-    INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)
-  `).run(sessionId, userId, expiresAt.toISOString());
+  await pool.query(
+    'INSERT INTO sessions (id, user_id, expires_at) VALUES ($1, $2, $3)',
+    [sessionId, userId, expiresAt.toISOString()]
+  );
 
   return sessionId;
 }
 
-function getSession(sessionId) {
-  const session = db.prepare(`
+async function getSession(sessionId) {
+  const result = await pool.query(`
     SELECT s.*, u.id as user_id, u.email, u.name, u.picture
     FROM sessions s
     JOIN users u ON s.user_id = u.id
-    WHERE s.id = ? AND s.expires_at > datetime('now')
-  `).get(sessionId);
+    WHERE s.id = $1 AND s.expires_at > NOW()
+  `, [sessionId]);
 
-  return session;
+  return result.rows[0];
 }
 
-function deleteSession(sessionId) {
-  db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
+async function deleteSession(sessionId) {
+  await pool.query('DELETE FROM sessions WHERE id = $1', [sessionId]);
 }
 
-function cleanExpiredSessions() {
-  db.prepare("DELETE FROM sessions WHERE expires_at <= datetime('now')").run();
+async function cleanExpiredSessions() {
+  await pool.query("DELETE FROM sessions WHERE expires_at <= NOW()");
 }
 
 // ==========================================
 // Funciones de Artistas
 // ==========================================
 
-function getUserArtists(userId) {
-  return db.prepare(`
+async function getUserArtists(userId) {
+  const result = await pool.query(`
     SELECT id, artist_name, musicbrainz_id, added_at
     FROM user_artists
-    WHERE user_id = ?
+    WHERE user_id = $1
     ORDER BY added_at DESC
-  `).all(userId);
+  `, [userId]);
+  return result.rows;
 }
 
-function addUserArtist(userId, artistName, musicbrainzId = null) {
+async function addUserArtist(userId, artistName, musicbrainzId = null) {
   try {
-    const result = db.prepare(`
-      INSERT INTO user_artists (user_id, artist_name, musicbrainz_id)
-      VALUES (?, ?, ?)
-    `).run(userId, artistName.trim(), musicbrainzId);
-    return { id: result.lastInsertRowid, artist_name: artistName.trim(), musicbrainz_id: musicbrainzId };
+    const result = await pool.query(
+      'INSERT INTO user_artists (user_id, artist_name, musicbrainz_id) VALUES ($1, $2, $3) RETURNING *',
+      [userId, artistName.trim(), musicbrainzId]
+    );
+    return result.rows[0];
   } catch (err) {
-    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    if (err.code === '23505') { // unique_violation
       return null; // Ya existe
     }
     throw err;
   }
 }
 
-function removeUserArtist(userId, artistId) {
-  const result = db.prepare(`
-    DELETE FROM user_artists WHERE id = ? AND user_id = ?
-  `).run(artistId, userId);
-  return result.changes > 0;
+async function removeUserArtist(userId, artistId) {
+  const result = await pool.query(
+    'DELETE FROM user_artists WHERE id = $1 AND user_id = $2',
+    [artistId, userId]
+  );
+  return result.rowCount > 0;
 }
 
 // ==========================================
@@ -247,77 +238,82 @@ function getAvailableGenres() {
   return AVAILABLE_GENRES;
 }
 
-function getUserGenres(userId) {
-  return db.prepare(`
+async function getUserGenres(userId) {
+  const result = await pool.query(`
     SELECT id, genre, added_at
     FROM user_genres
-    WHERE user_id = ?
+    WHERE user_id = $1
     ORDER BY added_at DESC
-  `).all(userId);
+  `, [userId]);
+  return result.rows;
 }
 
-function addUserGenre(userId, genre) {
+async function addUserGenre(userId, genre) {
   try {
-    const result = db.prepare(`
-      INSERT INTO user_genres (user_id, genre)
-      VALUES (?, ?)
-    `).run(userId, genre.trim());
-    return { id: result.lastInsertRowid, genre: genre.trim() };
+    const result = await pool.query(
+      'INSERT INTO user_genres (user_id, genre) VALUES ($1, $2) RETURNING *',
+      [userId, genre.trim()]
+    );
+    return result.rows[0];
   } catch (err) {
-    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    if (err.code === '23505') { // unique_violation
       return null; // Ya existe
     }
     throw err;
   }
 }
 
-function removeUserGenre(userId, genreId) {
-  const result = db.prepare(`
-    DELETE FROM user_genres WHERE id = ? AND user_id = ?
-  `).run(genreId, userId);
-  return result.changes > 0;
+async function removeUserGenre(userId, genreId) {
+  const result = await pool.query(
+    'DELETE FROM user_genres WHERE id = $1 AND user_id = $2',
+    [genreId, userId]
+  );
+  return result.rowCount > 0;
 }
 
 // ==========================================
 // Funciones de Festivales Favoritos
 // ==========================================
 
-function getUserFavoriteFestivals(userId) {
-  return db.prepare(`
+async function getUserFavoriteFestivals(userId) {
+  const result = await pool.query(`
     SELECT id, festival_id, added_at
     FROM user_festivals
-    WHERE user_id = ?
+    WHERE user_id = $1
     ORDER BY added_at DESC
-  `).all(userId);
+  `, [userId]);
+  return result.rows;
 }
 
-function addUserFestival(userId, festivalId) {
+async function addUserFestival(userId, festivalId) {
   try {
-    const result = db.prepare(`
-      INSERT INTO user_festivals (user_id, festival_id)
-      VALUES (?, ?)
-    `).run(userId, festivalId);
-    return { id: result.lastInsertRowid, festival_id: festivalId };
+    const result = await pool.query(
+      'INSERT INTO user_festivals (user_id, festival_id) VALUES ($1, $2) RETURNING *',
+      [userId, festivalId]
+    );
+    return result.rows[0];
   } catch (err) {
-    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    if (err.code === '23505') { // unique_violation
       return null; // Ya existe
     }
     throw err;
   }
 }
 
-function removeUserFestival(userId, festivalId) {
-  const result = db.prepare(`
-    DELETE FROM user_festivals WHERE user_id = ? AND festival_id = ?
-  `).run(userId, festivalId);
-  return result.changes > 0;
+async function removeUserFestival(userId, festivalId) {
+  const result = await pool.query(
+    'DELETE FROM user_festivals WHERE user_id = $1 AND festival_id = $2',
+    [userId, festivalId]
+  );
+  return result.rowCount > 0;
 }
 
-function isUserFestival(userId, festivalId) {
-  const row = db.prepare(`
-    SELECT id FROM user_festivals WHERE user_id = ? AND festival_id = ?
-  `).get(userId, festivalId);
-  return !!row;
+async function isUserFestival(userId, festivalId) {
+  const result = await pool.query(
+    'SELECT id FROM user_festivals WHERE user_id = $1 AND festival_id = $2',
+    [userId, festivalId]
+  );
+  return result.rows.length > 0;
 }
 
 // ==========================================
@@ -326,100 +322,98 @@ function isUserFestival(userId, festivalId) {
 
 const TOUR_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 horas en ms
 
-function getTourCache(artistName, region) {
-  const row = db.prepare(`
+async function getTourCache(artistName, region) {
+  const result = await pool.query(`
     SELECT data, fetched_at FROM tour_cache
-    WHERE artist_name = ? COLLATE NOCASE AND region = ?
-  `).get(artistName, region);
+    WHERE LOWER(artist_name) = LOWER($1) AND region = $2
+  `, [artistName, region]);
 
+  const row = result.rows[0];
   if (!row) return null;
 
-  // Verificar si el cache expiró
+  // Verificar si el cache expiro
   const now = Date.now();
-  if (now - row.fetched_at > TOUR_CACHE_DURATION) {
+  if (now - parseInt(row.fetched_at) > TOUR_CACHE_DURATION) {
     return null; // Cache expirado
   }
 
   return JSON.parse(row.data);
 }
 
-function setTourCache(artistName, region, data) {
+async function setTourCache(artistName, region, data) {
   const now = Date.now();
   const jsonData = JSON.stringify(data);
 
-  db.prepare(`
+  await pool.query(`
     INSERT INTO tour_cache (artist_name, region, data, fetched_at)
-    VALUES (?, ?, ?, ?)
+    VALUES ($1, $2, $3, $4)
     ON CONFLICT(artist_name, region) DO UPDATE SET
-      data = excluded.data,
-      fetched_at = excluded.fetched_at
-  `).run(artistName, region, jsonData, now);
+      data = EXCLUDED.data,
+      fetched_at = EXCLUDED.fetched_at
+  `, [artistName, region, jsonData, now]);
 }
 
-function cleanExpiredTourCache() {
+async function cleanExpiredTourCache() {
   const expiredBefore = Date.now() - TOUR_CACHE_DURATION;
-  db.prepare('DELETE FROM tour_cache WHERE fetched_at < ?').run(expiredBefore);
+  await pool.query('DELETE FROM tour_cache WHERE fetched_at < $1', [expiredBefore]);
 }
 
 // ==========================================
 // Sugerencias de Festivales
 // ==========================================
 
-function createFestivalSuggestion({ userId, festivalName, country, city, datesInfo, website }) {
-  const result = db.prepare(`
+async function createFestivalSuggestion({ userId, festivalName, country, city, datesInfo, website }) {
+  const result = await pool.query(`
     INSERT INTO festival_suggestions (user_id, festival_name, country, city, dates_info, website)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(userId || null, festivalName.trim(), country, city.trim(), datesInfo?.trim() || null, website?.trim() || null);
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING *
+  `, [userId || null, festivalName.trim(), country, city.trim(), datesInfo?.trim() || null, website?.trim() || null]);
 
-  return {
-    id: result.lastInsertRowid,
-    festival_name: festivalName.trim(),
-    country,
-    city: city.trim(),
-    dates_info: datesInfo?.trim() || null,
-    website: website?.trim() || null,
-    status: 'pending'
-  };
+  return result.rows[0];
 }
 
-function getFestivalSuggestions(status = null) {
+async function getFestivalSuggestions(status = null) {
+  let result;
   if (status) {
-    return db.prepare(`
+    result = await pool.query(`
       SELECT fs.*, u.name as user_name, u.email as user_email
       FROM festival_suggestions fs
       LEFT JOIN users u ON fs.user_id = u.id
-      WHERE fs.status = ?
+      WHERE fs.status = $1
       ORDER BY fs.created_at DESC
-    `).all(status);
+    `, [status]);
+  } else {
+    result = await pool.query(`
+      SELECT fs.*, u.name as user_name, u.email as user_email
+      FROM festival_suggestions fs
+      LEFT JOIN users u ON fs.user_id = u.id
+      ORDER BY fs.created_at DESC
+    `);
   }
+  return result.rows;
+}
 
-  return db.prepare(`
+async function updateSuggestionStatus(suggestionId, status) {
+  const result = await pool.query(
+    'UPDATE festival_suggestions SET status = $1 WHERE id = $2',
+    [status, suggestionId]
+  );
+  return result.rowCount > 0;
+}
+
+async function getSuggestionById(suggestionId) {
+  const result = await pool.query(`
     SELECT fs.*, u.name as user_name, u.email as user_email
     FROM festival_suggestions fs
     LEFT JOIN users u ON fs.user_id = u.id
-    ORDER BY fs.created_at DESC
-  `).all();
+    WHERE fs.id = $1
+  `, [suggestionId]);
+  return result.rows[0];
 }
 
-function updateSuggestionStatus(suggestionId, status) {
-  const result = db.prepare(`
-    UPDATE festival_suggestions SET status = ? WHERE id = ?
-  `).run(status, suggestionId);
-  return result.changes > 0;
-}
-
-function getSuggestionById(suggestionId) {
-  return db.prepare(`
-    SELECT fs.*, u.name as user_name, u.email as user_email
-    FROM festival_suggestions fs
-    LEFT JOIN users u ON fs.user_id = u.id
-    WHERE fs.id = ?
-  `).get(suggestionId);
-}
-
-function deleteSuggestion(suggestionId) {
-  const result = db.prepare('DELETE FROM festival_suggestions WHERE id = ?').run(suggestionId);
-  return result.changes > 0;
+async function deleteSuggestion(suggestionId) {
+  const result = await pool.query('DELETE FROM festival_suggestions WHERE id = $1', [suggestionId]);
+  return result.rowCount > 0;
 }
 
 // ==========================================
@@ -436,13 +430,14 @@ function generateSessionId() {
 }
 
 // Limpiar sesiones expiradas cada hora
-setInterval(cleanExpiredSessions, 60 * 60 * 1000);
+setInterval(() => cleanExpiredSessions().catch(console.error), 60 * 60 * 1000);
 
 // Limpiar cache de tours expirado cada 6 horas
-setInterval(cleanExpiredTourCache, 6 * 60 * 60 * 1000);
+setInterval(() => cleanExpiredTourCache().catch(console.error), 6 * 60 * 60 * 1000);
 
 module.exports = {
-  db,
+  pool,
+  initDatabase,
   findOrCreateUser,
   getUserById,
   getLastfmUsername,

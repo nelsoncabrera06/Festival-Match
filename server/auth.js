@@ -36,23 +36,23 @@ async function handleCallback(code) {
   const payload = ticket.getPayload();
 
   // Crear o actualizar usuario en la base de datos
-  const user = findOrCreateUser(payload);
+  const user = await findOrCreateUser(payload);
 
   // Crear sesion
-  const sessionId = createSession(user.id);
+  const sessionId = await createSession(user.id);
 
   return { user, sessionId };
 }
 
-// Middleware para verificar sesion
-function requireAuth(req, res, next) {
+// Middleware para verificar sesion (async)
+async function requireAuth(req, res, next) {
   const sessionId = req.cookies?.session || req.headers['x-session-id'];
 
   if (!sessionId) {
     return res.status(401).json({ error: 'No autenticado' });
   }
 
-  const session = getSession(sessionId);
+  const session = await getSession(sessionId);
 
   if (!session) {
     return res.status(401).json({ error: 'Sesion invalida o expirada' });
@@ -70,12 +70,12 @@ function requireAuth(req, res, next) {
   next();
 }
 
-// Middleware opcional - no falla si no hay sesion
-function optionalAuth(req, res, next) {
+// Middleware opcional - no falla si no hay sesion (async)
+async function optionalAuth(req, res, next) {
   const sessionId = req.cookies?.session || req.headers['x-session-id'];
 
   if (sessionId) {
-    const session = getSession(sessionId);
+    const session = await getSession(sessionId);
     if (session) {
       req.user = {
         id: session.user_id,
@@ -91,9 +91,9 @@ function optionalAuth(req, res, next) {
 }
 
 // Cerrar sesion
-function logout(sessionId) {
+async function logout(sessionId) {
   if (sessionId) {
-    deleteSession(sessionId);
+    await deleteSession(sessionId);
   }
 }
 

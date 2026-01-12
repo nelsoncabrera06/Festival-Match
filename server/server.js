@@ -94,9 +94,9 @@ app.get('/auth/me', auth.optionalAuth, (req, res) => {
 });
 
 // Cerrar sesion
-app.post('/auth/logout', (req, res) => {
+app.post('/auth/logout', async (req, res) => {
   const sessionId = req.cookies?.session;
-  auth.logout(sessionId);
+  await auth.logout(sessionId);
   res.clearCookie('session');
   res.json({ success: true });
 });
@@ -106,20 +106,20 @@ app.post('/auth/logout', (req, res) => {
 // ==========================================
 
 // Obtener artistas del usuario
-app.get('/api/user/artists', auth.requireAuth, (req, res) => {
-  const artists = db.getUserArtists(req.user.id);
+app.get('/api/user/artists', auth.requireAuth, async (req, res) => {
+  const artists = await db.getUserArtists(req.user.id);
   res.json({ artists });
 });
 
 // Anadir artista
-app.post('/api/user/artists', auth.requireAuth, (req, res) => {
+app.post('/api/user/artists', auth.requireAuth, async (req, res) => {
   const { artistName, musicbrainzId } = req.body;
 
   if (!artistName || artistName.trim().length === 0) {
     return res.status(400).json({ error: 'Nombre de artista requerido' });
   }
 
-  const artist = db.addUserArtist(req.user.id, artistName, musicbrainzId);
+  const artist = await db.addUserArtist(req.user.id, artistName, musicbrainzId);
 
   if (!artist) {
     return res.status(409).json({ error: 'Artista ya existe' });
@@ -129,9 +129,9 @@ app.post('/api/user/artists', auth.requireAuth, (req, res) => {
 });
 
 // Eliminar artista
-app.delete('/api/user/artists/:id', auth.requireAuth, (req, res) => {
+app.delete('/api/user/artists/:id', auth.requireAuth, async (req, res) => {
   const artistId = parseInt(req.params.id);
-  const removed = db.removeUserArtist(req.user.id, artistId);
+  const removed = await db.removeUserArtist(req.user.id, artistId);
 
   if (!removed) {
     return res.status(404).json({ error: 'Artista no encontrado' });
@@ -146,20 +146,20 @@ app.get('/api/genres', (req, res) => {
 });
 
 // Obtener generos del usuario
-app.get('/api/user/genres', auth.requireAuth, (req, res) => {
-  const genres = db.getUserGenres(req.user.id);
+app.get('/api/user/genres', auth.requireAuth, async (req, res) => {
+  const genres = await db.getUserGenres(req.user.id);
   res.json({ genres });
 });
 
 // Anadir genero
-app.post('/api/user/genres', auth.requireAuth, (req, res) => {
+app.post('/api/user/genres', auth.requireAuth, async (req, res) => {
   const { genre } = req.body;
 
   if (!genre || genre.trim().length === 0) {
     return res.status(400).json({ error: 'Genero requerido' });
   }
 
-  const result = db.addUserGenre(req.user.id, genre);
+  const result = await db.addUserGenre(req.user.id, genre);
 
   if (!result) {
     return res.status(409).json({ error: 'Genero ya existe' });
@@ -169,9 +169,9 @@ app.post('/api/user/genres', auth.requireAuth, (req, res) => {
 });
 
 // Eliminar genero
-app.delete('/api/user/genres/:id', auth.requireAuth, (req, res) => {
+app.delete('/api/user/genres/:id', auth.requireAuth, async (req, res) => {
   const genreId = parseInt(req.params.id);
-  const removed = db.removeUserGenre(req.user.id, genreId);
+  const removed = await db.removeUserGenre(req.user.id, genreId);
 
   if (!removed) {
     return res.status(404).json({ error: 'Genero no encontrado' });
@@ -185,20 +185,20 @@ app.delete('/api/user/genres/:id', auth.requireAuth, (req, res) => {
 // ==========================================
 
 // Obtener festivales favoritos del usuario
-app.get('/api/user/favorite-festivals', auth.requireAuth, (req, res) => {
-  const favorites = db.getUserFavoriteFestivals(req.user.id);
+app.get('/api/user/favorite-festivals', auth.requireAuth, async (req, res) => {
+  const favorites = await db.getUserFavoriteFestivals(req.user.id);
   res.json({ festivals: favorites });
 });
 
 // Agregar festival a favoritos
-app.post('/api/user/favorite-festivals', auth.requireAuth, (req, res) => {
+app.post('/api/user/favorite-festivals', auth.requireAuth, async (req, res) => {
   const { festivalId } = req.body;
 
   if (!festivalId || festivalId.trim().length === 0) {
     return res.status(400).json({ error: 'ID de festival requerido' });
   }
 
-  const result = db.addUserFestival(req.user.id, festivalId);
+  const result = await db.addUserFestival(req.user.id, festivalId);
 
   if (!result) {
     return res.status(409).json({ error: 'Festival ya está en favoritos' });
@@ -208,9 +208,9 @@ app.post('/api/user/favorite-festivals', auth.requireAuth, (req, res) => {
 });
 
 // Eliminar festival de favoritos
-app.delete('/api/user/favorite-festivals/:festivalId', auth.requireAuth, (req, res) => {
+app.delete('/api/user/favorite-festivals/:festivalId', auth.requireAuth, async (req, res) => {
   const festivalId = req.params.festivalId;
-  const removed = db.removeUserFestival(req.user.id, festivalId);
+  const removed = await db.removeUserFestival(req.user.id, festivalId);
 
   if (!removed) {
     return res.status(404).json({ error: 'Festival no encontrado en favoritos' });
@@ -224,19 +224,19 @@ app.delete('/api/user/favorite-festivals/:festivalId', auth.requireAuth, (req, r
 // ==========================================
 
 // Obtener username de Last.fm guardado
-app.get('/api/user/lastfm-username', auth.requireAuth, (req, res) => {
-  const username = db.getLastfmUsername(req.user.id);
+app.get('/api/user/lastfm-username', auth.requireAuth, async (req, res) => {
+  const username = await db.getLastfmUsername(req.user.id);
   res.json({ username });
 });
 
 // Guardar username de Last.fm
-app.post('/api/user/lastfm-username', auth.requireAuth, (req, res) => {
+app.post('/api/user/lastfm-username', auth.requireAuth, async (req, res) => {
   const { username } = req.body;
 
   // Permitir null/vacío para "desconectar"
   const cleanUsername = username?.trim() || null;
 
-  db.setLastfmUsername(req.user.id, cleanUsername);
+  await db.setLastfmUsername(req.user.id, cleanUsername);
   res.json({ success: true, username: cleanUsername });
 });
 
@@ -245,7 +245,7 @@ app.post('/api/user/lastfm-username', auth.requireAuth, (req, res) => {
 // ==========================================
 
 // Enviar sugerencia de festival (no requiere auth, pero guarda user si está logueado)
-app.post('/api/festival-suggestions', (req, res) => {
+app.post('/api/festival-suggestions', async (req, res) => {
   const { festivalName, country, city, datesInfo, website } = req.body;
 
   // Validaciones
@@ -263,14 +263,14 @@ app.post('/api/festival-suggestions', (req, res) => {
   let userId = null;
   const sessionId = req.cookies?.session;
   if (sessionId) {
-    const session = db.getSession(sessionId);
+    const session = await db.getSession(sessionId);
     if (session) {
       userId = session.user_id;
     }
   }
 
   try {
-    const suggestion = db.createFestivalSuggestion({
+    const suggestion = await db.createFestivalSuggestion({
       userId,
       festivalName,
       country,
@@ -290,31 +290,33 @@ app.post('/api/festival-suggestions', (req, res) => {
 // ADMIN - Gestion de Sugerencias
 // ==========================================
 
-// Middleware para verificar si es admin
-const requireAdmin = (req, res, next) => {
-  if (!req.user || !db.isAdmin(req.user.id)) {
+// Middleware para verificar si es admin (async)
+const requireAdmin = async (req, res, next) => {
+  if (!req.user || !await db.isAdmin(req.user.id)) {
     return res.status(403).json({ error: 'Acceso denegado. Se requiere rol de admin.' });
   }
   next();
 };
 
 // Obtener rol del usuario actual
-app.get('/api/user/role', auth.requireAuth, (req, res) => {
-  const role = db.getUserRole(req.user.id);
-  res.json({ role, isAdmin: db.isAdmin(req.user.id), isDev: db.isDev(req.user.id) });
+app.get('/api/user/role', auth.requireAuth, async (req, res) => {
+  const role = await db.getUserRole(req.user.id);
+  const isAdmin = await db.isAdmin(req.user.id);
+  const isDev = await db.isDev(req.user.id);
+  res.json({ role, isAdmin, isDev });
 });
 
 // Obtener todas las sugerencias (solo admin)
-app.get('/api/admin/suggestions', auth.requireAuth, requireAdmin, (req, res) => {
+app.get('/api/admin/suggestions', auth.requireAuth, requireAdmin, async (req, res) => {
   const status = req.query.status || null; // 'pending', 'approved', 'rejected', o null para todas
-  const suggestions = db.getFestivalSuggestions(status);
+  const suggestions = await db.getFestivalSuggestions(status);
   res.json({ suggestions });
 });
 
 // Aprobar sugerencia - auto-agrega a festivals.json
-app.post('/api/admin/suggestions/:id/approve', auth.requireAuth, requireAdmin, (req, res) => {
+app.post('/api/admin/suggestions/:id/approve', auth.requireAuth, requireAdmin, async (req, res) => {
   const suggestionId = parseInt(req.params.id);
-  const suggestion = db.getSuggestionById(suggestionId);
+  const suggestion = await db.getSuggestionById(suggestionId);
 
   if (!suggestion) {
     return res.status(404).json({ error: 'Sugerencia no encontrada' });
@@ -336,7 +338,7 @@ app.post('/api/admin/suggestions/:id/approve', auth.requireAuth, requireAdmin, (
 
   if (festivalExists) {
     // Ya existe: eliminar la sugerencia
-    db.deleteSuggestion(suggestionId);
+    await db.deleteSuggestion(suggestionId);
     return res.json({
       success: true,
       alreadyExists: true,
@@ -377,7 +379,7 @@ app.post('/api/admin/suggestions/:id/approve', auth.requireAuth, requireAdmin, (
   }
 
   // Actualizar status en DB
-  db.updateSuggestionStatus(suggestionId, 'approved');
+  await db.updateSuggestionStatus(suggestionId, 'approved');
 
   res.json({
     success: true,
@@ -388,9 +390,9 @@ app.post('/api/admin/suggestions/:id/approve', auth.requireAuth, requireAdmin, (
 });
 
 // Rechazar sugerencia
-app.post('/api/admin/suggestions/:id/reject', auth.requireAuth, requireAdmin, (req, res) => {
+app.post('/api/admin/suggestions/:id/reject', auth.requireAuth, requireAdmin, async (req, res) => {
   const suggestionId = parseInt(req.params.id);
-  const updated = db.updateSuggestionStatus(suggestionId, 'rejected');
+  const updated = await db.updateSuggestionStatus(suggestionId, 'rejected');
 
   if (!updated) {
     return res.status(404).json({ error: 'Sugerencia no encontrada' });
@@ -404,7 +406,7 @@ app.post('/api/admin/suggestions/:id/reject', auth.requireAuth, requireAdmin, (r
 // ==========================================
 
 // Obtener todos los festivales (admin)
-app.get('/api/admin/festivals', auth.requireAuth, requireAdmin, (req, res) => {
+app.get('/api/admin/festivals', auth.requireAuth, requireAdmin, async (req, res) => {
   try {
     const festivalsData = JSON.parse(fs.readFileSync(FESTIVALS_PATH, 'utf8'));
     res.json({ festivals: festivalsData });
@@ -415,7 +417,7 @@ app.get('/api/admin/festivals', auth.requireAuth, requireAdmin, (req, res) => {
 });
 
 // Actualizar festival (admin)
-app.put('/api/admin/festivals/:id', auth.requireAuth, requireAdmin, (req, res) => {
+app.put('/api/admin/festivals/:id', auth.requireAuth, requireAdmin, async (req, res) => {
   const festivalId = req.params.id;
   const updates = req.body;
 
@@ -444,7 +446,7 @@ app.put('/api/admin/festivals/:id', auth.requireAuth, requireAdmin, (req, res) =
 });
 
 // Eliminar festival (admin)
-app.delete('/api/admin/festivals/:id', auth.requireAuth, requireAdmin, (req, res) => {
+app.delete('/api/admin/festivals/:id', auth.requireAuth, requireAdmin, async (req, res) => {
   const festivalId = req.params.id;
 
   try {
@@ -549,7 +551,7 @@ const EUROPEAN_COUNTRIES = REGIONS.europe.countryNames;
 
 // Cache de 2 niveles para tour dates:
 // Nivel 1: Memoria (tourDatesCache) - ultra rápido, se pierde al reiniciar
-// Nivel 2: SQLite (db.getTourCache) - persistente, sobrevive reinicios
+// Nivel 2: PostgreSQL (db.getTourCache) - persistente, sobrevive reinicios
 const tourDatesCache = {};
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 horas
 
@@ -601,7 +603,7 @@ app.get('/api/artist-events/:artistName', async (req, res) => {
   }
 
   // NIVEL 2: Check cache en base de datos (persiste entre reinicios)
-  const dbCacheData = db.getTourCache(artistName, region);
+  const dbCacheData = await db.getTourCache(artistName, region);
   if (dbCacheData) {
     console.log(`[Cache DB] ${artistName} (${region})`);
     // Guardar en memoria para próximas consultas rápidas
@@ -678,7 +680,7 @@ app.get('/api/artist-events/:artistName', async (req, res) => {
     };
 
     // Guardar en base de datos (nivel 2 - persiste entre reinicios)
-    db.setTourCache(artistName, region, result);
+    await db.setTourCache(artistName, region, result);
 
     res.json(result);
   } catch (err) {
@@ -703,7 +705,7 @@ app.get('/api/artist-events/:artistName', async (req, res) => {
 // FESTIVALES - Usuario logueado
 // ==========================================
 
-app.get('/api/user/festivals', auth.requireAuth, (req, res) => {
+app.get('/api/user/festivals', auth.requireAuth, async (req, res) => {
   const region = req.query.region || 'europe';
   const regionConfig = REGIONS[region] || REGIONS.europe;
 
@@ -713,10 +715,10 @@ app.get('/api/user/festivals', auth.requireAuth, (req, res) => {
   );
 
   // Obtener festivales favoritos del usuario
-  const userFavorites = db.getUserFavoriteFestivals(req.user.id);
+  const userFavorites = await db.getUserFavoriteFestivals(req.user.id);
   const favoriteIds = new Set(userFavorites.map(f => f.festival_id));
 
-  const userArtistsList = db.getUserArtists(req.user.id);
+  const userArtistsList = await db.getUserArtists(req.user.id);
   const userArtists = userArtistsList.map(a => normalizeString(a.artist_name));
 
   if (userArtists.length === 0) {
@@ -983,9 +985,9 @@ async function fetchCurrentYear() {
     const response = await axios.get('http://worldtimeapi.org/api/ip', { timeout: 5000 });
     const dateStr = response.data.datetime; // "2026-01-12T..."
     currentYear = parseInt(dateStr.substring(0, 4));
-    console.log(`📅 Año actual obtenido de internet: ${currentYear}`);
+    console.log(`Año actual obtenido de internet: ${currentYear}`);
   } catch (err) {
-    console.log(`📅 No se pudo obtener el año de internet, usando año del sistema: ${currentYear}`);
+    console.log(`No se pudo obtener el año de internet, usando año del sistema: ${currentYear}`);
   }
 }
 
@@ -1049,11 +1051,22 @@ app.get('/api/lastfm/top-artists', async (req, res) => {
 // INICIAR SERVIDOR
 // ==========================================
 
-app.listen(PORT, async () => {
-  await fetchCurrentYear();
-  console.log(`🎵 Festival Match ${currentYear} corriendo en http://localhost:${PORT}`);
-  console.log('📋 Configuracion:');
-  console.log('   - Google OAuth: ' + (process.env.GOOGLE_CLIENT_ID ? 'Configurado' : 'No configurado'));
-  console.log('   - Spotify API: ' + (process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_ID !== 'tu_spotify_client_id' ? 'Configurado' : 'No configurado (deshabilitado)'));
-  console.log('   - Last.fm API: ' + (process.env.LASTFM_API_KEY && process.env.LASTFM_API_KEY !== 'tu_lastfm_api_key' ? 'Configurado' : 'No configurado'));
+async function startServer() {
+  // Inicializar base de datos PostgreSQL
+  await db.initDatabase();
+
+  app.listen(PORT, async () => {
+    await fetchCurrentYear();
+    console.log(`Festival Match ${currentYear} corriendo en http://localhost:${PORT}`);
+    console.log('Configuracion:');
+    console.log('   - Base de datos: PostgreSQL');
+    console.log('   - Google OAuth: ' + (process.env.GOOGLE_CLIENT_ID ? 'Configurado' : 'No configurado'));
+    console.log('   - Spotify API: ' + (process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_ID !== 'tu_spotify_client_id' ? 'Configurado' : 'No configurado (deshabilitado)'));
+    console.log('   - Last.fm API: ' + (process.env.LASTFM_API_KEY && process.env.LASTFM_API_KEY !== 'tu_lastfm_api_key' ? 'Configurado' : 'No configurado'));
+  });
+}
+
+startServer().catch(err => {
+  console.error('Error iniciando servidor:', err);
+  process.exit(1);
 });

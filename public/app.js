@@ -209,6 +209,17 @@ function cacheElements() {
 }
 
 function setupEventListeners() {
+  // Auth tabs
+  document.querySelectorAll('.auth-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchAuthTab(tab.dataset.auth));
+  });
+
+  // Login form
+  document.getElementById('login-form')?.addEventListener('submit', handleLogin);
+
+  // Register form
+  document.getElementById('register-form')?.addEventListener('submit', handleRegister);
+
   elements.googleBtn?.addEventListener('click', loginWithGoogle);
   elements.demoBtn?.addEventListener('click', startDemo);
   elements.logoutBtn?.addEventListener('click', logout);
@@ -780,6 +791,91 @@ async function checkAuth() {
   } catch (err) {
     console.error('Error checking auth:', err);
     showSection('landing');
+  }
+}
+
+// ==========================================
+// Auth con Email/Password
+// ==========================================
+
+function switchAuthTab(tab) {
+  // Update tab buttons
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.auth-tab[data-auth="${tab}"]`)?.classList.add('active');
+
+  // Update form visibility
+  document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+  document.getElementById(`auth-${tab}`)?.classList.add('active');
+
+  // Clear errors
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('register-error').textContent = '';
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  const errorDiv = document.getElementById('login-error');
+
+  errorDiv.textContent = '';
+
+  try {
+    const response = await fetch('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      errorDiv.textContent = data.error || 'Error al iniciar sesión';
+      return;
+    }
+
+    // Login exitoso
+    currentUser = data.user;
+    updateUserUI();
+    await loadUserPreferences();
+    showSection('preferences');
+  } catch (err) {
+    errorDiv.textContent = 'Error de conexión';
+  }
+}
+
+async function handleRegister(e) {
+  e.preventDefault();
+  const name = document.getElementById('register-name').value;
+  const email = document.getElementById('register-email').value;
+  const password = document.getElementById('register-password').value;
+  const errorDiv = document.getElementById('register-error');
+
+  errorDiv.textContent = '';
+
+  try {
+    const response = await fetch('/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, password, name })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      errorDiv.textContent = data.error || 'Error al registrar';
+      return;
+    }
+
+    // Registro exitoso
+    currentUser = data.user;
+    updateUserUI();
+    await loadUserPreferences();
+    showSection('preferences');
+  } catch (err) {
+    errorDiv.textContent = 'Error de conexión';
   }
 }
 

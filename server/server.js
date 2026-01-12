@@ -14,6 +14,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const cookieParser = require('cookie-parser');
+const os = require('os');
 const festivals = require('./festivals.json');
 const FESTIVALS_PATH = path.join(__dirname, 'festivals.json');
 
@@ -99,6 +100,99 @@ app.post('/auth/logout', async (req, res) => {
   await auth.logout(sessionId);
   res.clearCookie('session');
   res.json({ success: true });
+});
+
+// ==========================================
+// REGISTRO Y LOGIN CON EMAIL/PASSWORD
+// ==========================================
+
+// Registrar nuevo usuario
+app.post('/auth/register', async (req, res) => {
+  const { email, password, name } = req.body;
+
+  // Validaciones
+  if (!email || !email.trim()) {
+    return res.status(400).json({ error: 'Email requerido' });
+  }
+  if (!password || password.length < 6) {
+    return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+  }
+
+  // Validar formato de email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: 'Email inválido' });
+  }
+
+  try {
+    const result = await db.registerUser(email, password, name);
+
+    if (result.error) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    // Crear sesión automáticamente después del registro
+    const sessionId = await db.createSession(result.user.id);
+
+    res.cookie('session', sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
+      sameSite: 'lax',
+    });
+
+    res.status(201).json({
+      success: true,
+      user: {
+        id: result.user.id,
+        email: result.user.email,
+        name: result.user.name,
+      }
+    });
+  } catch (err) {
+    console.error('Error en registro:', err);
+    res.status(500).json({ error: 'Error al registrar usuario' });
+  }
+});
+
+// Login con email/password
+app.post('/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email y contraseña requeridos' });
+  }
+
+  try {
+    const result = await db.loginUser(email, password);
+
+    if (result.error) {
+      return res.status(401).json({ error: result.error });
+    }
+
+    // Crear sesión
+    const sessionId = await db.createSession(result.user.id);
+
+    res.cookie('session', sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
+      sameSite: 'lax',
+    });
+
+    res.json({
+      success: true,
+      user: {
+        id: result.user.id,
+        email: result.user.email,
+        name: result.user.name,
+        picture: result.user.picture,
+      }
+    });
+  } catch (err) {
+    console.error('Error en login:', err);
+    res.status(500).json({ error: 'Error al iniciar sesión' });
+  }
 });
 
 // ==========================================
@@ -974,6 +1068,19 @@ function normalizeString(str) {
     .trim();
 }
 
+function getLocalIP() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      // Buscar IPv4 que no sea localhost
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return null;
+}
+
 // ==========================================
 // AÑO ACTUAL (se obtiene de internet al iniciar)
 // ==========================================
@@ -1055,10 +1162,16 @@ async function startServer() {
   // Inicializar base de datos PostgreSQL
   await db.initDatabase();
 
-  app.listen(PORT, async () => {
+  app.listen(PORT, '0.0.0.0', async () => {
     await fetchCurrentYear();
-    console.log(`Festival Match ${currentYear} corriendo en http://localhost:${PORT}`);
-    console.log('Configuracion:');
+    const localIP = getLocalIP();
+
+    console.log(`\nFestival Match ${currentYear} corriendo en:`);
+    console.log(`   - Local:   http://localhost:${PORT}`);
+    if (localIP) {
+      console.log(`   - Red:     http://${localIP}:${PORT}`);
+    }
+    console.log('\nConfiguracion:');
     console.log('   - Base de datos: PostgreSQL');
     console.log('   - Google OAuth: ' + (process.env.GOOGLE_CLIENT_ID ? 'Configurado' : 'No configurado'));
     console.log('   - Spotify API: ' + (process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_ID !== 'tu_spotify_client_id' ? 'Configurado' : 'No configurado (deshabilitado)'));

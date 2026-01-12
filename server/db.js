@@ -1,4 +1,7 @@
 const { Pool } = require('pg');
+const bcrypt = require('bcrypt');
+
+const SALT_ROUNDS = 10;
 
 // Configurar pool de conexiones PostgreSQL
 const pool = new Pool({
@@ -16,8 +19,9 @@ async function initDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
-      google_id TEXT UNIQUE NOT NULL,
-      email TEXT NOT NULL,
+      google_id TEXT UNIQUE,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT,
       name TEXT,
       picture TEXT,
       lastfm_username TEXT,
@@ -87,6 +91,28 @@ async function initDatabase() {
     );
   }
 
+  // Migraciones para tablas existentes
+  // Agregar columna password_hash si no existe
+  try {
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT');
+  } catch (err) {
+    // Ignorar si ya existe
+  }
+
+  // Hacer google_id nullable si no lo es
+  try {
+    await pool.query('ALTER TABLE users ALTER COLUMN google_id DROP NOT NULL');
+  } catch (err) {
+    // Ignorar si ya es nullable
+  }
+
+  // Hacer email único si no lo es
+  try {
+    await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users(email)');
+  } catch (err) {
+    // Ignorar si ya existe
+  }
+
   console.log('Base de datos PostgreSQL inicializada');
 }
 
@@ -147,6 +173,57 @@ async function isAdmin(userId) {
 async function isDev(userId) {
   const role = await getUserRole(userId);
   return role.includes('dev');
+}
+
+// ==========================================
+// Autenticacion con Email/Password
+// ==========================================
+
+async function getUserByEmail(email) {
+  const result = await pool.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase()]);
+  return result.rows[0];
+}
+
+async function registerUser(email, password, name = null) {
+  // Verificar si el email ya existe
+  const existingUser = await getUserByEmail(email);
+  if (existingUser) {
+    return { error: 'El email ya está registrado' };
+  }
+
+  // Hashear password
+  const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+
+  // Crear usuario
+  const result = await pool.query(
+    'INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING *',
+    [email.toLowerCase(), passwordHash, name]
+  );
+
+  return { user: result.rows[0] };
+}
+
+async function loginUser(email, password) {
+  // Buscar usuario por email
+  const user = await getUserByEmail(email);
+
+  if (!user) {
+    return { error: 'Email o contraseña incorrectos' };
+  }
+
+  // Si el usuario no tiene password (solo Google), no puede hacer login con password
+  if (!user.password_hash) {
+    return { error: 'Esta cuenta usa Google para iniciar sesión' };
+  }
+
+  // Verificar password
+  const validPassword = await bcrypt.compare(password, user.password_hash);
+
+  if (!validPassword) {
+    return { error: 'Email o contraseña incorrectos' };
+  }
+
+  return { user };
 }
 
 // ==========================================
@@ -440,8 +517,12 @@ module.exports = {
   initDatabase,
   findOrCreateUser,
   getUserById,
+  getUserByEmail,
   getLastfmUsername,
   setLastfmUsername,
+  // Auth con email/password
+  registerUser,
+  loginUser,
   // Roles
   getUserRole,
   isAdmin,

@@ -33,3 +33,6 @@ build/
 
 # Local/desarrollo
 /dev_local
+
+# AI / Claude Code
+.claude/

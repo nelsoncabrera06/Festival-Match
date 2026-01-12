@@ -1,0 +1,444 @@
+[
+  {
+    "id": "primavera-sound",
+    "name": "Primavera Sound",
+    "city": "Barcelona",
+    "location": "Barcelona, España",
+    "country": "ES",
+    "dates": "3-7 Junio 2026",
+    "website": "https://www.primaverasound.com",
+    "image": "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800",
+    "lineupStatus": "confirmed",
+    "lineup": [
+      "The Cure", "Doja Cat", "The xx", "Massive Attack", "Gorillaz",
+      "Charli XCX", "LCD Soundsystem", "Jamie xx", "FKA Twigs", "Bicep",
+      "Fontaines D.C.", "Clairo", "Disclosure", "JPEGMAFIA", "Caribou",
+      "Floating Points", "Four Tet", "Peggy Gou", "Arca", "Yves Tumor",
+      "Kim Gordon", "Wet Leg", "Slowdive", "Parcels", "Glass Animals"
+    ]
+  },
+  {
+    "id": "tomorrowland",
+    "name": "Tomorrowland",
+    "city": "Boom",
+    "location": "Boom, Bélgica",
+    "country": "BE",
+    "dates": "17-19 & 24-26 Julio 2026",
+    "website": "https://www.tomorrowland.com",
+    "image": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800",
+    "lineupStatus": "unannounced",
+    "lineup": []
+  },
+  {
+    "id": "rock-am-ring",
+    "name": "Rock am Ring",
+    "city": "Nürburg",
+    "location": "Nürburg, Alemania",
+    "country": "DE",
+    "dates": "5-7 Junio 2026",
+    "website": "https://www.rock-am-ring.com",
+    "image": "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=800",
+    "lineupStatus": "confirmed",
+    "lineup": [
+      "Linkin Park", "Iron Maiden", "Limp Bizkit", "Volbeat", "A Perfect Circle",
+      "Alter Bridge", "Architects", "BABYMETAL", "Bad Omens", "Electric Callboy",
+      "Ice Nine Kills", "Mastodon", "Papa Roach", "Sabaton", "The Offspring",
+      "Bullet For My Valentine", "Parkway Drive", "Spiritbox", "Sleep Token", "Polaris",
+      "As I Lay Dying", "Asking Alexandria", "Wage War", "Beartooth", "Knocked Loose"
+    ]
+  },
+  {
+    "id": "sziget",
+    "name": "Sziget Festival",
+    "city": "Budapest",
+    "location": "Budapest, Hungría",
+    "country": "HU",
+    "dates": "11-15 Agosto 2026",
+    "website": "https://szigetfestival.com",
+    "image": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800",
+    "lineupStatus": "partial",
+    "lineup": [
+      "Twenty One Pilots", "Florence + The Machine", "Lewis Capaldi", "Biffy Clyro", "Tash Sultana",
+      "Ashnikko", "bbno$", "Paris Paloma"
+    ]
+  },
+  {
+    "id": "mad-cool",
+    "name": "Mad Cool Festival",
+    "city": "Madrid",
+    "location": "Madrid, España",
+    "country": "ES",
+    "dates": "8-11 Julio 2026",
+    "website": "https://madcoolfestival.es",
+    "image": "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=800",
+    "lineupStatus": "confirmed",
+    "lineup": [
+      "Foo Fighters", "Florence + The Machine", "Twenty One Pilots", "Lorde", "Pulp",
+      "Wolf Alice", "Nick Cave & The Bad Seeds", "Jennie", "Moby", "The Last Dinner Party",
+      "Kings Of Leon", "The War On Drugs", "Halsey", "Teddy Swims", "Pixies",
+      "The Black Crowes", "David Byrne", "St. Vincent", "Phoenix", "Vampire Weekend",
+      "Beach House", "Father John Misty", "Interpol", "Sampha", "Sudan Archives"
+    ]
+  },
+  {
+    "id": "lollapalooza-berlin",
+    "name": "Lollapalooza Berlin",
+    "city": "Berlín",
+    "location": "Berlín, Alemania",
+    "country": "DE",
+    "dates": "18-19 Julio 2026",
+    "website": "https://www.lollapaloozade.com",
+    "image": "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800",
+    "lineupStatus": "partial",
+    "lineup": [
+      "Pitbull", "Lewis Capaldi", "Lorde", "Teddy Swims", "Lily Allen",
+      "Zara Larsson"
+    ]
+  },
+  {
+    "id": "roskilde",
+    "name": "Roskilde Festival",
+    "city": "Roskilde",
+    "location": "Roskilde, Dinamarca",
+    "country": "DK",
+    "dates": "27 Junio - 4 Julio 2026",
+    "website": "https://www.roskilde-festival.dk",
+    "image": "https://images.unsplash.com/photo-1506157786151-b8491531f063?w=800",
+    "lineupStatus": "confirmed",
+    "lineup": [
+      "The Cure", "Gorillaz", "David Byrne", "Little Simz", "Ethel Cain",
+      "Zara Larsson", "Kneecap", "Yung Lean & Bladee", "PJ Harvey",
+      "Tyler, The Creator", "Nick Cave & The Bad Seeds", "Massive Attack", "Bon Iver", "Fleet Foxes",
+      "Angel Olsen", "Big Thief", "DIIV", "King Krule", "Weyes Blood",
+      "Black Midi", "Squid", "Black Country, New Road", "Shame", "Dry Cleaning"
+    ]
+  },
+  {
+    "id": "sonar",
+    "name": "Sónar Barcelona",
+    "city": "Barcelona",
+    "location": "Barcelona, España",
+    "country": "ES",
+    "dates": "18-20 Junio 2026",
+    "website": "https://sonar.es",
+    "image": "https://images.unsplash.com/photo-1571266028243-e4733b0f0bb0?w=800",
+    "lineupStatus": "partial",
+    "lineup": [
+      "Amelie Lens", "Skepta", "Charlotte de Witte", "Cabaret Voltaire", "Boys Noize",
+      "Nia Archives"
+    ]
+  },
+  {
+    "id": "lowlands",
+    "name": "Lowlands Festival",
+    "city": "Biddinghuizen",
+    "location": "Biddinghuizen, Países Bajos",
+    "country": "NL",
+    "dates": "21-23 Agosto 2026",
+    "website": "https://lowlands.nl",
+    "image": "https://images.unsplash.com/photo-1563841930606-67e2bce48b78?w=800",
+    "lineupStatus": "unannounced",
+    "lineup": []
+  },
+  {
+    "id": "nos-alive",
+    "name": "NOS Alive",
+    "city": "Lisboa",
+    "location": "Lisboa, Portugal",
+    "country": "PT",
+    "dates": "9-11 Julio 2026",
+    "website": "https://nosalive.com",
+    "image": "https://images.unsplash.com/photo-1484972759836-b93f9ef2b293?w=800",
+    "lineupStatus": "confirmed",
+    "lineup": [
+      "Twenty One Pilots", "Nick Cave & The Bad Seeds", "A Perfect Circle", "Alabama Shakes", "Matt Berninger",
+      "Dogstar", "Foo Fighters", "Skunk Anansie", "The Warning", "Wolf Alice",
+      "The War On Drugs", "Jehnny Beth", "Zara Larsson", "Florence + The Machine", "Lorde",
+      "Buraka Som Sistema", "Pixies", "Phoebe Bridgers", "Soccer Mommy", "Snail Mail",
+      "Japanese Breakfast", "Mitski", "Big Thief", "Angel Olsen", "Sharon Van Etten"
+    ]
+  },
+  {
+    "id": "flow-festival",
+    "name": "Flow Festival",
+    "city": "Helsinki",
+    "location": "Helsinki, Finlandia",
+    "country": "FI",
+    "dates": "14-16 Agosto 2026",
+    "website": "https://www.flowfestival.com",
+    "image": "https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?w=800",
+    "lineupStatus": "partial",
+    "lineup": [
+      "Florence + The Machine", "Zara Larsson", "Nick Cave & The Bad Seeds", "Turnstile", "SOMBR",
+      "PinkPantheress", "Clipse", "Oklou", "Kettama", "Honey Dijon"
+    ]
+  },
+  {
+    "id": "rock-werchter",
+    "name": "Rock Werchter",
+    "city": "Werchter",
+    "location": "Werchter, Bélgica",
+    "country": "BE",
+    "dates": "2-5 Julio 2026",
+    "website": "https://www.rockwerchter.be",
+    "image": "https://images.unsplash.com/photo-1468359601543-843bfaef291a?w=800",
+    "lineupStatus": "unannounced",
+    "lineup": []
+  },
+  {
+    "id": "open-er",
+    "name": "Open'er Festival",
+    "city": "Gdynia",
+    "location": "Gdynia, Polonia",
+    "country": "PL",
+    "dates": "1-4 Julio 2026",
+    "website": "https://opener.pl",
+    "image": "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800",
+    "lineupStatus": "confirmed",
+    "lineup": [
+      "The xx", "Calvin Harris", "Nick Cave & The Bad Seeds", "The Cure", "David Byrne",
+      "Halsey", "IDLES", "JADE", "Zara Larsson", "PinkPantheress",
+      "Reneé Rapp", "Addison Rae", "Sofi Tukker", "Teddy Swims", "Ethel Cain",
+      "Massive Attack", "The Chemical Brothers", "Orbital", "Faithless", "Leftfield",
+      "Groove Armada", "LCD Soundsystem", "Hot Chip", "Metronomy", "Caribou"
+    ]
+  },
+  {
+    "id": "sea-star",
+    "name": "Sea Star Festival",
+    "city": "Umag",
+    "location": "Umag, Croacia",
+    "country": "HR",
+    "dates": "28-31 Mayo 2026",
+    "website": "https://www.seastarfestival.com",
+    "image": "https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=800",
+    "description": "Parte del EXIT Global Tour 2026",
+    "lineupStatus": "partial",
+    "lineup": [
+      "Boris Brejcha", "Xzibit", "Layla Benitez", "Emergency EXIT", "Lanna",
+      "DJ Labud", "Herya", "INKA", "Kim Ono", "Lottie", "Marcel", "Marin Biočić", "Sunny Sun"
+    ]
+  },
+  {
+    "id": "tuska",
+    "name": "Tuska Festival",
+    "city": "Helsinki",
+    "location": "Helsinki, Finlandia",
+    "country": "FI",
+    "dates": "26-28 Junio 2026",
+    "website": "https://tuska.fi",
+    "image": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800",
+    "lineupStatus": "partial",
+    "lineup": [
+      "Megadeth", "Bring Me The Horizon", "Bad Omens", "Trivium", "Queensrÿche",
+      "P.O.D.", "Ensiferum", "Stam1na", "Pain", "D-A-D",
+      "Soilwork", "Blood Incantation", "Kublai Khan TX", "Paleface Swiss", "Rivers of Nihil",
+      "Swallow The Sun", "Lost Society", "Gatecreeper", "Malevolence", "The Plot In You",
+      "The Browning", "Bloodred Hourglass", "Majestica", "The Callous Daoboys"
+    ]
+  },
+  {
+    "id": "glastonbury",
+    "name": "Glastonbury Festival",
+    "city": "Somerset",
+    "location": "Worthy Farm, Somerset, Inglaterra",
+    "country": "GB",
+    "dates": "2027 (confirmado)",
+    "website": "https://www.glastonburyfestivals.co.uk",
+    "image": "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800",
+    "lineupStatus": "hiatus",
+    "note": "No hay edición en 2026 - el festival descansa este año. Próxima edición: 2027",
+    "lineup": []
+  },
+  {
+    "id": "amf",
+    "name": "Amsterdam Music Festival",
+    "city": "Amsterdam",
+    "location": "Johan Cruijff Arena, Amsterdam, Países Bajos",
+    "country": "NL",
+    "dates": "Octubre 2026 (fecha exacta TBA)",
+    "website": "https://amf-festival.com",
+    "image": "https://images.unsplash.com/photo-1574391884720-bbc3740c59d1?w=800",
+    "description": "Cierre del Amsterdam Dance Event. Aquí se anuncia el DJ Mag Top 100",
+    "lineupStatus": "unannounced",
+    "lineup": []
+  },
+  {
+    "id": "mysteryland",
+    "name": "Mysteryland",
+    "city": "Haarlemmermeer",
+    "location": "Haarlemmermeer, Países Bajos",
+    "country": "NL",
+    "dates": "2027 (confirmado)",
+    "website": "https://www.mysteryland.nl",
+    "image": "https://images.unsplash.com/photo-1571266028243-e4733b0f0bb0?w=800",
+    "lineupStatus": "hiatus",
+    "note": "No hay edición en 2026 - el festival más antiguo de música electrónica descansa para renovar su concepto. Vuelve en 2027",
+    "lineup": []
+  },
+  {
+    "id": "coachella",
+    "name": "Coachella",
+    "city": "Indio",
+    "location": "Indio, California",
+    "country": "US",
+    "dates": "11-13 & 18-20 Abril 2026",
+    "website": "https://www.coachella.com",
+    "image": "https://images.unsplash.com/photo-1506157786151-b8491531f063?w=800",
+    "lineupStatus": "unannounced",
+    "lineup": []
+  },
+  {
+    "id": "lollapalooza-chicago",
+    "name": "Lollapalooza Chicago",
+    "city": "Chicago",
+    "location": "Chicago, Illinois",
+    "country": "US",
+    "dates": "30 Julio - 2 Agosto 2026",
+    "website": "https://www.lollapalooza.com",
+    "image": "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800",
+    "lineupStatus": "unannounced",
+    "lineup": []
+  },
+  {
+    "id": "bonnaroo",
+    "name": "Bonnaroo",
+    "city": "Manchester",
+    "location": "Manchester, Tennessee",
+    "country": "US",
+    "dates": "11-14 Junio 2026",
+    "website": "https://www.bonnaroo.com",
+    "image": "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800",
+    "lineupStatus": "unannounced",
+    "lineup": []
+  },
+  {
+    "id": "austin-city-limits",
+    "name": "Austin City Limits",
+    "city": "Austin",
+    "location": "Austin, Texas",
+    "country": "US",
+    "dates": "2-4 & 9-11 Octubre 2026",
+    "website": "https://www.aclfestival.com",
+    "image": "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800",
+    "lineupStatus": "unannounced",
+    "lineup": []
+  },
+  {
+    "id": "edc-las-vegas",
+    "name": "Electric Daisy Carnival",
+    "city": "Las Vegas",
+    "location": "Las Vegas, Nevada",
+    "country": "US",
+    "dates": "15-17 Mayo 2026",
+    "website": "https://lasvegas.electricdaisycarnival.com",
+    "image": "https://images.unsplash.com/photo-1574391884720-bbc3740c59d1?w=800",
+    "lineupStatus": "unannounced",
+    "lineup": []
+  },
+  {
+    "id": "lollapalooza-argentina",
+    "name": "Lollapalooza Argentina",
+    "city": "Buenos Aires",
+    "location": "Hipódromo de San Isidro, Buenos Aires",
+    "country": "AR",
+    "dates": "13-15 Marzo 2026",
+    "website": "https://www.lollapaloozaar.com",
+    "image": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800",
+    "lineupStatus": "confirmed",
+    "lineup": [
+      "Sabrina Carpenter", "Tyler, The Creator", "Chappell Roan", "Deftones", "Skrillex",
+      "Lorde", "Doechii", "Turnstile", "Lewis Capaldi", "Paulo Londra",
+      "Interpol", "Kygo", "Peggy Gou", "Brutalismus 3000", "Addison Rae",
+      "Katseye", "Marina", "Djo", "TV Girl", "Royel Otis", "RIIZE",
+      "Blood Orange", "Ben Böhmer", "Lola Young", "Aitana", "Danny Ocean",
+      "D4VD", "Soledad", "BUNT.", "The Dare", "Six Sex", "HorsegiirL",
+      "2Hollis", "Men I Trust", "Viagra Boys", "Massacre", "Judeline",
+      "Balu Brigada", "Guitarricadelafuente", "Lany", "The Warning", "Zell", "Róz"
+    ]
+  },
+  {
+    "id": "lollapalooza-chile",
+    "name": "Lollapalooza Chile",
+    "city": "Santiago",
+    "location": "Parque O'Higgins, Santiago",
+    "country": "CL",
+    "dates": "13-15 Marzo 2026",
+    "website": "https://www.lollapaloozacl.com",
+    "image": "https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=800",
+    "lineupStatus": "confirmed",
+    "lineup": [
+      "Sabrina Carpenter", "Tyler, The Creator", "Chappell Roan", "Deftones", "Skrillex",
+      "Lorde", "Doechii", "Turnstile", "Lewis Capaldi", "Tom Morello",
+      "Interpol", "Kygo", "Peggy Gou", "Danny Ocean", "Orishas",
+      "Mau y Ricky", "Yami Safdie", "The Warning", "Joaquina", "3BallMTY",
+      "Marina", "TV Girl", "Royel Otis", "Men I Trust", "Viagra Boys"
+    ]
+  },
+  {
+    "id": "lollapalooza-brasil",
+    "name": "Lollapalooza Brasil",
+    "city": "São Paulo",
+    "location": "Autódromo de Interlagos, São Paulo",
+    "country": "BR",
+    "dates": "20-22 Marzo 2026",
+    "website": "https://www.lollapaloozabr.com",
+    "image": "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800",
+    "lineupStatus": "confirmed",
+    "lineup": [
+      "Sabrina Carpenter", "Tyler, The Creator", "Chappell Roan", "Deftones", "Skrillex",
+      "Lorde", "Doechii", "Turnstile", "Lewis Capaldi", "Cypress Hill",
+      "Interpol", "Kygo", "Peggy Gou", "Ben Böhmer", "Addison Rae",
+      "Katseye", "Marina", "Djo", "Lola Young", "Men I Trust",
+      "2Hollis", "Viagra Boys", "HorsegiirL", "TV Girl", "Royel Otis"
+    ]
+  },
+  {
+    "id": "rock-in-rio",
+    "name": "Rock in Rio",
+    "city": "Rio de Janeiro",
+    "location": "Rio de Janeiro, Brasil",
+    "country": "BR",
+    "dates": "18-20 & 25-27 Septiembre 2026",
+    "website": "https://rockinrio.com",
+    "image": "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=800",
+    "lineupStatus": "unannounced",
+    "lineup": []
+  },
+  {
+    "id": "vive-latino",
+    "name": "Vive Latino",
+    "city": "Ciudad de México",
+    "location": "Ciudad de México, México",
+    "country": "MX",
+    "dates": "14-15 Marzo 2026",
+    "website": "https://www.vivelatino.com.mx",
+    "image": "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=800",
+    "lineupStatus": "unannounced",
+    "lineup": []
+  },
+  {
+    "id": "estereo-picnic",
+    "name": "Festival Estéreo Picnic",
+    "city": "Bogotá",
+    "location": "Bogotá, Colombia",
+    "country": "CO",
+    "dates": "26-29 Marzo 2026",
+    "website": "https://www.festivalestereopicnic.com",
+    "image": "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=800",
+    "lineupStatus": "unannounced",
+    "lineup": []
+  },
+  {
+    "id": "corona-capital",
+    "name": "Corona Capital",
+    "city": "Ciudad de México",
+    "location": "Ciudad de México, México",
+    "country": "MX",
+    "dates": "14-15 Noviembre 2026",
+    "website": "https://www.coronacapital.com.mx",
+    "image": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800",
+    "lineupStatus": "unannounced",
+    "lineup": []
+  }
+]

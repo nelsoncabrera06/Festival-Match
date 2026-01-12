@@ -1,0 +1,1911 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg-primary: #121212;
+  --bg-secondary: #181818;
+  --bg-elevated: #282828;
+  --bg-card: #1e1e1e;
+  --text-primary: #ffffff;
+  --text-secondary: #b3b3b3;
+  --text-muted: #6a6a6a;
+  --spotify-green: #1db954;
+  --spotify-green-hover: #1ed760;
+  --accent: #1db954;
+  --gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --gradient-2: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --radius: 12px;
+  --radius-lg: 16px;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+.app {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-icon {
+  font-size: 32px;
+}
+
+.logo-text {
+  font-size: 24px;
+  font-weight: 700;
+  background: var(--gradient-1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.btn-logout {
+  background: transparent;
+  border: 1px solid var(--text-muted);
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-logout:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+/* Landing Section */
+.landing {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: center;
+  min-height: calc(100vh - 100px);
+  padding: 40px 0;
+}
+
+.landing-content {
+  max-width: 560px;
+}
+
+.landing-title {
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: 24px;
+}
+
+.highlight {
+  background: var(--gradient-1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.landing-subtitle {
+  font-size: 18px;
+  color: var(--text-secondary);
+  margin-bottom: 40px;
+  line-height: 1.7;
+}
+
+.btn-spotify {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background-color: var(--spotify-green);
+  color: var(--bg-primary);
+  border: none;
+  padding: 16px 32px;
+  border-radius: 50px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-spotify:hover {
+  background-color: var(--spotify-green-hover);
+  transform: scale(1.02);
+}
+
+.spotify-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.landing-note {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.spotify-note {
+  color: #ff6b6b;
+}
+
+/* Botón Spotify deshabilitado */
+.btn-spotify:disabled {
+  background-color: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-spotify:disabled:hover {
+  background-color: var(--bg-elevated);
+  transform: none;
+}
+
+/* Divider */
+.divider {
+  display: flex;
+  align-items: center;
+  margin: 24px 0;
+  gap: 16px;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.divider span {
+  color: var(--text-muted);
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+/* Botón Demo */
+.btn-demo {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--gradient-1);
+  color: var(--text-primary);
+  border: none;
+  padding: 16px 32px;
+  border-radius: 50px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-demo:hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+}
+
+/* Demo Badge */
+.demo-badge {
+  background: var(--gradient-1);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: inline-block;
+}
+
+/* Floating Cards Animation */
+.landing-visual {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  height: 400px;
+}
+
+.floating-cards {
+  position: relative;
+  width: 300px;
+  height: 300px;
+}
+
+.floating-card {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  box-shadow: var(--shadow);
+  animation: float 6s ease-in-out infinite;
+}
+
+.card-1 {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  animation-delay: 0s;
+}
+
+.card-2 {
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  animation-delay: 1.5s;
+}
+
+.card-3 {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  animation-delay: 3s;
+}
+
+.card-4 {
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  animation-delay: 4.5s;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-20px) rotate(5deg);
+  }
+}
+
+/* Loading Section */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 100px);
+  gap: 24px;
+}
+
+.loader {
+  width: 60px;
+  height: 60px;
+  border: 4px solid var(--bg-elevated);
+  border-top-color: var(--spotify-green);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  font-size: 18px;
+  color: var(--text-secondary);
+}
+
+/* Results Section */
+.results {
+  padding: 40px 0 80px;
+}
+
+.results-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.results-title {
+  font-size: 42px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.results-subtitle {
+  font-size: 16px;
+  color: var(--text-secondary);
+}
+
+/* User Artists */
+.user-artists {
+  margin-bottom: 48px;
+  background: var(--bg-secondary);
+  padding: 24px;
+  border-radius: var(--radius-lg);
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--text-secondary);
+}
+
+.artists-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.artist-tag {
+  background: var(--bg-elevated);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.artist-tag img {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* Festivals Grid */
+.festivals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 24px;
+}
+
+.festival-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.festival-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow);
+}
+
+.festival-image-container {
+  position: relative;
+}
+
+.festival-image {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  display: block;
+}
+
+/* Favorite Button */
+.favorite-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: transparent;
+  border: none;
+  width: 32px;
+  height: 32px;
+  font-size: 22px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+}
+
+.favorite-btn:hover {
+  transform: scale(1.2);
+}
+
+.festival-content {
+  padding: 24px;
+}
+
+.festival-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.festival-name {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.festival-link-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.festival-link-icon:hover {
+  color: var(--spotify-green);
+}
+
+.festival-link-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.festival-location {
+  font-size: 14px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.festival-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.festival-dates {
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+/* Lineup Status Badges */
+.lineup-status {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.lineup-status.confirmed {
+  background: rgba(29, 185, 84, 0.2);
+  color: #1db954;
+}
+
+.lineup-status.partial {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+}
+
+.lineup-status.unannounced {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+}
+
+.lineup-status.hiatus {
+  background: rgba(255, 152, 0, 0.2);
+  color: #ff9800;
+}
+
+.hiatus-note .no-match {
+  color: #ff9800;
+  font-style: italic;
+}
+
+.match-percentage.na {
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: var(--text-muted);
+  background-clip: unset;
+  font-size: 20px;
+}
+
+/* Match Percentage */
+.match-container {
+  margin-bottom: 20px;
+}
+
+.match-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.match-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.match-percentage {
+  font-size: 28px;
+  font-weight: 800;
+  background: var(--gradient-1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.match-bar {
+  height: 8px;
+  background: var(--bg-elevated);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.match-bar-fill {
+  height: 100%;
+  background: var(--gradient-1);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+/* Artists in Common */
+.artists-common {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 16px;
+}
+
+.artists-common-title {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.artists-common-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.artist-common-tag {
+  background: rgba(29, 185, 84, 0.15);
+  color: var(--spotify-green);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.no-match {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.festival-link {
+  display: inline-block;
+  margin-top: 16px;
+  color: var(--spotify-green);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+
+.festival-link:hover {
+  opacity: 0.8;
+}
+
+/* Error Section */
+.error-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 100px);
+}
+
+.error-content {
+  text-align: center;
+}
+
+.error-icon {
+  font-size: 64px;
+  display: block;
+  margin-bottom: 24px;
+}
+
+.error-content h2 {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.error-content p {
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .landing {
+    grid-template-columns: 1fr;
+    text-align: center;
+    gap: 40px;
+  }
+
+  .landing-content {
+    max-width: 100%;
+  }
+
+  .landing-title {
+    font-size: 40px;
+  }
+
+  .landing-visual {
+    height: 250px;
+  }
+
+  .floating-cards {
+    width: 200px;
+    height: 200px;
+  }
+
+  .floating-card {
+    width: 60px;
+    height: 60px;
+    font-size: 28px;
+  }
+
+  .festivals-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .results-title {
+    font-size: 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .app {
+    padding: 0 16px;
+  }
+
+  .landing-title {
+    font-size: 32px;
+  }
+
+  .btn-spotify {
+    padding: 14px 24px;
+    font-size: 15px;
+  }
+
+  .festival-name {
+    font-size: 18px;
+  }
+
+  .match-percentage {
+    font-size: 24px;
+  }
+}
+
+/* ==========================================
+   Google Button
+   ========================================== */
+
+.btn-google {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  color: #333;
+  border: none;
+  padding: 16px 32px;
+  border-radius: 50px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn-google:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.google-icon {
+  width: 24px;
+  height: 24px;
+}
+
+/* Spotify disabled notice */
+.spotify-disabled {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 32px;
+  padding: 12px 16px;
+  background: rgba(255, 107, 107, 0.1);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.spotify-icon-small {
+  width: 16px;
+  height: 16px;
+  opacity: 0.5;
+}
+
+/* ==========================================
+   User Info in Header
+   ========================================== */
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* ==========================================
+   Preferences Section
+   ========================================== */
+
+.preferences {
+  padding: 40px 0 80px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.preferences-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.preferences-title {
+  font-size: 36px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.preferences-subtitle {
+  font-size: 16px;
+  color: var(--text-secondary);
+}
+
+.preference-section {
+  background: var(--bg-secondary);
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 24px;
+}
+
+/* Search Container */
+.search-container {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 14px 20px;
+  background: var(--bg-elevated);
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 16px;
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--spotify-green);
+}
+
+/* Search Results Dropdown */
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-elevated);
+  border-radius: var(--radius);
+  margin-top: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: var(--shadow);
+}
+
+.search-result-item {
+  padding: 12px 20px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.search-result-item:last-child {
+  border-bottom: none;
+}
+
+.search-result-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.search-result-item.already-added {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.search-result-item.already-added:hover {
+  background: transparent;
+}
+
+.search-result-name {
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.search-result-info {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.search-loading,
+.search-empty {
+  padding: 16px 20px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* Tags Container */
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-elevated);
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+}
+
+.tag-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+.tag-remove:hover {
+  color: #ff6b6b;
+}
+
+/* Genre Selector */
+.genre-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.genre-option {
+  background: var(--bg-elevated);
+  border: 2px solid transparent;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.genre-option:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+
+.genre-option.selected {
+  background: rgba(29, 185, 84, 0.2);
+  border-color: var(--spotify-green);
+  color: var(--spotify-green);
+}
+
+/* Preferences Actions */
+.preferences-actions {
+  text-align: center;
+  margin-top: 32px;
+}
+
+/* Primary Button */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--gradient-1);
+  color: var(--text-primary);
+  border: none;
+  padding: 16px 48px;
+  border-radius: 50px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Secondary Button */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--text-muted);
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 16px;
+}
+
+.btn-secondary:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 32px;
+  color: var(--text-muted);
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+/* ==========================================
+   Responsive for new elements
+   ========================================== */
+
+@media (max-width: 600px) {
+  .preferences {
+    padding: 24px 0 60px;
+  }
+
+  .preferences-title {
+    font-size: 28px;
+  }
+
+  .preference-section {
+    padding: 16px;
+  }
+
+  .btn-primary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .user-name {
+    display: none;
+  }
+}
+
+/* ==========================================
+   Global Filters (Region)
+   ========================================== */
+
+.global-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  background: var(--bg-elevated);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.filter-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.region-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.region-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.region-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.region-btn.active {
+  background: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+}
+
+/* Cascade Filters (Country/City) */
+.cascade-filter {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  min-width: 150px;
+  transition: all 0.2s ease;
+}
+
+.cascade-filter:hover {
+  border-color: var(--accent-color);
+}
+
+.cascade-filter:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.cascade-filter option {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* ==========================================
+   Festivals Toolbar (View Toggle only)
+   ========================================== */
+
+.festivals-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 24px;
+}
+
+/* ==========================================
+   View Toggle (Lista/Calendario)
+   ========================================== */
+
+.view-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid transparent;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.view-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.view-btn.active {
+  background: var(--gradient-1);
+  color: var(--text-primary);
+  border-color: transparent;
+}
+
+.view-btn svg {
+  flex-shrink: 0;
+}
+
+.festivals-view {
+  display: none;
+}
+
+.festivals-view.active {
+  display: block;
+}
+
+/* ==========================================
+   Calendar
+   ========================================== */
+
+.calendar-container {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.calendar-title {
+  font-size: 24px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.calendar-nav {
+  background: var(--bg-elevated);
+  border: none;
+  color: var(--text-primary);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendar-nav:hover {
+  background: var(--gradient-1);
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-day-header {
+  text-align: center;
+  padding: 12px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.calendar-day {
+  min-height: 100px;
+  background: var(--bg-card);
+  border-radius: 8px;
+  padding: 8px;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.calendar-day:hover {
+  background: var(--bg-elevated);
+}
+
+.calendar-day.empty {
+  background: transparent;
+  opacity: 0.3;
+}
+
+.calendar-day.other-month {
+  opacity: 0.4;
+}
+
+.calendar-day-number {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.calendar-day.today .calendar-day-number {
+  background: var(--spotify-green);
+  color: var(--bg-primary);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendar-events {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.calendar-event {
+  font-size: 11px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.calendar-event:hover {
+  transform: scale(1.02);
+}
+
+.calendar-event-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calendar-event-location {
+  font-size: 9px;
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Festival event colors by match percentage */
+.calendar-event.high-match {
+  background: rgba(29, 185, 84, 0.3);
+  color: #1db954;
+  border-left: 3px solid #1db954;
+}
+
+.calendar-event.medium-match {
+  background: rgba(102, 126, 234, 0.3);
+  color: #a0b0ff;
+  border-left: 3px solid #667eea;
+}
+
+.calendar-event.low-match {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  border-left: 3px solid var(--text-muted);
+}
+
+.calendar-event.unannounced {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+  border-left: 3px solid #ffc107;
+}
+
+.calendar-event.hiatus {
+  background: rgba(255, 152, 0, 0.15);
+  color: #ff9800;
+  border-left: 3px solid #ff9800;
+  opacity: 0.7;
+}
+
+/* Calendar Legend */
+.calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.legend-color.high {
+  background: rgba(29, 185, 84, 0.5);
+  border-left: 3px solid #1db954;
+}
+
+.legend-color.medium {
+  background: rgba(102, 126, 234, 0.5);
+  border-left: 3px solid #667eea;
+}
+
+.legend-color.low {
+  background: rgba(255, 255, 255, 0.2);
+  border-left: 3px solid var(--text-muted);
+}
+
+.legend-color.unannounced {
+  background: rgba(255, 193, 7, 0.3);
+  border-left: 3px solid #ffc107;
+}
+
+/* Calendar event tooltip */
+.calendar-event-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-elevated);
+  padding: 12px;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  z-index: 100;
+  min-width: 200px;
+  display: none;
+}
+
+.calendar-event:hover .calendar-event-tooltip {
+  display: block;
+}
+
+.tooltip-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.tooltip-info {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Responsive Calendar */
+@media (max-width: 900px) {
+  .calendar-day {
+    min-height: 80px;
+    padding: 6px;
+  }
+
+  .calendar-event {
+    font-size: 10px;
+    padding: 3px 4px;
+  }
+
+  .calendar-event-location {
+    font-size: 8px;
+  }
+
+  .calendar-title {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 600px) {
+  .global-filters {
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .filter-label {
+    display: none;
+  }
+
+  .region-selector {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .region-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .cascade-filter {
+    width: 100%;
+    min-width: unset;
+  }
+
+  .calendar-container {
+    padding: 16px;
+  }
+
+  .calendar-day {
+    min-height: 60px;
+    padding: 4px;
+  }
+
+  .calendar-day-number {
+    font-size: 12px;
+  }
+
+  .calendar-event {
+    font-size: 9px;
+    padding: 2px 3px;
+    border-left-width: 2px;
+  }
+
+  .calendar-event-location {
+    display: none;
+  }
+
+  .calendar-day-header {
+    font-size: 10px;
+    padding: 8px 2px;
+  }
+
+  .view-toggle {
+    width: 100%;
+  }
+
+  .view-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .calendar-legend {
+    gap: 12px;
+  }
+
+  .legend-item {
+    font-size: 11px;
+  }
+}
+
+/* ==========================================
+   Tabs
+   ========================================== */
+
+.tabs-container {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+  background: var(--bg-secondary);
+  padding: 6px;
+  border-radius: var(--radius);
+  width: fit-content;
+}
+
+.tab {
+  background: transparent;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tab.active {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* ==========================================
+   Artists Tab
+   ========================================== */
+
+.artists-tab-search {
+  margin-bottom: 32px;
+}
+
+.artists-tours {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Artist Tour Card */
+.artist-tour-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.artist-tour-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.artist-tour-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.artist-tour-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.artist-tour-icon {
+  font-size: 32px;
+}
+
+.artist-tour-name {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.artist-tour-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 8px;
+  font-size: 20px;
+  line-height: 1;
+  transition: color 0.2s ease;
+  border-radius: 50%;
+}
+
+.artist-tour-remove:hover {
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.1);
+}
+
+/* Tour Dates */
+.artist-tour-content {
+  padding: 20px 24px;
+}
+
+.tour-dates-title {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tour-dates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tour-date-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius);
+  transition: background 0.2s ease;
+}
+
+.tour-date-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tour-date-date {
+  min-width: 90px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--spotify-green);
+}
+
+.tour-date-venue {
+  flex: 1;
+}
+
+.tour-date-venue-name {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.tour-date-location {
+  font-size: 13px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tour-date-link {
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.05);
+  transition: all 0.2s ease;
+}
+
+.tour-date-link:hover {
+  background: var(--spotify-green);
+  color: var(--bg-primary);
+}
+
+/* No Dates Message */
+.no-tour-dates {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.no-tour-dates-icon {
+  font-size: 24px;
+  opacity: 0.5;
+}
+
+/* Loading Tour Dates */
+.tour-dates-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.tour-dates-loading .mini-loader {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--bg-elevated);
+  border-top-color: var(--spotify-green);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* View All Link */
+.tour-dates-view-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  color: var(--spotify-green);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+
+.tour-dates-view-all:hover {
+  opacity: 0.8;
+}
+
+/* Festival Appearances */
+.festival-appearances {
+  margin-top: 20px;
+}
+
+.festival-appearances.has-tours {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.festival-appearances-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.festival-appearance-item {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: var(--radius);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.festival-appearance-item:hover {
+  background: rgba(102, 126, 234, 0.2);
+  border-color: rgba(102, 126, 234, 0.3);
+}
+
+.festival-appearance-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.festival-appearance-info {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* No tour dates improved */
+.no-tour-dates-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.search-tour-link {
+  color: var(--spotify-green);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: opacity 0.2s ease;
+}
+
+.search-tour-link:hover {
+  opacity: 0.8;
+}
+
+.other-regions-info {
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: rgba(102, 126, 234, 0.15);
+  padding: 6px 12px;
+  border-radius: 12px;
+  margin-top: 4px;
+}
+
+/* Empty Artists State */
+.artists-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+.artists-empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.artists-empty-title {
+  font-size: 18px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.artists-empty-text {
+  font-size: 14px;
+}
+
+/* ==========================================
+   Responsive for Tabs
+   ========================================== */
+
+@media (max-width: 600px) {
+  .tabs-container {
+    width: 100%;
+  }
+
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+
+  .artist-tour-header {
+    padding: 16px;
+  }
+
+  .artist-tour-name {
+    font-size: 16px;
+  }
+
+  .artist-tour-content {
+    padding: 16px;
+  }
+
+  .tour-date-item {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tour-date-date {
+    min-width: auto;
+  }
+
+  .tour-date-link {
+    width: 100%;
+    text-align: center;
+    margin-top: 8px;
+  }
+}

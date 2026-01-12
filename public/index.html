@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Festival Match - Encuentra tu festival ideal</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">🎪</span>
+        <span class="logo-text">Festival Match</span>
+      </div>
+      <nav class="nav">
+        <div id="user-info" class="user-info" style="display: none;">
+          <img id="user-avatar" class="user-avatar" src="" alt="Avatar">
+          <span id="user-name" class="user-name"></span>
+        </div>
+        <button id="logout-btn" class="btn-logout" style="display: none;">Cerrar sesion</button>
+      </nav>
+    </header>
+
+    <!-- Landing Section -->
+    <section id="landing" class="landing">
+      <div class="landing-content">
+        <h1 class="landing-title">
+          Descubre que festivales <span class="highlight">matchean</span> con tu musica
+        </h1>
+        <p class="landing-subtitle">
+          Inicia sesion, agrega tus artistas favoritos y te mostraremos los festivales europeos
+          con los que mas conectas.
+        </p>
+
+        <!-- Google Login -->
+        <button id="google-btn" class="btn-google">
+          <svg class="google-icon" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          Continuar con Google
+        </button>
+        <p class="landing-note">
+          Guarda tus preferencias y accede desde cualquier dispositivo
+        </p>
+
+        <div class="divider">
+          <span>o</span>
+        </div>
+
+        <button id="demo-btn" class="btn-demo">
+          Probar con artistas de ejemplo
+        </button>
+        <p class="landing-note">
+          Prueba la app sin crear cuenta
+        </p>
+
+        <!-- Spotify disabled notice -->
+        <div class="spotify-disabled">
+          <svg class="spotify-icon-small" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+          </svg>
+          <span>Integracion con Spotify pausada temporalmente</span>
+        </div>
+      </div>
+      <div class="landing-visual">
+        <div class="floating-cards">
+          <div class="floating-card card-1">🎸</div>
+          <div class="floating-card card-2">🎤</div>
+          <div class="floating-card card-3">🎹</div>
+          <div class="floating-card card-4">🥁</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Loading Section -->
+    <section id="loading" class="loading" style="display: none;">
+      <div class="loader"></div>
+      <p class="loading-text">Cargando...</p>
+    </section>
+
+    <!-- Preferences Section (logged in users) -->
+    <section id="preferences" class="preferences" style="display: none;">
+      <div class="preferences-header">
+        <h2 class="preferences-title">Tus Preferencias Musicales</h2>
+        <p class="preferences-subtitle">Agrega tus artistas y generos favoritos para encontrar tu festival ideal</p>
+      </div>
+
+      <!-- Artist Search -->
+      <div class="preference-section">
+        <h3 class="section-title">Artistas Favoritos</h3>
+        <div class="search-container">
+          <input type="text" id="artist-search" class="search-input" placeholder="Buscar artista..." autocomplete="off">
+          <div id="search-results" class="search-results" style="display: none;"></div>
+        </div>
+        <div id="my-artists" class="tags-container"></div>
+      </div>
+
+      <!-- Festival Favorites -->
+      <div class="preference-section">
+        <h3 class="section-title">Festivales Favoritos</h3>
+        <div class="search-container">
+          <input type="text" id="festival-search" class="search-input" placeholder="Buscar festival..." autocomplete="off">
+          <div id="festival-search-results" class="search-results" style="display: none;"></div>
+        </div>
+        <div id="my-festivals" class="tags-container"></div>
+      </div>
+
+      <!-- Genre Selection -->
+      <div class="preference-section">
+        <h3 class="section-title">Generos Favoritos</h3>
+        <div id="genre-selector" class="genre-selector"></div>
+        <div id="my-genres" class="tags-container"></div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="preferences-actions">
+        <button id="view-festivals-btn" class="btn-primary">
+          Ver mis festivales
+        </button>
+      </div>
+    </section>
+
+    <!-- Results Section -->
+    <section id="results" class="results" style="display: none;">
+      <div class="results-header">
+        <h2 class="results-title">Tus Resultados</h2>
+        <p class="results-subtitle">Festivales y giras de tus artistas favoritos</p>
+        <button id="edit-preferences-btn" class="btn-secondary">Editar preferencias</button>
+      </div>
+
+      <!-- Global Region Filter -->
+      <div class="global-filters">
+        <span class="filter-label">Región:</span>
+        <div class="region-selector">
+          <button class="region-btn active" data-region="europe">
+            🇪🇺 Europa
+          </button>
+          <button class="region-btn" data-region="usa">
+            🇺🇸 USA
+          </button>
+          <button class="region-btn" data-region="latam">
+            🌎 Latinoamérica
+          </button>
+        </div>
+
+        <!-- Filtros en cascada -->
+        <select id="country-filter" class="cascade-filter">
+          <option value="">Todos los países</option>
+        </select>
+
+        <select id="city-filter" class="cascade-filter">
+          <option value="">Todas las ciudades</option>
+        </select>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs-container">
+        <button class="tab active" data-tab="festivals">Festivales</button>
+        <button class="tab" data-tab="artists">Mis Artistas</button>
+      </div>
+
+      <!-- Tab: Festivales -->
+      <div id="tab-festivals" class="tab-content active">
+        <!-- Toolbar: View Toggle -->
+        <div class="festivals-toolbar">
+          <!-- Sub-tabs: Lista / Calendario -->
+          <div class="view-toggle">
+          <button class="view-btn active" data-view="list">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"></line>
+              <line x1="8" y1="12" x2="21" y2="12"></line>
+              <line x1="8" y1="18" x2="21" y2="18"></line>
+              <line x1="3" y1="6" x2="3.01" y2="6"></line>
+              <line x1="3" y1="12" x2="3.01" y2="12"></line>
+              <line x1="3" y1="18" x2="3.01" y2="18"></line>
+            </svg>
+            Lista
+          </button>
+          <button class="view-btn" data-view="calendar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            Calendario
+          </button>
+        </div>
+        </div>
+
+        <!-- Vista Lista -->
+        <div id="festivals-list-view" class="festivals-view active">
+          <!-- User Artists Preview -->
+          <div id="user-artists" class="user-artists">
+            <h3 class="section-title">Tus Top Artistas</h3>
+            <div id="artists-list" class="artists-list"></div>
+          </div>
+
+          <!-- Festivals Grid -->
+          <div id="festivals-grid" class="festivals-grid"></div>
+        </div>
+
+        <!-- Vista Calendario -->
+        <div id="festivals-calendar-view" class="festivals-view">
+          <div class="calendar-container">
+            <div class="calendar-header">
+              <button id="prev-month" class="calendar-nav">&larr;</button>
+              <h3 id="calendar-month-title" class="calendar-title">Junio 2026</h3>
+              <button id="next-month" class="calendar-nav">&rarr;</button>
+            </div>
+            <div id="calendar-grid" class="calendar-grid"></div>
+            <div id="calendar-legend" class="calendar-legend"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Mis Artistas -->
+      <div id="tab-artists" class="tab-content">
+        <!-- Artist Search in Tab -->
+        <div class="artists-tab-search">
+          <div class="search-container">
+            <input type="text" id="artist-search-tab" class="search-input" placeholder="Buscar y agregar artista..." autocomplete="off">
+            <div id="search-results-tab" class="search-results" style="display: none;"></div>
+          </div>
+        </div>
+
+        <!-- Artists with Tour Dates -->
+        <div id="artists-tours" class="artists-tours"></div>
+      </div>
+    </section>
+
+    <!-- Error Section -->
+    <section id="error" class="error-section" style="display: none;">
+      <div class="error-content">
+        <span class="error-icon">😕</span>
+        <h2>Algo salio mal</h2>
+        <p id="error-message">Hubo un problema. Intentalo de nuevo.</p>
+        <button id="retry-btn" class="btn-primary">Intentar de nuevo</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

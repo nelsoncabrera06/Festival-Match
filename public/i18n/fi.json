@@ -1,0 +1,200 @@
+{
+    "app": {
+        "title": "Festival Match",
+        "subtitle": "Löydä ihanteellinen festivaalisi"
+    },
+    "landing": {
+        "title": "Löydä festivaalit, jotka <span class=\"highlight\">sopivat</span> musiikkimakuusi",
+        "titlePlain": "Löydä festivaalit, jotka sopivat musiikkimakuusi",
+        "subtitle": "Kirjaudu sisään, lisää suosikkiartistisi ja näytämme sinulle festivaalit, jotka sopivat parhaiten makuusi.",
+        "googleBtn": "Jatka Googlella",
+        "demoBtn": "Kokeile esimerkkiartisteilla",
+        "demoNote": "Kokeile sovellusta ilman tiliä",
+        "googleNote": "Tallenna asetuksesi ja käytä miltä tahansa laitteelta",
+        "spotifyDisabled": "Spotify-integraatio väliaikaisesti pois käytöstä",
+        "or": "tai",
+        "emailTab": "Sähköposti",
+        "registerTab": "Rekisteröidy"
+    },
+    "auth": {
+        "email": "Sähköposti",
+        "password": "Salasana",
+        "passwordConfirm": "Vahvista salasana",
+        "passwordMin": "Salasana (vähintään 6 merkkiä)",
+        "name": "Nimi (valinnainen)",
+        "login": "Kirjaudu sisään",
+        "register": "Luo tili",
+        "logout": "Kirjaudu ulos"
+    },
+    "preferences": {
+        "title": "Musiikkimakusi",
+        "subtitle": "Lisää suosikkiartistisi ja -genresi löytääksesi ihanteellisen festivaalisi",
+        "artists": "Suosikkiartistit",
+        "artistsSearch": "Hae artistia...",
+        "festivals": "Suosikkifestivaalit",
+        "festivalsSearch": "Hae festivaalia...",
+        "genres": "Suosikkigenret",
+        "saveBtn": "Tallenna ja katso festivaalit",
+        "lastfm": {
+            "title": "Last.fm-suositukset",
+            "description": "Tuo artistit Last.fm-profiilista",
+            "placeholder": "Last.fm-käyttäjänimesi",
+            "loadBtn": "Lataa"
+        }
+    },
+    "results": {
+        "title": "Tulokset",
+        "subtitle": "Suosikkiartisteittesi festivaalit ja kiertueet",
+        "editBtn": "Muokkaa asetuksia",
+        "region": "Alue",
+        "allCountries": "Kaikki maat",
+        "allCities": "Kaikki kaupungit",
+        "topArtists": "Suosikkiartistisi"
+    },
+    "regions": {
+        "europe": "Eurooppa",
+        "usa": "USA",
+        "latam": "Latinalainen Amerikka"
+    },
+    "tabs": {
+        "festivals": "Festivaalit",
+        "artists": "Artistini",
+        "admin": "Hallinta"
+    },
+    "views": {
+        "grid": "Ruudukko",
+        "table": "Lista",
+        "calendar": "Kalenteri"
+    },
+    "table": {
+        "festival": "Festivaali",
+        "location": "Sijainti",
+        "dates": "Päivämäärät",
+        "match": "Osuma",
+        "commonArtists": "Yhteisiä artisteja"
+    },
+    "festival": {
+        "lineup": "Esiintyjät",
+        "confirmed": "Vahvistettu",
+        "partial": "Osittainen",
+        "unannounced": "Ei julkistettu",
+        "hiatus": "Tauolla",
+        "noLineup": "Esiintyjäluetteloa ei julkaistua",
+        "matchArtists": "artistia, joista pidät",
+        "website": "Verkkosivusto",
+        "addFavorite": "Lisää suosikkeihin",
+        "removeFavorite": "Poista suosikeista"
+    },
+    "suggest": {
+        "btnText": "Ehdota festivaalia",
+        "notFound": "Etkö löydä festivaalia?",
+        "title": "Ehdota festivaalia",
+        "name": "Festivaalin nimi",
+        "namePlaceholder": "Esim.: Ruisrock",
+        "country": "Maa",
+        "countrySelect": "Valitse maa...",
+        "city": "Kaupunki",
+        "cityPlaceholder": "Esim.: Turku",
+        "dates": "Päivämäärät (arvio)",
+        "datesPlaceholder": "Esim.: 3.-5. heinäkuuta 2026",
+        "website": "Virallinen verkkosivusto",
+        "cancel": "Peruuta",
+        "submit": "Lähetä ehdotus",
+        "success": "Kiitos! Tarkistamme ehdotuksesi pian.",
+        "close": "Sulje"
+    },
+    "admin": {
+        "title": "Hallintapaneeli",
+        "suggestions": "Ehdotukset",
+        "festivals": "Festivaalit",
+        "users": "Käyttäjät",
+        "pending": "Odottaa",
+        "approved": "Hyväksytty",
+        "rejected": "Hylätty",
+        "all": "Kaikki",
+        "approve": "Hyväksy",
+        "reject": "Hylkää",
+        "edit": "Muokkaa",
+        "delete": "Poista",
+        "loading": "Ladataan...",
+        "noSuggestions": "Ei ehdotuksia",
+        "suggestedBy": "Ehdottaja",
+        "anonymous": "Anonyymi",
+        "festivalCount": "festivaalia",
+        "userCount": "käyttäjää"
+    },
+    "editFestival": {
+        "title": "Muokkaa festivaalia",
+        "name": "Nimi",
+        "country": "Maa",
+        "city": "Kaupunki",
+        "dates": "Päivämäärät",
+        "website": "Verkkosivusto",
+        "status": "Esiintyjäluettelon tila",
+        "save": "Tallenna muutokset",
+        "cancel": "Peruuta",
+        "success": "Festivaali päivitetty",
+        "deleteConfirm": "Poista festivaali? Tätä ei voi kumota."
+    },
+    "editUser": {
+        "title": "Muokkaa käyttäjää",
+        "email": "Sähköposti",
+        "name": "Nimi",
+        "role": "Rooli",
+        "lastfm": "Last.fm-käyttäjänimi",
+        "password": "Uusi salasana (jätä tyhjäksi säilyttääksesi)",
+        "passwordPlaceholder": "Vähintään 6 merkkiä",
+        "save": "Tallenna muutokset",
+        "cancel": "Peruuta",
+        "deleteConfirm": "Haluatko varmasti poistaa käyttäjän",
+        "deleteWarning": "Tätä ei voi kumota. Kaikki käyttäjän tiedot poistetaan.",
+        "confirmDelete": "Poista"
+    },
+    "roles": {
+        "user": "Käyttäjä",
+        "admin": "Ylläpitäjä",
+        "adminDev": "Ylläpitäjä + Kehittäjä"
+    },
+    "common": {
+        "loading": "Ladataan...",
+        "error": "Jokin meni pieleen",
+        "errorMessage": "Tapahtui virhe. Yritä uudelleen.",
+        "retry": "Yritä uudelleen",
+        "save": "Tallenna",
+        "cancel": "Peruuta",
+        "close": "Sulje",
+        "required": "pakollinen"
+    },
+    "errors": {
+        "auth_failed": "Todennusvirhe. Yritä uudelleen.",
+        "no_email": "Emme voineet saada sähköpostiasi Googlelta",
+        "generic": "Tapahtui odottamaton virhe"
+    },
+    "countries": {
+        "ES": "Espanja",
+        "DE": "Saksa",
+        "FI": "Suomi",
+        "BE": "Belgia",
+        "NL": "Alankomaat",
+        "PT": "Portugali",
+        "DK": "Tanska",
+        "PL": "Puola",
+        "HU": "Unkari",
+        "HR": "Kroatia",
+        "GB": "Iso-Britannia",
+        "US": "Yhdysvallat",
+        "AR": "Argentiina",
+        "CL": "Chile",
+        "BR": "Brasilia",
+        "MX": "Meksiko",
+        "CO": "Kolumbia",
+        "FR": "Ranska",
+        "IT": "Italia",
+        "SE": "Ruotsi",
+        "NO": "Norja",
+        "AT": "Itävalta",
+        "CH": "Sveitsi",
+        "CZ": "Tšekki",
+        "RS": "Serbia"
+    }
+}

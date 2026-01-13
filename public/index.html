@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="i18n.js"></script>
 </head>
+
 <body>
   <div class="app">
     <!-- Header -->
@@ -18,21 +21,22 @@
         <span class="logo-text">Festival Match</span>
       </div>
       <nav class="nav">
+        <!-- Language selector will be inserted by i18n.js here -->
         <div id="user-info" class="user-info" style="display: none;">
           <img id="user-avatar" class="user-avatar" src="" alt="Avatar">
           <span id="user-name" class="user-name"></span>
         </div>
-        <button id="logout-btn" class="btn-logout" style="display: none;">Cerrar sesion</button>
+        <button id="logout-btn" class="btn-logout" style="display: none;" data-i18n="auth.logout">Cerrar sesion</button>
       </nav>
     </header>
 
     <!-- Landing Section -->
     <section id="landing" class="landing">
       <div class="landing-content">
-        <h1 class="landing-title">
+        <h1 class="landing-title" data-i18n="landing.title">
           Descubre que festivales <span class="highlight">matchean</span> con tu musica
         </h1>
-        <p class="landing-subtitle">
+        <p class="landing-subtitle" data-i18n="landing.subtitle">
           Inicia sesion, agrega tus artistas favoritos y te mostraremos los festivales europeos
           con los que mas conectas.
         </p>
@@ -40,22 +44,26 @@
         <!-- Auth Tabs -->
         <div class="auth-tabs">
           <button class="auth-tab active" data-auth="google">Google</button>
-          <button class="auth-tab" data-auth="login">Email</button>
-          <button class="auth-tab" data-auth="register">Registrarse</button>
+          <button class="auth-tab" data-auth="login" data-i18n="landing.emailTab">Email</button>
+          <button class="auth-tab" data-auth="register" data-i18n="landing.registerTab">Registrarse</button>
         </div>
 
         <!-- Google Login -->
         <div id="auth-google" class="auth-form active">
           <button id="google-btn" class="btn-google">
             <svg class="google-icon" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              <path fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+              <path fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+              <path fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+              <path fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
             </svg>
-            Continuar con Google
+            <span data-i18n="landing.googleBtn">Continuar con Google</span>
           </button>
-          <p class="landing-note">
+          <p class="landing-note" data-i18n="landing.googleNote">
             Guarda tus preferencias y accede desde cualquier dispositivo
           </p>
         </div>
@@ -64,13 +72,15 @@
         <div id="auth-login" class="auth-form">
           <form id="login-form" class="email-auth-form">
             <div class="form-group">
-              <input type="email" id="login-email" class="form-input" placeholder="Email" required>
+              <input type="email" id="login-email" class="form-input" data-i18n-placeholder="auth.email"
+                placeholder="Email" required>
             </div>
             <div class="form-group">
-              <input type="password" id="login-password" class="form-input" placeholder="Contraseña" required>
+              <input type="password" id="login-password" class="form-input" data-i18n-placeholder="auth.password"
+                placeholder="Contraseña" required>
             </div>
             <div id="login-error" class="auth-error"></div>
-            <button type="submit" class="btn-primary btn-full">Iniciar sesion</button>
+            <button type="submit" class="btn-primary btn-full" data-i18n="auth.login">Iniciar sesion</button>
           </form>
         </div>
 
@@ -78,39 +88,44 @@
         <div id="auth-register" class="auth-form">
           <form id="register-form" class="email-auth-form">
             <div class="form-group">
-              <input type="text" id="register-name" class="form-input" placeholder="Nombre (opcional)">
+              <input type="text" id="register-name" class="form-input" data-i18n-placeholder="auth.name"
+                placeholder="Nombre (opcional)">
             </div>
             <div class="form-group">
-              <input type="email" id="register-email" class="form-input" placeholder="Email" required>
+              <input type="email" id="register-email" class="form-input" data-i18n-placeholder="auth.email"
+                placeholder="Email" required>
             </div>
             <div class="form-group">
-              <input type="password" id="register-password" class="form-input" placeholder="Contraseña (min. 6 caracteres)" required minlength="6">
+              <input type="password" id="register-password" class="form-input" data-i18n-placeholder="auth.passwordMin"
+                placeholder="Contraseña (min. 6 caracteres)" required minlength="6">
             </div>
             <div class="form-group">
-              <input type="password" id="register-password-confirm" class="form-input" placeholder="Confirmar contraseña" required minlength="6">
+              <input type="password" id="register-password-confirm" class="form-input"
+                data-i18n-placeholder="auth.passwordConfirm" placeholder="Confirmar contraseña" required minlength="6">
             </div>
             <div id="register-error" class="auth-error"></div>
-            <button type="submit" class="btn-primary btn-full">Crear cuenta</button>
+            <button type="submit" class="btn-primary btn-full" data-i18n="auth.register">Crear cuenta</button>
           </form>
         </div>
 
         <div class="divider">
-          <span>o</span>
+          <span data-i18n="landing.or">o</span>
         </div>
 
-        <button id="demo-btn" class="btn-demo">
+        <button id="demo-btn" class="btn-demo" data-i18n="landing.demoBtn">
           Probar con artistas de ejemplo
         </button>
-        <p class="landing-note">
+        <p class="landing-note" data-i18n="landing.demoNote">
           Prueba la app sin crear cuenta
         </p>
 
         <!-- Spotify disabled notice -->
         <div class="spotify-disabled">
           <svg class="spotify-icon-small" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+            <path
+              d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
           </svg>
-          <span>Integracion con Spotify pausada temporalmente</span>
+          <span data-i18n="landing.spotifyDisabled">Integracion con Spotify pausada temporalmente</span>
         </div>
       </div>
       <div class="landing-visual">
@@ -126,21 +141,23 @@
     <!-- Loading Section -->
     <section id="loading" class="loading" style="display: none;">
       <div class="loader"></div>
-      <p class="loading-text">Cargando...</p>
+      <p class="loading-text" data-i18n="common.loading">Cargando...</p>
     </section>
 
     <!-- Preferences Section (logged in users) -->
     <section id="preferences" class="preferences" style="display: none;">
       <div class="preferences-header">
-        <h2 class="preferences-title">Tus Preferencias Musicales</h2>
-        <p class="preferences-subtitle">Agrega tus artistas y generos favoritos para encontrar tu festival ideal</p>
+        <h2 class="preferences-title" data-i18n="preferences.title">Tus Preferencias Musicales</h2>
+        <p class="preferences-subtitle" data-i18n="preferences.subtitle">Agrega tus artistas y generos favoritos para
+          encontrar tu festival ideal</p>
       </div>
 
       <!-- Artist Search -->
       <div class="preference-section">
-        <h3 class="section-title">Artistas Favoritos</h3>
+        <h3 class="section-title" data-i18n="preferences.artists">Artistas Favoritos</h3>
         <div class="search-container">
-          <input type="text" id="artist-search" class="search-input" placeholder="Buscar artista..." autocomplete="off">
+          <input type="text" id="artist-search" class="search-input" data-i18n-placeholder="preferences.artistsSearch"
+            placeholder="Buscar artista..." autocomplete="off">
           <div id="search-results" class="search-results" style="display: none;"></div>
         </div>
         <div id="my-artists" class="tags-container"></div>
@@ -148,9 +165,10 @@
 
       <!-- Festival Favorites -->
       <div class="preference-section">
-        <h3 class="section-title">Festivales Favoritos</h3>
+        <h3 class="section-title" data-i18n="preferences.festivals">Festivales Favoritos</h3>
         <div class="search-container">
-          <input type="text" id="festival-search" class="search-input" placeholder="Buscar festival..." autocomplete="off">
+          <input type="text" id="festival-search" class="search-input"
+            data-i18n-placeholder="preferences.festivalsSearch" placeholder="Buscar festival..." autocomplete="off">
           <div id="festival-search-results" class="search-results" style="display: none;"></div>
         </div>
         <div id="my-festivals" class="tags-container"></div>
@@ -158,7 +176,7 @@
 
       <!-- Genre Selection -->
       <div class="preference-section">
-        <h3 class="section-title">Generos Favoritos</h3>
+        <h3 class="section-title" data-i18n="preferences.genres">Generos Favoritos</h3>
         <div id="genre-selector" class="genre-selector"></div>
         <div id="my-genres" class="tags-container"></div>
       </div>
@@ -175,7 +193,8 @@
         <div class="collapsible-content" id="lastfm-content">
           <p class="section-description">Importa artistas desde tu perfil de Last.fm</p>
           <div class="lastfm-connect">
-            <input type="text" id="lastfm-username" class="search-input" placeholder="Tu usuario de Last.fm" autocomplete="off">
+            <input type="text" id="lastfm-username" class="search-input" placeholder="Tu usuario de Last.fm"
+              autocomplete="off">
             <button id="lastfm-load-btn" class="btn-lastfm">Cargar</button>
           </div>
           <div id="lastfm-suggestions" class="suggestions-container"></div>
@@ -184,7 +203,7 @@
 
       <!-- Action Buttons -->
       <div class="preferences-actions">
-        <button id="view-festivals-btn" class="btn-primary">
+        <button id="view-festivals-btn" class="btn-primary" data-i18n="preferences.saveBtn">
           Guardar y ver festivales
         </button>
       </div>
@@ -193,9 +212,9 @@
     <!-- Results Section -->
     <section id="results" class="results" style="display: none;">
       <div class="results-header">
-        <h2 class="results-title">Tus Resultados</h2>
-        <p class="results-subtitle">Festivales y giras de tus artistas favoritos</p>
-        <button id="edit-preferences-btn" class="btn-secondary">Editar preferencias</button>
+        <h2 class="results-title" data-i18n="results.title">Tus Resultados</h2>
+        <p class="results-subtitle" data-i18n="results.subtitle">Festivales y giras de tus artistas favoritos</p>
+        <button id="edit-preferences-btn" class="btn-secondary" data-i18n="results.editBtn">Editar preferencias</button>
       </div>
 
       <!-- Global Region Filter -->
@@ -225,9 +244,9 @@
 
       <!-- Tabs -->
       <div class="tabs-container">
-        <button class="tab active" data-tab="festivals">Festivales</button>
-        <button class="tab" data-tab="artists">Mis Artistas</button>
-        <button class="tab tab-admin" data-tab="admin" style="display: none;">Admin</button>
+        <button class="tab active" data-tab="festivals" data-i18n="tabs.festivals">Festivales</button>
+        <button class="tab" data-tab="artists" data-i18n="tabs.artists">Mis Artistas</button>
+        <button class="tab tab-admin" data-tab="admin" style="display: none;" data-i18n="tabs.admin">Admin</button>
       </div>
 
       <!-- Tab: Festivales -->
@@ -236,43 +255,43 @@
         <div class="festivals-toolbar">
           <!-- Sub-tabs: Tarjetas / Tabla / Calendario -->
           <div class="view-toggle">
-          <button class="view-btn active" data-view="grid">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="7" height="7"></rect>
-              <rect x="14" y="3" width="7" height="7"></rect>
-              <rect x="14" y="14" width="7" height="7"></rect>
-              <rect x="3" y="14" width="7" height="7"></rect>
-            </svg>
-            Grid
-          </button>
-          <button class="view-btn" data-view="table">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="8" y1="6" x2="21" y2="6"></line>
-              <line x1="8" y1="12" x2="21" y2="12"></line>
-              <line x1="8" y1="18" x2="21" y2="18"></line>
-              <line x1="3" y1="6" x2="3.01" y2="6"></line>
-              <line x1="3" y1="12" x2="3.01" y2="12"></line>
-              <line x1="3" y1="18" x2="3.01" y2="18"></line>
-            </svg>
-            Lista
-          </button>
-          <button class="view-btn" data-view="calendar">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-              <line x1="16" y1="2" x2="16" y2="6"></line>
-              <line x1="8" y1="2" x2="8" y2="6"></line>
-              <line x1="3" y1="10" x2="21" y2="10"></line>
-            </svg>
-            Calendario
-          </button>
-        </div>
+            <button class="view-btn active" data-view="grid">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+              Grid
+            </button>
+            <button class="view-btn" data-view="table">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="8" y1="6" x2="21" y2="6"></line>
+                <line x1="8" y1="12" x2="21" y2="12"></line>
+                <line x1="8" y1="18" x2="21" y2="18"></line>
+                <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                <line x1="3" y1="18" x2="3.01" y2="18"></line>
+              </svg>
+              Lista
+            </button>
+            <button class="view-btn" data-view="calendar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+              Calendario
+            </button>
+          </div>
         </div>
 
         <!-- Vista Lista -->
         <div id="festivals-list-view" class="festivals-view active">
           <!-- User Artists Preview -->
           <div id="user-artists" class="user-artists">
-            <h3 class="section-title">Tus Top Artistas</h3>
+            <h3 class="section-title" data-i18n="results.topArtists">Tus Top Artistas</h3>
             <div id="artists-list" class="artists-list"></div>
           </div>
 
@@ -281,8 +300,9 @@
 
           <!-- Suggest Festival -->
           <div class="suggest-festival-cta">
-            <p>¿No encuentras un festival?</p>
-            <button id="suggest-festival-btn" class="btn-suggest">Sugerir un festival</button>
+            <p data-i18n="suggest.notFound">¿No encuentras un festival?</p>
+            <button id="suggest-festival-btn" class="btn-suggest" data-i18n="suggest.btnText">Sugerir un
+              festival</button>
           </div>
         </div>
 
@@ -326,7 +346,8 @@
         <!-- Artist Search in Tab -->
         <div class="artists-tab-search">
           <div class="search-container">
-            <input type="text" id="artist-search-tab" class="search-input" placeholder="Buscar y agregar artista..." autocomplete="off">
+            <input type="text" id="artist-search-tab" class="search-input" placeholder="Buscar y agregar artista..."
+              autocomplete="off">
             <div id="search-results-tab" class="search-results" style="display: none;"></div>
           </div>
         </div>
@@ -415,9 +436,9 @@
     <section id="error" class="error-section" style="display: none;">
       <div class="error-content">
         <span class="error-icon">😕</span>
-        <h2>Algo salio mal</h2>
-        <p id="error-message">Hubo un problema. Intentalo de nuevo.</p>
-        <button id="retry-btn" class="btn-primary">Intentar de nuevo</button>
+        <h2 data-i18n="common.error">Algo salio mal</h2>
+        <p id="error-message" data-i18n="common.errorMessage">Hubo un problema. Intentalo de nuevo.</p>
+        <button id="retry-btn" class="btn-primary" data-i18n="common.retry">Intentar de nuevo</button>
       </div>
     </section>
 
@@ -637,4 +658,5 @@
 
   <script src="app.js"></script>
 </body>
+
 </html>

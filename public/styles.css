@@ -276,9 +276,12 @@ body {
 }
 
 @keyframes float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0) rotate(0deg);
   }
+
   50% {
     transform: translateY(-20px) rotate(5deg);
   }
@@ -784,6 +787,76 @@ body {
   font-size: 14px;
   font-weight: 500;
   color: var(--text-secondary);
+}
+
+/* ==========================================
+   Language Selector
+   ========================================== */
+
+.language-selector {
+  position: relative;
+}
+
+.lang-toggle {
+  background: transparent;
+  border: 1px solid var(--text-muted);
+  padding: 6px 10px;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 20px;
+  transition: all 0.2s ease;
+  color: var(--text-secondary);
+}
+
+.lang-toggle:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+.lang-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  background: var(--bg-elevated);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: all 0.2s ease;
+  z-index: 100;
+  min-width: 120px;
+}
+
+.lang-dropdown.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.lang-option {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lang-option:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.lang-option.active {
+  color: var(--spotify-green);
+  font-weight: 500;
 }
 
 /* ==========================================

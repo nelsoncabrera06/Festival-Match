@@ -1,0 +1,200 @@
+{
+    "app": {
+        "title": "Festival Match",
+        "subtitle": "Find your ideal festival"
+    },
+    "landing": {
+        "title": "Discover which festivals <span class=\"highlight\">match</span> your music",
+        "titlePlain": "Discover which festivals match your music",
+        "subtitle": "Sign in, add your favorite artists and we'll show you the festivals that best connect with your taste.",
+        "googleBtn": "Continue with Google",
+        "demoBtn": "Try with example artists",
+        "demoNote": "Try the app without creating an account",
+        "googleNote": "Save your preferences and access from any device",
+        "spotifyDisabled": "Spotify integration temporarily paused",
+        "or": "or",
+        "emailTab": "Email",
+        "registerTab": "Register"
+    },
+    "auth": {
+        "email": "Email",
+        "password": "Password",
+        "passwordConfirm": "Confirm password",
+        "passwordMin": "Password (min. 6 characters)",
+        "name": "Name (optional)",
+        "login": "Sign in",
+        "register": "Create account",
+        "logout": "Sign out"
+    },
+    "preferences": {
+        "title": "Your Music Preferences",
+        "subtitle": "Add your favorite artists and genres to find your ideal festival",
+        "artists": "Favorite Artists",
+        "artistsSearch": "Search artist...",
+        "festivals": "Favorite Festivals",
+        "festivalsSearch": "Search festival...",
+        "genres": "Favorite Genres",
+        "saveBtn": "Save and view festivals",
+        "lastfm": {
+            "title": "Last.fm Suggestions",
+            "description": "Import artists from your Last.fm profile",
+            "placeholder": "Your Last.fm username",
+            "loadBtn": "Load"
+        }
+    },
+    "results": {
+        "title": "Your Results",
+        "subtitle": "Festivals and tours from your favorite artists",
+        "editBtn": "Edit preferences",
+        "region": "Region",
+        "allCountries": "All countries",
+        "allCities": "All cities",
+        "topArtists": "Your Top Artists"
+    },
+    "regions": {
+        "europe": "Europe",
+        "usa": "USA",
+        "latam": "Latin America"
+    },
+    "tabs": {
+        "festivals": "Festivals",
+        "artists": "My Artists",
+        "admin": "Admin"
+    },
+    "views": {
+        "grid": "Grid",
+        "table": "List",
+        "calendar": "Calendar"
+    },
+    "table": {
+        "festival": "Festival",
+        "location": "Location",
+        "dates": "Dates",
+        "match": "Match",
+        "commonArtists": "Artists in common"
+    },
+    "festival": {
+        "lineup": "Lineup",
+        "confirmed": "Confirmed",
+        "partial": "Partial",
+        "unannounced": "Not announced",
+        "hiatus": "On hiatus",
+        "noLineup": "Lineup not announced",
+        "matchArtists": "artists you like",
+        "website": "Website",
+        "addFavorite": "Add to favorites",
+        "removeFavorite": "Remove from favorites"
+    },
+    "suggest": {
+        "btnText": "Suggest a festival",
+        "notFound": "Can't find a festival?",
+        "title": "Suggest a Festival",
+        "name": "Festival name",
+        "namePlaceholder": "E.g.: Ultra Music Festival",
+        "country": "Country",
+        "countrySelect": "Select country...",
+        "city": "City",
+        "cityPlaceholder": "E.g.: Miami",
+        "dates": "Dates (approximate)",
+        "datesPlaceholder": "E.g.: March 28-30, 2026",
+        "website": "Official website",
+        "cancel": "Cancel",
+        "submit": "Submit suggestion",
+        "success": "Thank you! We'll review your suggestion soon.",
+        "close": "Close"
+    },
+    "admin": {
+        "title": "Admin Panel",
+        "suggestions": "Suggestions",
+        "festivals": "Festivals",
+        "users": "Users",
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "all": "All",
+        "approve": "Approve",
+        "reject": "Reject",
+        "edit": "Edit",
+        "delete": "Delete",
+        "loading": "Loading...",
+        "noSuggestions": "No suggestions",
+        "suggestedBy": "Suggested by",
+        "anonymous": "Anonymous",
+        "festivalCount": "festivals",
+        "userCount": "users"
+    },
+    "editFestival": {
+        "title": "Edit Festival",
+        "name": "Name",
+        "country": "Country",
+        "city": "City",
+        "dates": "Dates",
+        "website": "Website",
+        "status": "Lineup Status",
+        "save": "Save changes",
+        "cancel": "Cancel",
+        "success": "Festival updated successfully",
+        "deleteConfirm": "Delete this festival? This action cannot be undone."
+    },
+    "editUser": {
+        "title": "Edit User",
+        "email": "Email",
+        "name": "Name",
+        "role": "Role",
+        "lastfm": "Last.fm Username",
+        "password": "New Password (leave empty to keep current)",
+        "passwordPlaceholder": "Minimum 6 characters",
+        "save": "Save changes",
+        "cancel": "Cancel",
+        "deleteConfirm": "Are you sure you want to delete",
+        "deleteWarning": "This action cannot be undone. All user data will be deleted.",
+        "confirmDelete": "Delete"
+    },
+    "roles": {
+        "user": "User",
+        "admin": "Admin",
+        "adminDev": "Admin + Dev"
+    },
+    "common": {
+        "loading": "Loading...",
+        "error": "Something went wrong",
+        "errorMessage": "There was a problem. Please try again.",
+        "retry": "Try again",
+        "save": "Save",
+        "cancel": "Cancel",
+        "close": "Close",
+        "required": "required"
+    },
+    "errors": {
+        "auth_failed": "Authentication error. Please try again.",
+        "no_email": "We couldn't get your email from Google",
+        "generic": "An unexpected error occurred"
+    },
+    "countries": {
+        "ES": "Spain",
+        "DE": "Germany",
+        "FI": "Finland",
+        "BE": "Belgium",
+        "NL": "Netherlands",
+        "PT": "Portugal",
+        "DK": "Denmark",
+        "PL": "Poland",
+        "HU": "Hungary",
+        "HR": "Croatia",
+        "GB": "United Kingdom",
+        "US": "United States",
+        "AR": "Argentina",
+        "CL": "Chile",
+        "BR": "Brazil",
+        "MX": "Mexico",
+        "CO": "Colombia",
+        "FR": "France",
+        "IT": "Italy",
+        "SE": "Sweden",
+        "NO": "Norway",
+        "AT": "Austria",
+        "CH": "Switzerland",
+        "CZ": "Czech Republic",
+        "RS": "Serbia"
+    }
+}

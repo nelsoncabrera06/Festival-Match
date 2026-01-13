@@ -1,0 +1,200 @@
+{
+    "app": {
+        "title": "Festival Match",
+        "subtitle": "Encuentra tu festival ideal"
+    },
+    "landing": {
+        "title": "Descubre que festivales <span class=\"highlight\">matchean</span> con tu música",
+        "titlePlain": "Descubre que festivales matchean con tu música",
+        "subtitle": "Inicia sesión, agrega tus artistas favoritos y te mostraremos los festivales con los que más conectas.",
+        "googleBtn": "Continuar con Google",
+        "demoBtn": "Probar con artistas de ejemplo",
+        "demoNote": "Prueba la app sin crear cuenta",
+        "googleNote": "Guarda tus preferencias y accede desde cualquier dispositivo",
+        "spotifyDisabled": "Integración con Spotify pausada temporalmente",
+        "or": "o",
+        "emailTab": "Email",
+        "registerTab": "Registrarse"
+    },
+    "auth": {
+        "email": "Email",
+        "password": "Contraseña",
+        "passwordConfirm": "Confirmar contraseña",
+        "passwordMin": "Contraseña (mín. 6 caracteres)",
+        "name": "Nombre (opcional)",
+        "login": "Iniciar sesión",
+        "register": "Crear cuenta",
+        "logout": "Cerrar sesión"
+    },
+    "preferences": {
+        "title": "Tus Preferencias Musicales",
+        "subtitle": "Agrega tus artistas y géneros favoritos para encontrar tu festival ideal",
+        "artists": "Artistas Favoritos",
+        "artistsSearch": "Buscar artista...",
+        "festivals": "Festivales Favoritos",
+        "festivalsSearch": "Buscar festival...",
+        "genres": "Géneros Favoritos",
+        "saveBtn": "Guardar y ver festivales",
+        "lastfm": {
+            "title": "Sugerencias de Last.fm",
+            "description": "Importa artistas desde tu perfil de Last.fm",
+            "placeholder": "Tu usuario de Last.fm",
+            "loadBtn": "Cargar"
+        }
+    },
+    "results": {
+        "title": "Tus Resultados",
+        "subtitle": "Festivales y giras de tus artistas favoritos",
+        "editBtn": "Editar preferencias",
+        "region": "Región",
+        "allCountries": "Todos los países",
+        "allCities": "Todas las ciudades",
+        "topArtists": "Tus Top Artistas"
+    },
+    "regions": {
+        "europe": "Europa",
+        "usa": "USA",
+        "latam": "Latinoamérica"
+    },
+    "tabs": {
+        "festivals": "Festivales",
+        "artists": "Mis Artistas",
+        "admin": "Admin"
+    },
+    "views": {
+        "grid": "Grid",
+        "table": "Lista",
+        "calendar": "Calendario"
+    },
+    "table": {
+        "festival": "Festival",
+        "location": "Ubicación",
+        "dates": "Fechas",
+        "match": "Match",
+        "commonArtists": "Artistas en común"
+    },
+    "festival": {
+        "lineup": "Lineup",
+        "confirmed": "Confirmado",
+        "partial": "Parcial",
+        "unannounced": "Sin anunciar",
+        "hiatus": "En pausa",
+        "noLineup": "Lineup no anunciado",
+        "matchArtists": "artistas que te gustan",
+        "website": "Sitio web",
+        "addFavorite": "Agregar a favoritos",
+        "removeFavorite": "Quitar de favoritos"
+    },
+    "suggest": {
+        "btnText": "Sugerir un festival",
+        "notFound": "¿No encuentras un festival?",
+        "title": "Sugerir un Festival",
+        "name": "Nombre del festival",
+        "namePlaceholder": "Ej: Ultra Music Festival",
+        "country": "País",
+        "countrySelect": "Seleccionar país...",
+        "city": "Ciudad",
+        "cityPlaceholder": "Ej: Miami",
+        "dates": "Fechas (aproximadas)",
+        "datesPlaceholder": "Ej: 28-30 Marzo 2026",
+        "website": "Sitio web oficial",
+        "cancel": "Cancelar",
+        "submit": "Enviar sugerencia",
+        "success": "¡Gracias! Revisaremos tu sugerencia pronto.",
+        "close": "Cerrar"
+    },
+    "admin": {
+        "title": "Panel de Administración",
+        "suggestions": "Sugerencias",
+        "festivals": "Festivales",
+        "users": "Usuarios",
+        "pending": "Pendientes",
+        "approved": "Aprobadas",
+        "rejected": "Rechazadas",
+        "all": "Todas",
+        "approve": "Aprobar",
+        "reject": "Rechazar",
+        "edit": "Editar",
+        "delete": "Eliminar",
+        "loading": "Cargando...",
+        "noSuggestions": "No hay sugerencias",
+        "suggestedBy": "Sugerido por",
+        "anonymous": "Anónimo",
+        "festivalCount": "festivales",
+        "userCount": "usuarios"
+    },
+    "editFestival": {
+        "title": "Editar Festival",
+        "name": "Nombre",
+        "country": "País",
+        "city": "Ciudad",
+        "dates": "Fechas",
+        "website": "Website",
+        "status": "Estado del Lineup",
+        "save": "Guardar cambios",
+        "cancel": "Cancelar",
+        "success": "Festival actualizado correctamente",
+        "deleteConfirm": "¿Eliminar el festival? Esta acción no se puede deshacer."
+    },
+    "editUser": {
+        "title": "Editar Usuario",
+        "email": "Email",
+        "name": "Nombre",
+        "role": "Rol",
+        "lastfm": "Last.fm Username",
+        "password": "Nueva Contraseña (dejar vacío para no cambiar)",
+        "passwordPlaceholder": "Mínimo 6 caracteres",
+        "save": "Guardar cambios",
+        "cancel": "Cancelar",
+        "deleteConfirm": "¿Estás seguro que quieres eliminar a",
+        "deleteWarning": "Esta acción no se puede deshacer. Se eliminarán todos los datos del usuario.",
+        "confirmDelete": "Eliminar"
+    },
+    "roles": {
+        "user": "Usuario",
+        "admin": "Admin",
+        "adminDev": "Admin + Dev"
+    },
+    "common": {
+        "loading": "Cargando...",
+        "error": "Algo salió mal",
+        "errorMessage": "Hubo un problema. Inténtalo de nuevo.",
+        "retry": "Intentar de nuevo",
+        "save": "Guardar",
+        "cancel": "Cancelar",
+        "close": "Cerrar",
+        "required": "requerido"
+    },
+    "errors": {
+        "auth_failed": "Error de autenticación. Intenta de nuevo.",
+        "no_email": "No pudimos obtener tu email de Google",
+        "generic": "Ocurrió un error inesperado"
+    },
+    "countries": {
+        "ES": "España",
+        "DE": "Alemania",
+        "FI": "Finlandia",
+        "BE": "Bélgica",
+        "NL": "Países Bajos",
+        "PT": "Portugal",
+        "DK": "Dinamarca",
+        "PL": "Polonia",
+        "HU": "Hungría",
+        "HR": "Croacia",
+        "GB": "Reino Unido",
+        "US": "Estados Unidos",
+        "AR": "Argentina",
+        "CL": "Chile",
+        "BR": "Brasil",
+        "MX": "México",
+        "CO": "Colombia",
+        "FR": "Francia",
+        "IT": "Italia",
+        "SE": "Suecia",
+        "NO": "Noruega",
+        "AT": "Austria",
+        "CH": "Suiza",
+        "CZ": "República Checa",
+        "RS": "Serbia"
+    }
+}

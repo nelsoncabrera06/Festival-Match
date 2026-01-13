@@ -79,6 +79,11 @@ async function updateCurrentYear() {
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
+  // Inicializar sistema de internacionalizacion
+  if (window.I18N) {
+    await I18N.init();
+  }
+
   // Obtener año actual del servidor y actualizar título
   await updateCurrentYear();
 
@@ -105,6 +110,9 @@ async function init() {
 
   // Event listeners
   setupEventListeners();
+
+  // Escuchar cambios de idioma para re-renderizar contenido dinamico
+  window.addEventListener('languageChanged', handleLanguageChange);
 }
 
 function cacheElements() {
@@ -1260,9 +1268,9 @@ async function searchArtists(query) {
         <div class="search-result-item" data-id="${artist.id}" data-name="${escapeHtml(artist.name)}">
           <div class="search-result-name">${escapeHtml(artist.name)}</div>
           ${artist.disambiguation || artist.country
-            ? `<div class="search-result-info">${escapeHtml(artist.disambiguation || '')} ${artist.country ? `(${artist.country})` : ''}</div>`
-            : ''
-          }
+          ? `<div class="search-result-info">${escapeHtml(artist.disambiguation || '')} ${artist.country ? `(${artist.country})` : ''}</div>`
+          : ''
+        }
         </div>
       `)
       .join('');
@@ -1777,20 +1785,20 @@ function renderFestivalsGrid(festivals) {
           <div class="artists-common">
             <p class="artists-common-title">
               ${festival.matchedArtists > 0
-                ? `${festival.matchedArtists} artista${festival.matchedArtists > 1 ? 's' : ''} en comun:`
-                : 'Sin artistas en comun'}
+          ? `${festival.matchedArtists} artista${festival.matchedArtists > 1 ? 's' : ''} en comun:`
+          : 'Sin artistas en comun'}
             </p>
             ${festival.artistsInCommon.length > 0
-              ? `<div class="artists-common-list">
+          ? `<div class="artists-common-list">
                   ${festival.artistsInCommon.slice(0, 8).map(artist =>
-                    `<span class="artist-common-tag">${escapeHtml(artist)}</span>`
-                  ).join('')}
+            `<span class="artist-common-tag">${escapeHtml(artist)}</span>`
+          ).join('')}
                   ${festival.artistsInCommon.length > 8
-                    ? `<span class="artist-common-tag">+${festival.artistsInCommon.length - 8}</span>`
-                    : ''}
+            ? `<span class="artist-common-tag">+${festival.artistsInCommon.length - 8}</span>`
+            : ''}
                 </div>`
-              : '<p class="no-match">Quizas descubras nuevos artistas</p>'
-            }
+          : '<p class="no-match">Quizas descubras nuevos artistas</p>'
+        }
           </div>
           `}
 
@@ -1833,7 +1841,7 @@ function renderFestivalsTable(festivals) {
       // Mostrar hasta 3 artistas en comun
       const artistsPreview = festival.artistsInCommon && festival.artistsInCommon.length > 0
         ? festival.artistsInCommon.slice(0, 3).map(a => escapeHtml(a)).join(', ') +
-          (festival.artistsInCommon.length > 3 ? ` +${festival.artistsInCommon.length - 3}` : '')
+        (festival.artistsInCommon.length > 3 ? ` +${festival.artistsInCommon.length - 3}` : '')
         : '-';
 
       return `
@@ -2136,9 +2144,9 @@ function renderCalendar() {
         <div class="calendar-day-number">${day}</div>
         <div class="calendar-events">
           ${dayFestivals.slice(0, 3).map(f => {
-            const matchClass = getMatchClass(f.matchPercentage, f.lineupStatus);
-            const flag = getCountryFlag(f.country);
-            return `
+      const matchClass = getMatchClass(f.matchPercentage, f.lineupStatus);
+      const flag = getCountryFlag(f.country);
+      return `
               <a href="${f.website}" target="_blank" rel="noopener"
                  class="calendar-event ${matchClass}"
                  title="${f.name} - ${f.location}">
@@ -2146,7 +2154,7 @@ function renderCalendar() {
                 <span class="calendar-event-location">${flag} ${f.location}</span>
               </a>
             `;
-          }).join('')}
+    }).join('')}
           ${dayFestivals.length > 3 ? `<span class="calendar-event low-match">+${dayFestivals.length - 3} más</span>` : ''}
         </div>
       </div>
@@ -2349,9 +2357,9 @@ async function searchArtistsForTab(query) {
         <div class="search-result-item" data-id="${artist.id}" data-name="${escapeHtml(artist.name)}">
           <div class="search-result-name">${escapeHtml(artist.name)}</div>
           ${artist.disambiguation || artist.country
-            ? `<div class="search-result-info">${escapeHtml(artist.disambiguation || '')} ${artist.country ? `(${artist.country})` : ''}</div>`
-            : ''
-          }
+          ? `<div class="search-result-info">${escapeHtml(artist.disambiguation || '')} ${artist.country ? `(${artist.country})` : ''}</div>`
+          : ''
+        }
         </div>
       `)
       .join('');
@@ -2699,6 +2707,16 @@ function showError(message) {
 }
 
 function getErrorMessage(error) {
+  // Usar traducciones si i18n esta disponible
+  if (window.t) {
+    const key = `errors.${error}`;
+    const translated = t(key);
+    if (translated !== key) {
+      return translated;
+    }
+    return t('errors.generic');
+  }
+  // Fallback sin i18n
   const messages = {
     'access_denied': 'Acceso denegado. Necesitas autorizar la aplicacion.',
     'auth_failed': 'Error de autenticacion. Intentalo de nuevo.',
@@ -2721,3 +2739,42 @@ function escapeHtml(text) {
   div.textContent = text;
   return div.innerHTML;
 }
+
+// ==========================================
+// Manejo de cambio de idioma
+// ==========================================
+
+function handleLanguageChange(event) {
+  console.log('Language changed to:', event.detail.lang);
+
+  // Re-renderizar contenido dinamico que no tiene data-i18n
+  // (porque se genera desde JavaScript)
+
+  // Si hay festivales cargados, re-renderizar
+  if (festivalsData.length > 0) {
+    renderFestivals(festivalsData);
+    renderFestivalsTable(festivalsData);
+  }
+
+  // Re-renderizar tours de artistas si existen
+  if (Object.keys(artistTourData).length > 0) {
+    renderArtistsTours();
+  }
+
+  // Re-renderizar artistas del usuario
+  if (myArtists.length > 0) {
+    renderMyArtists();
+    renderArtistsList();
+  }
+
+  // Re-renderizar generos
+  if (myGenres.length > 0) {
+    renderMyGenres();
+  }
+
+  // Re-renderizar festivales favoritos
+  if (myFavoriteFestivals.length > 0) {
+    renderMyFestivals();
+  }
+}
+

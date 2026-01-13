@@ -86,6 +86,9 @@
             <div class="form-group">
               <input type="password" id="register-password" class="form-input" placeholder="Contraseña (min. 6 caracteres)" required minlength="6">
             </div>
+            <div class="form-group">
+              <input type="password" id="register-password-confirm" class="form-input" placeholder="Confirmar contraseña" required minlength="6">
+            </div>
             <div id="register-error" class="auth-error"></div>
             <button type="submit" class="btn-primary btn-full">Crear cuenta</button>
           </form>
@@ -231,9 +234,18 @@
       <div id="tab-festivals" class="tab-content active">
         <!-- Toolbar: View Toggle -->
         <div class="festivals-toolbar">
-          <!-- Sub-tabs: Lista / Calendario -->
+          <!-- Sub-tabs: Tarjetas / Tabla / Calendario -->
           <div class="view-toggle">
-          <button class="view-btn active" data-view="list">
+          <button class="view-btn active" data-view="grid">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            Grid
+          </button>
+          <button class="view-btn" data-view="table">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="8" y1="6" x2="21" y2="6"></line>
               <line x1="8" y1="12" x2="21" y2="12"></line>
@@ -274,6 +286,27 @@
           </div>
         </div>
 
+        <!-- Vista Tabla Compacta -->
+        <div id="festivals-table-view" class="festivals-view">
+          <div class="festivals-table-container">
+            <table class="festivals-table">
+              <thead>
+                <tr>
+                  <th>Festival</th>
+                  <th>Ubicacion</th>
+                  <th>Fechas</th>
+                  <th>Match</th>
+                  <th>Artistas en comun</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="festivals-table-tbody">
+                <!-- Filas se cargan dinamicamente -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- Vista Calendario -->
         <div id="festivals-calendar-view" class="festivals-view">
           <div class="calendar-container">
@@ -311,6 +344,7 @@
             <div class="admin-tabs">
               <button class="admin-tab-btn active" data-admin-tab="suggestions">Sugerencias</button>
               <button class="admin-tab-btn" data-admin-tab="festivals">Festivales</button>
+              <button class="admin-tab-btn" data-admin-tab="users">Usuarios</button>
             </div>
           </div>
 
@@ -344,6 +378,30 @@
                   </tr>
                 </thead>
                 <tbody id="admin-festivals-tbody">
+                  <!-- Filas se cargan dinamicamente -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Seccion: Usuarios -->
+          <div id="admin-users-section" class="admin-section" style="display: none;">
+            <div class="admin-users-header">
+              <span id="admin-users-count">0 usuarios</span>
+            </div>
+            <div id="admin-users-table-container">
+              <table class="admin-users-table">
+                <thead>
+                  <tr>
+                    <th>Email</th>
+                    <th>Nombre</th>
+                    <th>Rol</th>
+                    <th>Last.fm</th>
+                    <th>Creado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-users-tbody">
                   <!-- Filas se cargan dinamicamente -->
                 </tbody>
               </table>
@@ -513,6 +571,67 @@
           <button type="submit" class="btn-primary">Guardar cambios</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal: Editar Usuario (Admin) -->
+  <div id="edit-user-modal" class="modal" style="display: none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Editar Usuario</h3>
+        <button class="modal-close" id="edit-user-modal-close">&times;</button>
+      </div>
+      <form id="edit-user-form" class="modal-form">
+        <input type="hidden" id="edit-user-id">
+        <div class="form-group">
+          <label for="edit-user-email">Email *</label>
+          <input type="email" id="edit-user-email" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-user-name">Nombre</label>
+          <input type="text" id="edit-user-name" class="form-input">
+        </div>
+        <div class="form-group">
+          <label for="edit-user-role">Rol</label>
+          <select id="edit-user-role" class="form-select">
+            <option value="user">Usuario</option>
+            <option value="admin">Admin</option>
+            <option value="admin,dev">Admin + Dev</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="edit-user-lastfm">Last.fm Username</label>
+          <input type="text" id="edit-user-lastfm" class="form-input" placeholder="Usuario de Last.fm">
+        </div>
+        <div class="form-group">
+          <label for="edit-user-password">Nueva Contrasena (dejar vacio para no cambiar)</label>
+          <input type="password" id="edit-user-password" class="form-input" placeholder="Minimo 6 caracteres">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" id="edit-user-cancel">Cancelar</button>
+          <button type="submit" class="btn-primary">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Confirmar Eliminacion de Usuario -->
+  <div id="delete-user-modal" class="modal" style="display: none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <h3>Confirmar Eliminacion</h3>
+        <button class="modal-close" id="delete-user-modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Estas seguro que quieres eliminar a <strong id="delete-user-email"></strong>?</p>
+        <p class="warning-text">Esta accion no se puede deshacer. Se eliminaran todos los datos del usuario.</p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="delete-user-cancel">Cancelar</button>
+        <button type="button" class="btn-danger" id="delete-user-confirm">Eliminar</button>
+      </div>
     </div>
   </div>
 

@@ -2785,6 +2785,144 @@ body {
   gap: 16px;
 }
 
+/* Admin Users Table */
+#admin-users-table-container {
+  overflow-x: auto;
+}
+
+.admin-users-header {
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.admin-users-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.admin-users-table th {
+  text-align: left;
+  padding: 12px 16px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-users-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.admin-users-table tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.admin-users-table .user-email-cell {
+  font-weight: 500;
+}
+
+.admin-users-table .actions-cell {
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.btn-edit-user {
+  padding: 6px 12px;
+  background: var(--accent);
+  color: var(--bg-primary);
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-edit-user:hover {
+  background: #1ed760;
+}
+
+.btn-delete-user {
+  padding: 6px 12px;
+  background: transparent;
+  color: #ff6b6b;
+  border: 1px solid #ff6b6b;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-delete-user:hover {
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.role-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.role-badge.admin {
+  background: rgba(255, 193, 7, 0.15);
+  color: #ffc107;
+}
+
+.role-badge.user {
+  background: rgba(156, 156, 156, 0.15);
+  color: #9c9c9c;
+}
+
+.role-badge.dev {
+  background: rgba(138, 43, 226, 0.15);
+  color: #bb86fc;
+}
+
+/* Modal Small (for delete confirmation) */
+.modal-content.modal-small {
+  max-width: 400px;
+}
+
+.modal-body {
+  padding: 0 24px 16px;
+}
+
+.modal-body p {
+  margin: 0 0 12px;
+  color: var(--text-secondary);
+}
+
+.warning-text {
+  font-size: 13px;
+  color: #ff6b6b !important;
+}
+
+.btn-danger {
+  padding: 10px 20px;
+  background: #ff6b6b;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-danger:hover {
+  background: #ff5252;
+}
+
 /* Responsive Admin */
 @media (max-width: 768px) {
   .admin-header {
@@ -2820,6 +2958,15 @@ body {
 
   .admin-festivals-table th,
   .admin-festivals-table td {
+    padding: 8px 10px;
+  }
+
+  .admin-users-table {
+    font-size: 12px;
+  }
+
+  .admin-users-table th,
+  .admin-users-table td {
     padding: 8px 10px;
   }
 
@@ -2932,5 +3079,191 @@ body {
 
   .email-auth-form {
     max-width: 100%;
+  }
+}
+
+/* ==========================================
+   Festivals Table View (Vista Compacta)
+   ========================================== */
+
+.festivals-table-container {
+  overflow-x: auto;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+}
+
+.festivals-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.festivals-table th {
+  text-align: left;
+  padding: 12px 16px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.festivals-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.festivals-table tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.festivals-table .festival-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.festivals-table .festival-name-cell strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.festivals-table .festival-link-icon {
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+}
+
+.festivals-table .festival-link-icon:hover {
+  color: var(--spotify-green);
+}
+
+.festivals-table .flag {
+  margin-right: 6px;
+}
+
+.festivals-table .artists-cell {
+  max-width: 200px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Match Badge */
+.match-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--gradient-1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.match-badge.na {
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: var(--text-muted);
+  background-clip: unset;
+  font-weight: 500;
+}
+
+/* Lineup Status Badge (reusable) */
+.lineup-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.lineup-status-badge.confirmed {
+  background: rgba(29, 185, 84, 0.15);
+  color: var(--spotify-green);
+}
+
+.lineup-status-badge.partial {
+  background: rgba(255, 193, 7, 0.15);
+  color: #ffc107;
+}
+
+.lineup-status-badge.unannounced {
+  background: rgba(156, 156, 156, 0.15);
+  color: #9c9c9c;
+}
+
+.lineup-status-badge.hiatus {
+  background: rgba(255, 152, 0, 0.15);
+  color: #ff9800;
+}
+
+/* Favorite Button in Table */
+.favorite-btn-table {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: transform 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.favorite-btn-table:hover {
+  transform: scale(1.2);
+}
+
+/* Responsive Festivals Table */
+@media (max-width: 900px) {
+  .festivals-table {
+    font-size: 13px;
+  }
+
+  .festivals-table th,
+  .festivals-table td {
+    padding: 10px 12px;
+  }
+
+  .festivals-table .artists-cell {
+    max-width: 150px;
+  }
+}
+
+@media (max-width: 600px) {
+  .festivals-table-container {
+    padding: 8px;
+  }
+
+  .festivals-table {
+    font-size: 12px;
+  }
+
+  .festivals-table th,
+  .festivals-table td {
+    padding: 8px 10px;
+  }
+
+  /* Ocultar columna de artistas en mobile */
+  .festivals-table th:nth-child(5),
+  .festivals-table td:nth-child(5) {
+    display: none;
+  }
+
+  .festivals-table .festival-name-cell {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
   }
 }

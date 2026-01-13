@@ -23,8 +23,10 @@ let currentYear = new Date().getFullYear(); // Año actual (se actualiza desde e
 let userRole = 'user'; // Rol del usuario
 let isUserAdmin = false; // Es admin?
 let currentAdminFilter = 'pending'; // Filtro actual de sugerencias admin
-let currentAdminTab = 'suggestions'; // Tab activo del admin (suggestions, festivals)
+let currentAdminTab = 'suggestions'; // Tab activo del admin (suggestions, festivals, users)
 let adminFestivalsData = []; // Cache de festivales para admin
+let adminUsersData = []; // Cache de usuarios para admin
+let userToDelete = null; // Usuario pendiente de eliminar
 
 // Mapeo de códigos de país a nombres con banderas
 const COUNTRY_INFO = {
@@ -149,6 +151,8 @@ function cacheElements() {
   // Calendar view
   elements.viewBtns = document.querySelectorAll('.view-btn');
   elements.festivalsListView = document.getElementById('festivals-list-view');
+  elements.festivalsTableView = document.getElementById('festivals-table-view');
+  elements.festivalsTableTbody = document.getElementById('festivals-table-tbody');
   elements.festivalsCalendarView = document.getElementById('festivals-calendar-view');
   elements.calendarGrid = document.getElementById('calendar-grid');
   elements.calendarMonthTitle = document.getElementById('calendar-month-title');
@@ -190,6 +194,9 @@ function cacheElements() {
   elements.adminFestivalsSection = document.getElementById('admin-festivals-section');
   elements.adminFestivalsTbody = document.getElementById('admin-festivals-tbody');
   elements.adminFestivalsCount = document.getElementById('admin-festivals-count');
+  elements.adminUsersSection = document.getElementById('admin-users-section');
+  elements.adminUsersTbody = document.getElementById('admin-users-tbody');
+  elements.adminUsersCount = document.getElementById('admin-users-count');
 
   // Edit Festival Modal
   elements.editFestivalModal = document.getElementById('edit-festival-modal');
@@ -203,6 +210,25 @@ function cacheElements() {
   elements.editFestivalDates = document.getElementById('edit-festival-dates');
   elements.editFestivalWebsite = document.getElementById('edit-festival-website');
   elements.editFestivalStatus = document.getElementById('edit-festival-status');
+
+  // Edit User Modal
+  elements.editUserModal = document.getElementById('edit-user-modal');
+  elements.editUserForm = document.getElementById('edit-user-form');
+  elements.editUserModalClose = document.getElementById('edit-user-modal-close');
+  elements.editUserCancel = document.getElementById('edit-user-cancel');
+  elements.editUserId = document.getElementById('edit-user-id');
+  elements.editUserEmail = document.getElementById('edit-user-email');
+  elements.editUserName = document.getElementById('edit-user-name');
+  elements.editUserRole = document.getElementById('edit-user-role');
+  elements.editUserLastfm = document.getElementById('edit-user-lastfm');
+  elements.editUserPassword = document.getElementById('edit-user-password');
+
+  // Delete User Modal
+  elements.deleteUserModal = document.getElementById('delete-user-modal');
+  elements.deleteUserModalClose = document.getElementById('delete-user-modal-close');
+  elements.deleteUserCancel = document.getElementById('delete-user-cancel');
+  elements.deleteUserConfirm = document.getElementById('delete-user-confirm');
+  elements.deleteUserEmail = document.getElementById('delete-user-email');
 
   // Edit preferences button
   elements.editPreferencesBtn = document.getElementById('edit-preferences-btn');
@@ -326,6 +352,18 @@ function setupEventListeners() {
   elements.editFestivalCancel?.addEventListener('click', closeEditFestivalModal);
   elements.editFestivalForm?.addEventListener('submit', saveEditFestival);
   elements.editFestivalModal?.querySelector('.modal-backdrop')?.addEventListener('click', closeEditFestivalModal);
+
+  // Edit User Modal
+  elements.editUserModalClose?.addEventListener('click', closeEditUserModal);
+  elements.editUserCancel?.addEventListener('click', closeEditUserModal);
+  elements.editUserForm?.addEventListener('submit', saveEditUser);
+  elements.editUserModal?.querySelector('.modal-backdrop')?.addEventListener('click', closeEditUserModal);
+
+  // Delete User Modal
+  elements.deleteUserModalClose?.addEventListener('click', closeDeleteUserModal);
+  elements.deleteUserCancel?.addEventListener('click', closeDeleteUserModal);
+  elements.deleteUserConfirm?.addEventListener('click', confirmDeleteUser);
+  elements.deleteUserModal?.querySelector('.modal-backdrop')?.addEventListener('click', closeDeleteUserModal);
 
   // Edit preferences button
   elements.editPreferencesBtn?.addEventListener('click', goToPreferences);
@@ -546,10 +584,16 @@ function switchAdminTab(tab) {
   if (elements.adminFestivalsSection) {
     elements.adminFestivalsSection.style.display = tab === 'festivals' ? 'block' : 'none';
   }
+  if (elements.adminUsersSection) {
+    elements.adminUsersSection.style.display = tab === 'users' ? 'block' : 'none';
+  }
 
   // Cargar datos si es necesario
   if (tab === 'festivals' && adminFestivalsData.length === 0) {
     loadAdminFestivals();
+  }
+  if (tab === 'users' && adminUsersData.length === 0) {
+    loadAdminUsers();
   }
 }
 
@@ -742,6 +786,207 @@ async function deleteFestival(festivalId) {
 }
 
 // ==========================================
+// Admin - Gestion de Usuarios
+// ==========================================
+
+async function loadAdminUsers() {
+  if (!isUserAdmin) return;
+
+  if (elements.adminUsersTbody) {
+    elements.adminUsersTbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="admin-loading-cell">
+          <div class="mini-loader"></div>
+          <span>Cargando usuarios...</span>
+        </td>
+      </tr>
+    `;
+  }
+
+  try {
+    const response = await fetch('/api/admin/users', {
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error('Error al cargar usuarios');
+    }
+
+    const data = await response.json();
+    adminUsersData = data.users;
+    renderAdminUsersTable();
+  } catch (err) {
+    console.error('Error loading admin users:', err);
+    if (elements.adminUsersTbody) {
+      elements.adminUsersTbody.innerHTML = `
+        <tr>
+          <td colspan="6" class="admin-error-cell">Error al cargar usuarios</td>
+        </tr>
+      `;
+    }
+  }
+}
+
+function renderAdminUsersTable() {
+  if (elements.adminUsersCount) {
+    elements.adminUsersCount.textContent = `${adminUsersData.length} usuarios`;
+  }
+
+  if (!elements.adminUsersTbody) return;
+
+  if (adminUsersData.length === 0) {
+    elements.adminUsersTbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="admin-empty-cell">No hay usuarios registrados</td>
+      </tr>
+    `;
+    return;
+  }
+
+  const html = adminUsersData.map(u => {
+    // Determinar badge de rol
+    let roleClass = 'user';
+    let roleLabel = 'Usuario';
+    if (u.role?.includes('dev')) {
+      roleClass = 'dev';
+      roleLabel = 'Admin + Dev';
+    } else if (u.role?.includes('admin')) {
+      roleClass = 'admin';
+      roleLabel = 'Admin';
+    }
+
+    // Formatear fecha
+    const createdDate = u.created_at ? new Date(u.created_at).toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    }) : '-';
+
+    return `
+      <tr data-id="${u.id}">
+        <td class="user-email-cell">${u.email}</td>
+        <td>${u.name || '-'}</td>
+        <td><span class="role-badge ${roleClass}">${roleLabel}</span></td>
+        <td>${u.lastfm_username || '-'}</td>
+        <td>${createdDate}</td>
+        <td class="actions-cell">
+          <button class="btn-edit-user" onclick="openEditUserModal(${u.id})">Editar</button>
+          <button class="btn-delete-user" onclick="openDeleteUserModal(${u.id})">Eliminar</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  elements.adminUsersTbody.innerHTML = html;
+}
+
+function openEditUserModal(userId) {
+  const user = adminUsersData.find(u => u.id === userId);
+  if (!user) return;
+
+  elements.editUserId.value = user.id;
+  elements.editUserEmail.value = user.email || '';
+  elements.editUserName.value = user.name || '';
+  elements.editUserRole.value = user.role || 'user';
+  elements.editUserLastfm.value = user.lastfm_username || '';
+  elements.editUserPassword.value = '';
+
+  elements.editUserModal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeEditUserModal() {
+  elements.editUserModal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+async function saveEditUser(e) {
+  e.preventDefault();
+
+  const userId = elements.editUserId.value;
+  const updates = {
+    name: elements.editUserName.value.trim(),
+    email: elements.editUserEmail.value.trim(),
+    role: elements.editUserRole.value,
+    lastfm_username: elements.editUserLastfm.value.trim() || null
+  };
+
+  // Solo incluir password si se ingreso una nueva
+  const newPassword = elements.editUserPassword.value;
+  if (newPassword) {
+    updates.new_password = newPassword;
+  }
+
+  try {
+    const response = await fetch(`/api/admin/users/${userId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(updates)
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      // Actualizar en cache local
+      const index = adminUsersData.findIndex(u => u.id === parseInt(userId));
+      if (index !== -1) {
+        adminUsersData[index] = { ...adminUsersData[index], ...data.user };
+      }
+      renderAdminUsersTable();
+      closeEditUserModal();
+      alert('Usuario actualizado correctamente');
+    } else {
+      alert(data.error || 'Error al actualizar el usuario');
+    }
+  } catch (err) {
+    console.error('Error updating user:', err);
+    alert('Error al actualizar el usuario');
+  }
+}
+
+function openDeleteUserModal(userId) {
+  const user = adminUsersData.find(u => u.id === userId);
+  if (!user) return;
+
+  userToDelete = userId;
+  elements.deleteUserEmail.textContent = user.email;
+  elements.deleteUserModal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDeleteUserModal() {
+  elements.deleteUserModal.style.display = 'none';
+  document.body.style.overflow = '';
+  userToDelete = null;
+}
+
+async function confirmDeleteUser() {
+  if (!userToDelete) return;
+
+  try {
+    const response = await fetch(`/api/admin/users/${userToDelete}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      adminUsersData = adminUsersData.filter(u => u.id !== userToDelete);
+      renderAdminUsersTable();
+      closeDeleteUserModal();
+      alert('Usuario eliminado correctamente');
+    } else {
+      alert(data.error || 'Error al eliminar el usuario');
+    }
+  } catch (err) {
+    console.error('Error deleting user:', err);
+    alert('Error al eliminar el usuario');
+  }
+}
+
+// ==========================================
 // Navegacion
 // ==========================================
 
@@ -850,9 +1095,16 @@ async function handleRegister(e) {
   const name = document.getElementById('register-name').value;
   const email = document.getElementById('register-email').value;
   const password = document.getElementById('register-password').value;
+  const passwordConfirm = document.getElementById('register-password-confirm').value;
   const errorDiv = document.getElementById('register-error');
 
   errorDiv.textContent = '';
+
+  // Validar que las contraseñas coincidan
+  if (password !== passwordConfirm) {
+    errorDiv.textContent = 'Las contraseñas no coinciden';
+    return;
+  }
 
   try {
     const response = await fetch('/auth/register', {
@@ -1560,6 +1812,78 @@ function renderFestivalsGrid(festivals) {
   });
 }
 
+// Renderizar festivales en vista tabla compacta
+function renderFestivalsTable(festivals) {
+  const statusConfig = {
+    'confirmed': { label: 'Confirmado', class: 'confirmed' },
+    'partial': { label: 'Parcial', class: 'partial' },
+    'unannounced': { label: 'Por anunciar', class: 'unannounced' },
+    'hiatus': { label: 'Sin edicion', class: 'hiatus' }
+  };
+
+  elements.festivalsTableTbody.innerHTML = festivals
+    .map(festival => {
+      const status = statusConfig[festival.lineupStatus] || statusConfig['unannounced'];
+      const isUnannounced = festival.lineupStatus === 'unannounced';
+      const isHiatus = festival.lineupStatus === 'hiatus';
+      const noMatch = isUnannounced || isHiatus;
+      const matchDisplay = noMatch ? 'N/A' : `${festival.matchPercentage}%`;
+      const isFavorite = myFavoriteFestivals.includes(festival.id);
+
+      // Mostrar hasta 3 artistas en comun
+      const artistsPreview = festival.artistsInCommon && festival.artistsInCommon.length > 0
+        ? festival.artistsInCommon.slice(0, 3).map(a => escapeHtml(a)).join(', ') +
+          (festival.artistsInCommon.length > 3 ? ` +${festival.artistsInCommon.length - 3}` : '')
+        : '-';
+
+      return `
+        <tr>
+          <td>
+            <div class="festival-name-cell">
+              <strong>${escapeHtml(festival.name)}</strong>
+              <a href="${festival.website}" target="_blank" rel="noopener" class="festival-link-icon" title="Ir al sitio oficial">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+              </a>
+            </div>
+            <span class="lineup-status-badge ${status.class}">${status.label}</span>
+          </td>
+          <td>
+            <span class="flag">${getCountryFlag(festival.country)}</span>
+            ${escapeHtml(festival.location)}
+          </td>
+          <td>${escapeHtml(festival.dates)}</td>
+          <td>
+            <span class="match-badge ${noMatch ? 'na' : ''}">${matchDisplay}</span>
+          </td>
+          <td class="artists-cell">${artistsPreview}</td>
+          <td>
+            ${!isDemo ? `
+              <button class="favorite-btn-table ${isFavorite ? 'active' : ''}"
+                      data-festival-id="${festival.id}"
+                      title="${isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}">
+                ${isFavorite ? '♥️' : '♡'}
+              </button>
+            ` : ''}
+          </td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  // Event listeners para botones de favoritos en tabla
+  elements.festivalsTableTbody.querySelectorAll('.favorite-btn-table').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleFestivalFavorite(btn.dataset.festivalId);
+    });
+  });
+}
+
 // ==========================================
 // Tabs
 // ==========================================
@@ -1724,8 +2048,15 @@ function switchFestivalsView(view) {
   });
 
   // Mostrar/ocultar vistas
-  elements.festivalsListView?.classList.toggle('active', view === 'list');
+  elements.festivalsListView?.classList.toggle('active', view === 'grid');
+  elements.festivalsTableView?.classList.toggle('active', view === 'table');
   elements.festivalsCalendarView?.classList.toggle('active', view === 'calendar');
+
+  // Si es tabla, renderizar
+  if (view === 'table' && festivalsData.length > 0) {
+    const filtered = filterFestivals(festivalsData);
+    renderFestivalsTable(filtered);
+  }
 
   // Si es calendario, renderizar
   if (view === 'calendar' && festivalsData.length > 0) {

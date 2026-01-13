@@ -15,12 +15,18 @@ const path = require('path');
 const fs = require('fs');
 const cookieParser = require('cookie-parser');
 const os = require('os');
-const festivals = require('./festivals.json');
 const FESTIVALS_PATH = path.join(__dirname, 'festivals.json');
+
+// Función para leer festivales (dinámico, sin cache)
+function getFestivals() {
+  return JSON.parse(fs.readFileSync(FESTIVALS_PATH, 'utf8'));
+}
 
 // Base de datos y autenticacion
 const db = require('./db');
 const auth = require('./auth');
+const bcrypt = require('bcryptjs');
+const SALT_ROUNDS = 10;
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -561,6 +567,114 @@ app.delete('/api/admin/festivals/:id', auth.requireAuth, requireAdmin, async (re
 });
 
 // ==========================================
+// ADMIN - Gestion de Usuarios
+// ==========================================
+
+// Obtener todos los usuarios (admin)
+app.get('/api/admin/users', auth.requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await db.pool.query(`
+      SELECT id, email, name, picture, lastfm_username, role, created_at
+      FROM users
+      ORDER BY created_at DESC
+    `);
+    res.json({ users: result.rows });
+  } catch (err) {
+    console.error('Error obteniendo usuarios:', err);
+    res.status(500).json({ error: 'Error al obtener usuarios' });
+  }
+});
+
+// Actualizar usuario (admin)
+app.put('/api/admin/users/:id', auth.requireAuth, requireAdmin, async (req, res) => {
+  const userId = parseInt(req.params.id);
+  const { name, email, role, lastfm_username, new_password } = req.body;
+
+  try {
+    // Verificar que el usuario existe
+    const userResult = await db.pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    const currentUser = userResult.rows[0];
+
+    // No permitir que un admin se quite su propio rol de admin
+    if (userId === req.user.id && currentUser.role?.includes('admin') && !role?.includes('admin')) {
+      return res.status(400).json({ error: 'No puedes quitarte tu propio rol de admin' });
+    }
+
+    // Construir query de actualizacion
+    let updateFields = [];
+    let values = [];
+    let paramIndex = 1;
+
+    if (name !== undefined) {
+      updateFields.push(`name = $${paramIndex++}`);
+      values.push(name);
+    }
+    if (email !== undefined) {
+      updateFields.push(`email = $${paramIndex++}`);
+      values.push(email.toLowerCase());
+    }
+    if (role !== undefined) {
+      updateFields.push(`role = $${paramIndex++}`);
+      values.push(role);
+    }
+    if (lastfm_username !== undefined) {
+      updateFields.push(`lastfm_username = $${paramIndex++}`);
+      values.push(lastfm_username || null);
+    }
+    if (new_password && new_password.length >= 6) {
+      const passwordHash = await bcrypt.hash(new_password, SALT_ROUNDS);
+      updateFields.push(`password_hash = $${paramIndex++}`);
+      values.push(passwordHash);
+    } else if (new_password && new_password.length > 0 && new_password.length < 6) {
+      return res.status(400).json({ error: 'La contrasena debe tener al menos 6 caracteres' });
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({ error: 'No hay campos para actualizar' });
+    }
+
+    values.push(userId);
+    const query = `UPDATE users SET ${updateFields.join(', ')} WHERE id = $${paramIndex} RETURNING id, email, name, picture, lastfm_username, role, created_at`;
+
+    const result = await db.pool.query(query, values);
+    res.json({ success: true, user: result.rows[0] });
+  } catch (err) {
+    console.error('Error actualizando usuario:', err);
+    if (err.code === '23505') {
+      return res.status(400).json({ error: 'El email ya esta en uso por otro usuario' });
+    }
+    res.status(500).json({ error: 'Error al actualizar usuario' });
+  }
+});
+
+// Eliminar usuario (admin)
+app.delete('/api/admin/users/:id', auth.requireAuth, requireAdmin, async (req, res) => {
+  const userId = parseInt(req.params.id);
+
+  // No permitir eliminar al usuario actual
+  if (userId === req.user.id) {
+    return res.status(400).json({ error: 'No puedes eliminar tu propia cuenta' });
+  }
+
+  try {
+    const result = await db.pool.query('DELETE FROM users WHERE id = $1 RETURNING id, email, name', [userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    res.json({ success: true, deleted: result.rows[0] });
+  } catch (err) {
+    console.error('Error eliminando usuario:', err);
+    res.status(500).json({ error: 'Error al eliminar usuario' });
+  }
+});
+
+// ==========================================
 // BUSQUEDA DE ARTISTAS (MusicBrainz)
 // ==========================================
 
@@ -654,7 +768,7 @@ function findArtistInFestivals(artistName) {
   const normalizedArtist = normalizeString(artistName);
   const festivalMatches = [];
 
-  for (const festival of festivals) {
+  for (const festival of getFestivals()) {
     if (festival.lineup && festival.lineup.length > 0) {
       const found = festival.lineup.find(a => normalizeString(a) === normalizedArtist);
       if (found) {
@@ -804,7 +918,7 @@ app.get('/api/user/festivals', auth.requireAuth, async (req, res) => {
   const regionConfig = REGIONS[region] || REGIONS.europe;
 
   // Filtrar festivales por región
-  const regionFestivals = festivals.filter(f =>
+  const regionFestivals = getFestivals().filter(f =>
     regionConfig.countryCodes.includes(f.country)
   );
 
@@ -887,7 +1001,7 @@ app.get('/api/demo/festivals', (req, res) => {
   const regionConfig = REGIONS[region] || REGIONS.europe;
 
   // Filtrar festivales por región
-  const regionFestivals = festivals.filter(f =>
+  const regionFestivals = getFestivals().filter(f =>
     regionConfig.countryCodes.includes(f.country)
   );
 
@@ -1021,7 +1135,7 @@ app.get('/api/festivals', async (req, res) => {
 
     const userArtists = artistsResponse.data.items.map(a => normalizeString(a.name));
 
-    const festivalsWithMatch = festivals.map(festival => {
+    const festivalsWithMatch = getFestivals().map(festival => {
       const festivalArtists = festival.lineup.map(a => normalizeString(a));
       const matches = userArtists.filter(artist => festivalArtists.includes(artist));
       const matchPercentage = userArtists.length > 0

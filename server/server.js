@@ -453,7 +453,8 @@ app.post('/api/admin/suggestions/:id/approve', auth.requireAuth, requireAdmin, a
     'BE': 'Belgica', 'DK': 'Dinamarca', 'FI': 'Finlandia', 'GB': 'Reino Unido',
     'HR': 'Croacia', 'HU': 'Hungria', 'NL': 'Paises Bajos', 'PL': 'Polonia',
     'PT': 'Portugal', 'FR': 'Francia', 'IT': 'Italia', 'SE': 'Suecia',
-    'NO': 'Noruega', 'AT': 'Austria', 'CH': 'Suiza', 'CZ': 'Republica Checa'
+    'NO': 'Noruega', 'AT': 'Austria', 'CH': 'Suiza', 'CZ': 'Republica Checa',
+    'RS': 'Serbia', 'OTHER': 'Otro'
   };
 
   // Crear nuevo festival

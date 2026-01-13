@@ -195,6 +195,7 @@
         "AT": "Austria",
         "CH": "Suiza",
         "CZ": "República Checa",
-        "RS": "Serbia"
+        "RS": "Serbia",
+        "OTHER": "Otro"
     }
 }

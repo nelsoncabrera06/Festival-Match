@@ -1336,5 +1336,58 @@
       "Windows95Man",
       "Evelina"
     ]
+  },
+  {
+    "id": "pori-jazz",
+    "name": "Pori Jazz",
+    "city": "Pori",
+    "location": "Kirjurinluoto Concert Park, Pori, Finlandia",
+    "country": "FI",
+    "dates": "10-18 Julio 2026",
+    "website": "https://www.porijazz.fi/",
+    "lineupStatus": "confirmed",
+    "lineup": [
+      "Juanes",
+      "Victor Wooten & The Wooten Brothers",
+      "Cécile McLorin Salvant",
+      "Jalen Ngonda",
+      "Say She She",
+      "Pale Jay",
+      "Matteo Mancuso",
+      "Sasha Berliner",
+      "Mikko Kuustonen",
+      "Salin",
+      "Vesala",
+      "Ricky-Tick Big Band & Julkinen Sana"
+    ]
+  },
+  {
+    "id": "rock-in-seine",
+    "name": "Rock in Seine",
+    "city": "Paris",
+    "location": "Domaine national de Saint-Cloud, Paris, Francia",
+    "country": "FR",
+    "dates": "26-30 Agosto 2026",
+    "website": "https://www.rockenseine.com/en/",
+    "lineupStatus": "confirmed",
+    "lineup": [
+      "The Cure",
+      "Nick Cave & The Bad Seeds",
+      "Tyler, The Creator",
+      "Deftones",
+      "Turnstile",
+      "Franz Ferdinand",
+      "Interpol",
+      "Amyl and The Sniffers",
+      "The Black Keys",
+      "Biffy Clyro",
+      "Kurt Vile & The Violators",
+      "Landmvrks",
+      "Lambrini Girls",
+      "Ravyn Lenae",
+      "Slowdive",
+      "Miki",
+      "Sombr"
+    ]
   }
 ]

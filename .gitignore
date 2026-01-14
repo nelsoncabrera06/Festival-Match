@@ -36,3 +36,7 @@ build/
 
 # AI / Claude Code
 .claude/
+brain_export/
+
+# images flyers
+public/images/

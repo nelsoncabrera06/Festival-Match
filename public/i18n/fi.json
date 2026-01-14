@@ -163,6 +163,7 @@
         "save": "Tallenna",
         "cancel": "Peruuta",
         "close": "Sulje",
+        "back": "Takaisin",
         "required": "pakollinen"
     },
     "errors": {

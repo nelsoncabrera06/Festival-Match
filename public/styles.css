@@ -860,6 +860,242 @@ body {
 }
 
 /* ==========================================
+   Festival Detail View
+   ========================================== */
+
+.festival-detail-section {
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+.detail-container {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.detail-nav {
+  margin-bottom: 20px;
+}
+
+.btn-back {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid var(--text-muted);
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-back:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.detail-content {
+  background: var(--bg-elevated);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.festival-hero-simple {
+  padding: 40px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), transparent);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.festival-hero-simple h1 {
+  font-size: 36px;
+  font-weight: 800;
+  margin: 0 0 8px 0;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.festival-hero-simple .festival-link-icon {
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+  display: flex;
+}
+
+.festival-hero-simple .festival-link-icon:hover {
+  color: var(--spotify-green);
+}
+
+
+.festival-hero-simple .festival-location-date {
+  font-size: 16px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.festival-match-badge {
+  background: var(--spotify-green);
+  color: #121212;
+  padding: 8px 20px;
+  border-radius: 30px;
+  font-weight: 700;
+  font-size: 18px;
+  box-shadow: 0 4px 15px rgba(29, 185, 84, 0.3);
+}
+
+.detail-body {
+  padding: 40px;
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 40px;
+}
+
+.lineup-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.lineup-header h3 {
+  font-size: 24px;
+  margin: 0;
+  border: none;
+  padding: 0;
+}
+
+.lineup-header .lineup-status {
+  position: static;
+  font-size: 12px;
+  padding: 4px 12px;
+}
+
+.lineup-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.lineup-artist {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+.lineup-artist:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.lineup-artist.matched {
+  background: rgba(29, 185, 84, 0.2);
+  border: 1px solid var(--spotify-green);
+  color: var(--spotify-green);
+  font-weight: 600;
+}
+
+.info-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.info-block h4 {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+
+.info-block p,
+.info-block a {
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.btn-visit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--spotify-green);
+  color: #121212;
+  padding: 14px 24px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.btn-visit:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+
+.festival-footer-flyer {
+  width: 100%;
+  margin-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 40px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.festival-footer-flyer h4 {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 14px;
+  letter-spacing: 2px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.festival-full-flyer {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  display: block;
+  border-radius: 8px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+@media (max-width: 768px) {
+  .festival-hero-simple {
+    padding: 20px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .festival-hero-simple h1 {
+    font-size: 28px;
+  }
+
+  .detail-body {
+    grid-template-columns: 1fr;
+    padding: 20px;
+  }
+
+  .festival-hero {
+    aspect-ratio: 1/1;
+  }
+}
+
+
+/* ==========================================
    Preferences Section
    ========================================== */
 

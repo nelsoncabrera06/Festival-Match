@@ -240,6 +240,11 @@ function cacheElements() {
 
   // Edit preferences button
   elements.editPreferencesBtn = document.getElementById('edit-preferences-btn');
+
+  // Detail view
+  elements.festivalDetail = document.getElementById('festival-detail');
+  elements.festivalDetailContent = document.getElementById('festival-detail-content');
+  elements.backToResults = document.getElementById('back-to-results');
 }
 
 function setupEventListeners() {
@@ -260,6 +265,7 @@ function setupEventListeners() {
   elements.retryBtn?.addEventListener('click', () => showSection('landing'));
   elements.viewFestivalsBtn?.addEventListener('click', loadUserFestivals);
   elements.editPreferencesBtn?.addEventListener('click', () => showSection('preferences'));
+  elements.backToResults?.addEventListener('click', () => showSection('results'));
 
   // Busqueda de artistas
   elements.artistSearch?.addEventListener('input', handleArtistSearch);
@@ -1003,10 +1009,11 @@ function showSection(section) {
   elements.loading.style.display = section === 'loading' ? 'flex' : 'none';
   elements.preferences.style.display = section === 'preferences' ? 'block' : 'none';
   elements.results.style.display = section === 'results' ? 'block' : 'none';
+  elements.festivalDetail.style.display = section === 'festival-detail' ? 'block' : 'none';
   elements.error.style.display = section === 'error' ? 'flex' : 'none';
 
   // Mostrar/ocultar info de usuario y logout
-  const showUserUI = currentUser && (section === 'preferences' || section === 'results');
+  const showUserUI = currentUser && (section === 'preferences' || section === 'results' || section === 'festival-detail');
   elements.userInfo.style.display = showUserUI ? 'flex' : 'none';
   elements.logoutBtn.style.display = showUserUI ? 'block' : 'none';
 }
@@ -1743,7 +1750,9 @@ function renderFestivalsGrid(festivals) {
           <div class="festival-header">
             <div>
               <h3 class="festival-name">
-                ${escapeHtml(festival.name)}
+                <a href="#" class="festival-detail-link" data-festival-id="${festival.id}">
+                  ${escapeHtml(festival.name)}
+                </a>
                 <a href="${festival.website}" target="_blank" rel="noopener" class="festival-link-icon" title="Ir al sitio oficial">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
@@ -1848,7 +1857,9 @@ function renderFestivalsTable(festivals) {
         <tr>
           <td>
             <div class="festival-name-cell">
-              <strong>${escapeHtml(festival.name)}</strong>
+              <a href="#" class="festival-detail-link" data-festival-id="${festival.id}">
+                <strong>${escapeHtml(festival.name)}</strong>
+              </a>
               <a href="${festival.website}" target="_blank" rel="noopener" class="festival-link-icon" title="Ir al sitio oficial">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
@@ -2778,3 +2789,103 @@ function handleLanguageChange(event) {
   }
 }
 
+
+// Función para normalizar strings (quitar acentos, etc)
+function normalizeString(str) {
+  if (!str) return '';
+  return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+}
+
+async function showFestivalDetail(festivalId) {
+  const festival = festivalsData.find(f => f.id === festivalId);
+  if (!festival) return;
+
+  const statusConfig = {
+    'confirmed': { label: t('festival.confirmed'), class: 'confirmed' },
+    'partial': { label: t('festival.partial'), class: 'partial' },
+    'unannounced': { label: t('festival.unannounced'), class: 'unannounced' },
+    'hiatus': { label: t('festival.hiatus'), class: 'hiatus' }
+  };
+
+  const status = statusConfig[festival.lineupStatus] || statusConfig['unannounced'];
+  const matchPercentage = festival.matchPercentage || 0;
+
+  // Priorizar flyer local sobre imagen genérica si existe
+  const imageSrc = festival.flyer || festival.image || 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=1000';
+
+  elements.festivalDetailContent.innerHTML = `
+    <div class="festival-hero-simple">
+      <div class="festival-main-info">
+        <h1>
+          ${escapeHtml(festival.name)}
+          <a href="${festival.website}" target="_blank" rel="noopener" class="festival-link-icon" title="Ir al sitio oficial">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+          </a>
+        </h1>
+        <p class="festival-location-date">
+          <span>${getCountryFlag(festival.country)}</span> ${escapeHtml(festival.location)} | ${escapeHtml(festival.dates)}
+        </p>
+      </div>
+      <div class="festival-match-badge">
+        ${matchPercentage}% Match
+      </div>
+    </div>
+
+    <div class="detail-body">
+      <div class="lineup-section">
+        <div class="lineup-header">
+          <h3>${t('festival.lineup')}</h3>
+          <span class="lineup-status ${status.class}">${status.label}</span>
+        </div>
+        ${festival.lineup && festival.lineup.length > 0 ? `
+          <div class="lineup-grid">
+            ${festival.lineup.map(artist => {
+    const isMatched = myArtists.some(a => normalizeString(a.artist_name) === normalizeString(artist));
+    return `<span class="lineup-artist ${isMatched ? 'matched' : ''}">${escapeHtml(artist)}</span>`;
+  }).join('')}
+          </div>
+        ` : `
+          <p class="no-lineup">${t('festival.noLineup')}</p>
+        `}
+      </div>
+
+      <div class="info-sidebar">
+        ${festival.city ? `
+        <div class="info-block">
+          <h4>${t('editFestival.city')}</h4>
+          <p>${escapeHtml(festival.city)}</p>
+        </div>
+        ` : ''}
+      </div>
+    </div>
+
+    <div class="festival-footer-flyer">
+      <h4>Poster / Flyer Oficial</h4>
+      <img src="${imageSrc}" alt="Flyer ${escapeHtml(festival.name)}" class="festival-full-flyer" 
+           onerror="window.hideFlyerSection(this)">
+    </div>
+  `;
+
+  showSection('festival-detail');
+  window.scrollTo(0, 0);
+}
+
+// Función global para ocultar sección si no hay imagen
+window.hideFlyerSection = function (img) {
+  const container = img.closest('.festival-footer-flyer');
+  if (container) container.style.display = 'none';
+};
+
+// Escuchar clics en links de detalle (usando delegación)
+document.addEventListener('click', e => {
+  const detailLink = e.target.closest('.festival-detail-link');
+  if (detailLink) {
+    e.preventDefault();
+    const id = detailLink.dataset.festivalId;
+    showFestivalDetail(id);
+  }
+});

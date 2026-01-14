@@ -163,6 +163,7 @@
         "save": "Save",
         "cancel": "Cancel",
         "close": "Close",
+        "back": "Back",
         "required": "required"
     },
     "errors": {

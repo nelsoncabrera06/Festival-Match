@@ -40,3 +40,6 @@ brain_export/
 
 # images flyers
 public/images/
+
+#db backups
+*.sql

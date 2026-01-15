@@ -10,4 +10,8 @@ COPY . .
 # corre en 5173 (asi lo defini en Terraform)
 EXPOSE 5173
 
-CMD ["npm", "run", "dev", "--", "--host"]
+# Comando para iniciar la aplicacion en modo desarrollo
+# CMD ["npm", "run", "dev", "--", "--host"]
+
+# Para produccion, descomenta la siguiente linea y comenta la anterior
+CMD ["npm", "start"]

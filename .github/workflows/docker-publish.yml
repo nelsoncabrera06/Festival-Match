@@ -49,7 +49,7 @@ jobs:
           docker build -t ${{ env.IMAGE_PREFIX }}/festival-backend:latest \
                        -t ${{ env.IMAGE_PREFIX }}/festival-backend:${{ github.sha }} \
                        -f server/Dockerfile \
-                       ./server
+                       .
         # Ajusta la ruta si tu Dockerfile esta en otro lugar
 
       - name: Push Backend Image
@@ -63,7 +63,7 @@ jobs:
           docker build -t ${{ env.IMAGE_PREFIX }}/festival-frontend:latest \
                        -t ${{ env.IMAGE_PREFIX }}/festival-frontend:${{ github.sha }} \
                        -f public/Dockerfile \
-                       ./public
+                       .
         # Ajusta la ruta si tu Dockerfile esta en otro lugar
 
       - name: Push Frontend Image

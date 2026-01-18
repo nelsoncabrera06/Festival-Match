@@ -45,4 +45,4 @@ public/images/
 *.sql
 
 # .github
-.github/workflows/
+#.github/workflows/

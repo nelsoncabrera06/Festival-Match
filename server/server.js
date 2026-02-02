@@ -29,7 +29,8 @@ const bcrypt = require('bcryptjs');
 const SALT_ROUNDS = 10;
 
 const app = express();
-const PORT = process.env.PORT || 3002;
+//const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 8080; // Cambiado a 8080 para compatibilidad con Google cloud
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());

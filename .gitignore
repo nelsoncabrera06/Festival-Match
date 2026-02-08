@@ -33,6 +33,7 @@ build/
 
 # Local/desarrollo
 /dev_local
+/google_cloud 
 
 # AI / Claude Code
 .claude/

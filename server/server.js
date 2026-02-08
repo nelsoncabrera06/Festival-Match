@@ -1271,28 +1271,43 @@ app.get('/api/lastfm/top-artists', async (req, res) => {
 });
 
 // ==========================================
+// HEALTH CHECK (para Cloud Run)
+// ==========================================
+
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
+// ==========================================
 // INICIAR SERVIDOR
 // ==========================================
 
 async function startServer() {
-  // Inicializar base de datos PostgreSQL
-  await db.initDatabase();
+  // PRIMERO: Escuchar en el puerto (Cloud Run requiere esto rápido)
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server listening on port ${PORT}`);
+  });
 
-  app.listen(PORT, '0.0.0.0', async () => {
+  // SEGUNDO: Inicializar DB y otros servicios (puede fallar sin matar el servidor)
+  try {
+    await db.initDatabase();
     await fetchCurrentYear();
     const localIP = getLocalIP();
 
-    console.log(`\nFestival Match ${currentYear} corriendo en:`);
+    console.log(`\nFestival Match ${currentYear} inicializado correctamente:`);
     console.log(`   - Local:   http://localhost:${PORT}`);
     if (localIP) {
       console.log(`   - Red:     http://${localIP}:${PORT}`);
     }
     console.log('\nConfiguracion:');
-    console.log('   - Base de datos: PostgreSQL');
+    console.log('   - Base de datos: PostgreSQL (conectada)');
     console.log('   - Google OAuth: ' + (process.env.GOOGLE_CLIENT_ID ? 'Configurado' : 'No configurado'));
     console.log('   - Spotify API: ' + (process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_ID !== 'tu_spotify_client_id' ? 'Configurado' : 'No configurado (deshabilitado)'));
     console.log('   - Last.fm API: ' + (process.env.LASTFM_API_KEY && process.env.LASTFM_API_KEY !== 'tu_lastfm_api_key' ? 'Configurado' : 'No configurado'));
-  });
+  } catch (error) {
+    console.error('Error inicializando servicios:', error.message);
+    console.log('El servidor sigue corriendo, pero algunas funciones pueden no estar disponibles');
+  }
 }
 
 startServer().catch(err => {

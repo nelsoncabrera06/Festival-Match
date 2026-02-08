@@ -124,12 +124,13 @@ function cacheElements() {
 
   elements.googleBtn = document.getElementById('google-btn');
   elements.demoBtn = document.getElementById('demo-btn');
-  elements.logoutBtn = document.getElementById('logout-btn');
   elements.retryBtn = document.getElementById('retry-btn');
   elements.viewFestivalsBtn = document.getElementById('view-festivals-btn');
-  elements.editPreferencesBtn = document.getElementById('edit-preferences-btn');
 
-  elements.userInfo = document.getElementById('user-info');
+  // User menu dropdown
+  elements.userMenu = document.getElementById('user-menu');
+  elements.userMenuToggle = document.getElementById('user-menu-toggle');
+  elements.userDropdown = document.getElementById('user-dropdown');
   elements.userAvatar = document.getElementById('user-avatar');
   elements.userName = document.getElementById('user-name');
 
@@ -238,9 +239,6 @@ function cacheElements() {
   elements.deleteUserConfirm = document.getElementById('delete-user-confirm');
   elements.deleteUserEmail = document.getElementById('delete-user-email');
 
-  // Edit preferences button
-  elements.editPreferencesBtn = document.getElementById('edit-preferences-btn');
-
   // Detail view
   elements.festivalDetail = document.getElementById('festival-detail');
   elements.festivalDetailContent = document.getElementById('festival-detail-content');
@@ -259,13 +257,34 @@ function setupEventListeners() {
   // Register form
   document.getElementById('register-form')?.addEventListener('submit', handleRegister);
 
+  document.getElementById('logo-home')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    navigateTo(currentUser || isDemo ? '/festivals' : '/');
+  });
   elements.googleBtn?.addEventListener('click', loginWithGoogle);
   elements.demoBtn?.addEventListener('click', startDemo);
-  elements.logoutBtn?.addEventListener('click', logout);
-  elements.retryBtn?.addEventListener('click', () => showSection('landing'));
+  elements.retryBtn?.addEventListener('click', () => navigateTo('/'));
   elements.viewFestivalsBtn?.addEventListener('click', loadUserFestivals);
-  elements.editPreferencesBtn?.addEventListener('click', () => showSection('preferences'));
-  elements.backToResults?.addEventListener('click', () => showSection('results'));
+  elements.backToResults?.addEventListener('click', () => navigateTo('/festivals'));
+
+  // User menu dropdown
+  elements.userMenuToggle?.addEventListener('click', () => {
+    elements.userDropdown.classList.toggle('open');
+  });
+  document.getElementById('dropdown-edit-preferences')?.addEventListener('click', () => {
+    elements.userDropdown.classList.remove('open');
+    navigateTo('/preferences');
+  });
+  document.getElementById('dropdown-logout')?.addEventListener('click', () => {
+    elements.userDropdown.classList.remove('open');
+    logout();
+  });
+  // Cerrar dropdown al hacer click fuera
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.user-menu')) {
+      elements.userDropdown?.classList.remove('open');
+    }
+  });
 
   // Busqueda de artistas
   elements.artistSearch?.addEventListener('input', handleArtistSearch);
@@ -344,6 +363,11 @@ function setupEventListeners() {
   elements.suggestCloseSuccess?.addEventListener('click', closeSuggestFestivalModal);
   elements.suggestForm?.addEventListener('submit', submitFestivalSuggestion);
 
+  // Browser back/forward navigation
+  window.addEventListener('popstate', () => {
+    navigateTo(window.location.pathname, { skipPush: true });
+  });
+
   // Admin filters
   elements.adminFilterBtns?.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -380,7 +404,6 @@ function setupEventListeners() {
   elements.deleteUserModal?.querySelector('.modal-backdrop')?.addEventListener('click', closeDeleteUserModal);
 
   // Edit preferences button
-  elements.editPreferencesBtn?.addEventListener('click', goToPreferences);
 }
 
 function toggleLastfmSection() {
@@ -1012,14 +1035,130 @@ function showSection(section) {
   elements.festivalDetail.style.display = section === 'festival-detail' ? 'block' : 'none';
   elements.error.style.display = section === 'error' ? 'flex' : 'none';
 
-  // Mostrar/ocultar info de usuario y logout
+  // Mostrar/ocultar menu de usuario
   const showUserUI = currentUser && (section === 'preferences' || section === 'results' || section === 'festival-detail');
-  elements.userInfo.style.display = showUserUI ? 'flex' : 'none';
-  elements.logoutBtn.style.display = showUserUI ? 'block' : 'none';
+  elements.userMenu.style.display = showUserUI ? 'flex' : 'none';
+
+  // Ocultar selector de idioma suelto cuando el user-menu está visible (idioma está en el dropdown)
+  const langSelector = document.getElementById('language-selector');
+  if (langSelector) {
+    langSelector.style.display = showUserUI ? 'none' : '';
+  }
+
+  // Cerrar dropdown al cambiar de seccion
+  elements.userDropdown?.classList.remove('open');
+}
+
+// ==========================================
+// Client-Side Router
+// ==========================================
+
+let currentRoute = null;
+
+/**
+ * Navegar a una ruta, actualizando la URL y mostrando la seccion correspondiente.
+ * @param {string} path - Ruta URL (ej: '/festivals', '/festival/primavera-sound')
+ * @param {object} options
+ * @param {boolean} options.replace - Usar replaceState en vez de pushState
+ * @param {boolean} options.skipPush - No tocar la URL (usado por popstate)
+ */
+function navigateTo(path, options = {}) {
+  const { replace = false, skipPush = false } = options;
+
+  if (!path.startsWith('/')) path = '/' + path;
+
+  // No duplicar estado en el historial
+  if (!skipPush && path !== currentRoute) {
+    const method = replace ? 'replaceState' : 'pushState';
+    window.history[method]({ path }, '', path);
+  }
+  currentRoute = path;
+
+  // Matching de rutas
+  if (path === '/' || path === '') {
+    showSection('landing');
+  } else if (path === '/preferences') {
+    showSection('preferences');
+  } else if (path === '/festivals') {
+    showSection('results');
+    switchTab('festivals');
+  } else if (path === '/artists') {
+    showSection('results');
+    switchTab('artists');
+  } else if (path === '/admin') {
+    if (!isUserAdmin) {
+      navigateTo('/festivals', { replace: true });
+      return;
+    }
+    showSection('results');
+    switchTab('admin');
+  } else if (path.startsWith('/festival/')) {
+    const festivalId = path.substring('/festival/'.length);
+    if (festivalsData.length > 0) {
+      showFestivalDetail(festivalId);
+    } else {
+      handleDeepLinkFestival(festivalId);
+    }
+  } else {
+    // Ruta desconocida - redirigir segun estado de auth
+    navigateTo(currentUser ? '/festivals' : '/', { replace: true });
+  }
+}
+
+async function handleDeepLinkFestival(festivalId) {
+  showSection('loading');
+  try {
+    let festivalsRes;
+    if (currentUser) {
+      festivalsRes = await fetch(`/api/user/festivals?region=${currentRegion}`, { credentials: 'include' });
+    } else if (isDemo) {
+      festivalsRes = await fetch(`/api/demo/festivals?region=${currentRegion}`);
+    } else {
+      navigateTo('/', { replace: true });
+      return;
+    }
+    const data = await festivalsRes.json();
+    renderFestivals(data.festivals);
+
+    const festival = festivalsData.find(f => f.id === festivalId);
+    if (festival) {
+      showFestivalDetail(festivalId);
+    } else {
+      navigateTo('/festivals', { replace: true });
+    }
+  } catch (err) {
+    console.error('Error loading festival detail:', err);
+    navigateTo('/festivals', { replace: true });
+  }
+}
+
+async function handleInitialRoute() {
+  const path = window.location.pathname;
+
+  if (path === '/preferences') {
+    navigateTo('/preferences', { replace: true });
+  } else if (path === '/artists') {
+    await loadUserFestivals(false);
+    navigateTo('/artists', { replace: true });
+  } else if (path === '/admin') {
+    await loadUserFestivals(false);
+    navigateTo('/admin', { replace: true });
+  } else if (path.startsWith('/festival/')) {
+    const festivalId = path.substring('/festival/'.length);
+    await handleDeepLinkFestival(festivalId);
+  } else {
+    // Default: /festivals o cualquier otra ruta
+    if (myArtists.length > 0 || myGenres.length > 0) {
+      await loadUserFestivals(false);
+      navigateTo('/festivals', { replace: true });
+    } else {
+      navigateTo('/preferences', { replace: true });
+    }
+  }
 }
 
 function goToPreferences() {
-  showSection('preferences');
+  navigateTo('/preferences');
 }
 
 // ==========================================
@@ -1037,20 +1176,14 @@ async function checkAuth() {
       await loadUserPreferences();
       await checkUserRole(); // Verificar si es admin
 
-      // Si tiene preferencias guardadas → Resultados
-      // Si es usuario nuevo (sin preferencias) → Preferencias (onboarding)
-      if (myArtists.length > 0 || myGenres.length > 0) {
-        await loadUserFestivals();
-        showSection('results');
-      } else {
-        showSection('preferences');
-      }
+      // Respetar la URL actual del browser para deep links
+      await handleInitialRoute();
     } else {
-      showSection('landing');
+      navigateTo('/', { replace: true });
     }
   } catch (err) {
     console.error('Error checking auth:', err);
-    showSection('landing');
+    navigateTo('/', { replace: true });
   }
 }
 
@@ -1099,7 +1232,7 @@ async function handleLogin(e) {
     currentUser = data.user;
     updateUserUI();
     await loadUserPreferences();
-    showSection('preferences');
+    navigateTo('/preferences');
   } catch (err) {
     errorDiv.textContent = 'Error de conexión';
   }
@@ -1140,7 +1273,7 @@ async function handleRegister(e) {
     currentUser = data.user;
     updateUserUI();
     await loadUserPreferences();
-    showSection('preferences');
+    navigateTo('/preferences');
   } catch (err) {
     errorDiv.textContent = 'Error de conexión';
   }
@@ -1165,7 +1298,7 @@ async function logout() {
   myArtists = [];
   myGenres = [];
   myFavoriteFestivals = [];
-  showSection('landing');
+  navigateTo('/', { replace: true });
 }
 
 function updateUserUI() {
@@ -1194,7 +1327,7 @@ async function startDemo() {
 
     renderUserArtists(artistsData.artists, true);
     renderFestivals(festivalsData.festivals);
-    showSection('results');
+    navigateTo('/festivals');
   } catch (err) {
     console.error('Error loading demo:', err);
     showError('Error al cargar el modo demo');
@@ -1622,7 +1755,7 @@ async function renderMyFestivals() {
 // Festivales
 // ==========================================
 
-async function loadUserFestivals() {
+async function loadUserFestivals(navigate = true) {
   showSection('loading');
 
   try {
@@ -1641,7 +1774,9 @@ async function loadUserFestivals() {
 
     renderUserArtists(artists, false);
     renderFestivals(festivalsData.festivals);
-    showSection('results');
+    if (navigate) {
+      navigateTo('/festivals');
+    }
   } catch (err) {
     console.error('Error loading festivals:', err);
     showError('Error al cargar los festivales');
@@ -1749,18 +1884,7 @@ function renderFestivalsGrid(festivals) {
         <div class="festival-content">
           <div class="festival-header">
             <div>
-              <h3 class="festival-name">
-                <a href="#" class="festival-detail-link" data-festival-id="${festival.id}">
-                  ${escapeHtml(festival.name)}
-                </a>
-                <a href="${festival.website}" target="_blank" rel="noopener" class="festival-link-icon" title="Ir al sitio oficial">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                    <polyline points="15 3 21 3 21 9"></polyline>
-                    <line x1="10" y1="14" x2="21" y2="3"></line>
-                  </svg>
-                </a>
-              </h3>
+              <h3 class="festival-name">${escapeHtml(festival.name)}</h3>
               <p class="festival-location">
                 <span class="flag">${getCountryFlag(festival.country)}</span>
                 ${escapeHtml(festival.location)}
@@ -1811,9 +1935,10 @@ function renderFestivalsGrid(festivals) {
           </div>
           `}
 
-          <a href="${festival.website}" target="_blank" rel="noopener" class="festival-link">
-            Ver mas info
-          </a>
+          <div class="festival-links-row">
+            <a href="/festival/${festival.id}" class="festival-detail-link" data-festival-id="${festival.id}">Ver mas info +</a>
+            <a href="${festival.website}" target="_blank" rel="noopener" class="festival-link-official">Sitio oficial ↗</a>
+          </div>
         </div>
       </div>
     `})
@@ -1857,7 +1982,7 @@ function renderFestivalsTable(festivals) {
         <tr>
           <td>
             <div class="festival-name-cell">
-              <a href="#" class="festival-detail-link" data-festival-id="${festival.id}">
+              <a href="/festival/${festival.id}" class="festival-detail-link" data-festival-id="${festival.id}">
                 <strong>${escapeHtml(festival.name)}</strong>
               </a>
               <a href="${festival.website}" target="_blank" rel="noopener" class="festival-link-icon" title="Ir al sitio oficial">
@@ -1908,6 +2033,14 @@ function renderFestivalsTable(festivals) {
 // ==========================================
 
 function switchTab(tabName) {
+  // Actualizar URL si el usuario cambia de tab directamente
+  const tabPaths = { festivals: '/festivals', artists: '/artists', admin: '/admin' };
+  const targetPath = tabPaths[tabName];
+  if (targetPath && currentRoute !== targetPath) {
+    window.history.pushState({ path: targetPath }, '', targetPath);
+    currentRoute = targetPath;
+  }
+
   // Actualizar botones de tabs
   elements.tabs.forEach(tab => {
     tab.classList.toggle('active', tab.dataset.tab === tabName);
@@ -1918,6 +2051,12 @@ function switchTab(tabName) {
   elements.tabArtists.classList.toggle('active', tabName === 'artists');
   if (elements.tabAdminContent) {
     elements.tabAdminContent.classList.toggle('active', tabName === 'admin');
+  }
+
+  // Mostrar view-toggle solo en tab festivales
+  const viewToggle = document.getElementById('view-toggle');
+  if (viewToggle) {
+    viewToggle.style.display = tabName === 'festivals' ? 'flex' : 'none';
   }
 
   // Si es tab de artistas, cargar tour dates
@@ -2886,6 +3025,6 @@ document.addEventListener('click', e => {
   if (detailLink) {
     e.preventDefault();
     const id = detailLink.dataset.festivalId;
-    showFestivalDetail(id);
+    navigateTo('/festival/' + id);
   }
 });

@@ -16,17 +16,23 @@
   <div class="app">
     <!-- Header -->
     <header class="header">
-      <div class="logo">
+      <a href="/festivals" class="logo" id="logo-home">
         <span class="logo-icon">🎪</span>
         <span class="logo-text">Festival Match</span>
-      </div>
+      </a>
       <nav class="nav">
         <!-- Language selector will be inserted by i18n.js here -->
-        <div id="user-info" class="user-info" style="display: none;">
-          <img id="user-avatar" class="user-avatar" src="" alt="Avatar">
-          <span id="user-name" class="user-name"></span>
+        <div class="user-menu" id="user-menu" style="display: none;">
+          <button class="user-menu-toggle" id="user-menu-toggle">
+            <img id="user-avatar" class="user-avatar" src="" alt="Avatar">
+            <span id="user-name" class="user-name"></span>
+            <span class="user-menu-arrow">&#9662;</span>
+          </button>
+          <div class="user-dropdown" id="user-dropdown">
+            <button class="user-dropdown-option" id="dropdown-edit-preferences" data-i18n="results.editBtn">Editar preferencias</button>
+            <button class="user-dropdown-option user-dropdown-logout" id="dropdown-logout" data-i18n="auth.logout">Cerrar sesion</button>
+          </div>
         </div>
-        <button id="logout-btn" class="btn-logout" style="display: none;" data-i18n="auth.logout">Cerrar sesion</button>
       </nav>
     </header>
 
@@ -212,9 +218,8 @@
     <!-- Results Section -->
     <section id="results" class="results" style="display: none;">
       <div class="results-header">
-        <h2 class="results-title" data-i18n="results.title">Tus Resultados</h2>
-        <p class="results-subtitle" data-i18n="results.subtitle">Festivales y giras de tus artistas favoritos</p>
-        <button id="edit-preferences-btn" class="btn-secondary" data-i18n="results.editBtn">Editar preferencias</button>
+        <span class="results-title" data-i18n="results.title">Tus Resultados:</span>
+        <span class="results-subtitle" data-i18n="results.subtitle">Festivales y giras de tus artistas favoritos</span>
       </div>
 
       <!-- Global Region Filter -->
@@ -242,50 +247,48 @@
         </select>
       </div>
 
-      <!-- Tabs -->
+      <!-- Tabs + View Toggle en la misma fila -->
       <div class="tabs-container">
-        <button class="tab active" data-tab="festivals" data-i18n="tabs.festivals">Festivales</button>
-        <button class="tab" data-tab="artists" data-i18n="tabs.artists">Mis Artistas</button>
-        <button class="tab tab-admin" data-tab="admin" style="display: none;" data-i18n="tabs.admin">Admin</button>
+        <div class="tabs-left">
+          <button class="tab active" data-tab="festivals" data-i18n="tabs.festivals">Festivales</button>
+          <button class="tab" data-tab="artists" data-i18n="tabs.artists">Mis Artistas</button>
+          <button class="tab tab-admin" data-tab="admin" style="display: none;" data-i18n="tabs.admin">Admin</button>
+        </div>
+        <div class="view-toggle" id="view-toggle">
+          <button class="view-btn active" data-view="grid">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            Grid
+          </button>
+          <button class="view-btn" data-view="table">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"></line>
+              <line x1="8" y1="12" x2="21" y2="12"></line>
+              <line x1="8" y1="18" x2="21" y2="18"></line>
+              <line x1="3" y1="6" x2="3.01" y2="6"></line>
+              <line x1="3" y1="12" x2="3.01" y2="12"></line>
+              <line x1="3" y1="18" x2="3.01" y2="18"></line>
+            </svg>
+            Lista
+          </button>
+          <button class="view-btn" data-view="calendar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            Calendario
+          </button>
+        </div>
       </div>
 
       <!-- Tab: Festivales -->
       <div id="tab-festivals" class="tab-content active">
-        <!-- Toolbar: View Toggle -->
-        <div class="festivals-toolbar">
-          <!-- Sub-tabs: Tarjetas / Tabla / Calendario -->
-          <div class="view-toggle">
-            <button class="view-btn active" data-view="grid">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="7" height="7"></rect>
-                <rect x="14" y="3" width="7" height="7"></rect>
-                <rect x="14" y="14" width="7" height="7"></rect>
-                <rect x="3" y="14" width="7" height="7"></rect>
-              </svg>
-              Grid
-            </button>
-            <button class="view-btn" data-view="table">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="8" y1="6" x2="21" y2="6"></line>
-                <line x1="8" y1="12" x2="21" y2="12"></line>
-                <line x1="8" y1="18" x2="21" y2="18"></line>
-                <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                <line x1="3" y1="18" x2="3.01" y2="18"></line>
-              </svg>
-              Lista
-            </button>
-            <button class="view-btn" data-view="calendar">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                <line x1="16" y1="2" x2="16" y2="6"></line>
-                <line x1="8" y1="2" x2="8" y2="6"></line>
-                <line x1="3" y1="10" x2="21" y2="10"></line>
-              </svg>
-              Calendario
-            </button>
-          </div>
-        </div>
 
         <!-- Vista Lista -->
         <div id="festivals-list-view" class="festivals-view active">

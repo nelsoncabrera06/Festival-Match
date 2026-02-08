@@ -1279,6 +1279,17 @@ app.get('/health', (req, res) => {
 });
 
 // ==========================================
+// CATCH-ALL: Servir index.html para rutas del cliente
+// ==========================================
+
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api/') || req.path.startsWith('/auth/')) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+// ==========================================
 // INICIAR SERVIDOR
 // ==========================================
 

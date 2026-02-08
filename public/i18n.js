@@ -222,17 +222,61 @@ const I18N = {
     document.addEventListener('click', () => {
       dropdown.classList.remove('open');
     });
+
+    // Insertar opciones de idioma en el dropdown del usuario
+    this.renderUserDropdownLanguages();
+  },
+
+  // Insertar opciones de idioma dentro del dropdown del usuario
+  renderUserDropdownLanguages() {
+    const userDropdown = document.getElementById('user-dropdown');
+    if (!userDropdown) return;
+
+    // Crear separador y opciones de idioma antes del botón de logout
+    const logoutBtn = userDropdown.querySelector('.user-dropdown-logout');
+    if (!logoutBtn) return;
+
+    const langSection = document.createElement('div');
+    langSection.className = 'user-dropdown-lang-section';
+    langSection.id = 'user-dropdown-langs';
+    langSection.innerHTML = `
+      <div class="user-dropdown-label">Idioma</div>
+      <button class="user-dropdown-option user-dropdown-lang ${this.currentLang === 'es' ? 'active' : ''}" data-lang="es">Español</button>
+      <button class="user-dropdown-option user-dropdown-lang ${this.currentLang === 'en' ? 'active' : ''}" data-lang="en">English</button>
+      <button class="user-dropdown-option user-dropdown-lang ${this.currentLang === 'fi' ? 'active' : ''}" data-lang="fi">Suomi</button>
+    `;
+
+    userDropdown.insertBefore(langSection, logoutBtn);
+
+    // Event listeners
+    langSection.querySelectorAll('.user-dropdown-lang').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const lang = btn.getAttribute('data-lang');
+        this.setLanguage(lang);
+        userDropdown.classList.remove('open');
+      });
+    });
   },
 
   // Actualizar estado visual del selector
   updateLanguageSelector() {
+    // Actualizar selector suelto (landing)
     const selector = document.getElementById('language-selector');
-    if (!selector) return;
+    if (selector) {
+      selector.querySelectorAll('.lang-option').forEach(btn => {
+        const lang = btn.getAttribute('data-lang');
+        btn.classList.toggle('active', lang === this.currentLang);
+      });
+    }
 
-    selector.querySelectorAll('.lang-option').forEach(btn => {
-      const lang = btn.getAttribute('data-lang');
-      btn.classList.toggle('active', lang === this.currentLang);
-    });
+    // Actualizar opciones en el dropdown del usuario
+    const userLangs = document.getElementById('user-dropdown-langs');
+    if (userLangs) {
+      userLangs.querySelectorAll('.user-dropdown-lang').forEach(btn => {
+        const lang = btn.getAttribute('data-lang');
+        btn.classList.toggle('active', lang === this.currentLang);
+      });
+    }
   },
 
   // Obtener idioma actual

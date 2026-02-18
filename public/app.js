@@ -3002,21 +3002,25 @@ async function showFestivalDetail(festivalId) {
       </div>
     </div>
 
+    ${festival.flyerImages && festival.flyerImages.length > 0 ? `
     <div class="festival-footer-flyer">
       <h4>Poster / Flyer Oficial</h4>
-      <img src="${imageSrc}" alt="Flyer ${escapeHtml(festival.name)}" class="festival-full-flyer" 
-           onerror="window.hideFlyerSection(this)">
+      ${festival.flyerImages.map(src => `<img src="${src}" alt="Lineup ${escapeHtml(festival.name)}" class="festival-full-flyer" onerror="window.hideFlyerSection(this)">`).join('')}
     </div>
+    ` : ''}
   `;
 
   showSection('festival-detail');
   window.scrollTo(0, 0);
 }
 
-// Función global para ocultar sección si no hay imagen
+// Función global para ocultar imagen si no carga (o toda la sección si es la única)
 window.hideFlyerSection = function (img) {
   const container = img.closest('.festival-footer-flyer');
-  if (container) container.style.display = 'none';
+  if (!container) return;
+  img.style.display = 'none';
+  const visibleImgs = container.querySelectorAll('img.festival-full-flyer:not([style*="display: none"])');
+  if (visibleImgs.length === 0) container.style.display = 'none';
 };
 
 // Escuchar clics en links de detalle (usando delegación)

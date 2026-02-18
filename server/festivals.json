@@ -8,7 +8,10 @@
     "dates": "3-7 Junio 2026",
     "website": "https://www.primaverasound.com",
     "image": "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800",
-    "flyer": "images/primavera sound 2026.webp",
+    "flyer": "/images/primavera sound 2026.webp",
+    "flyerImages": [
+      "/images/primavera-sound/primavera sound 2026.png"
+    ],
     "lineupStatus": "confirmed",
     "lineup": [
       "The Cure",
@@ -97,7 +100,10 @@
     "dates": "11-15 Agosto 2026",
     "website": "https://szigetfestival.com",
     "image": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800",
-    "flyer": "images/szigetfestival.png",
+    "flyer": "/images/szigetfestival.png",
+    "flyerImages": [
+      "/images/sziget/szigetfestival.png"
+    ],
     "lineupStatus": "partial",
     "lineup": [
       "Twenty One Pilots",
@@ -119,7 +125,10 @@
     "dates": "8-11 Julio 2026",
     "website": "https://madcoolfestival.es",
     "image": "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=800",
-    "flyer": "images/madcoolfestival.jpg",
+    "flyer": "/images/madcoolfestival.jpg",
+    "flyerImages": [
+      "/images/mad-cool/madcoolfestival.jpg"
+    ],
     "lineupStatus": "confirmed",
     "lineup": [
       "Foo Fighters",
@@ -245,6 +254,9 @@
     "dates": "9-11 Julio 2026",
     "website": "https://nosalive.com",
     "image": "https://images.unsplash.com/photo-1484972759836-b93f9ef2b293?w=800",
+    "flyerImages": [
+      "/images/nos-alive/Nos alive 2026.jpg"
+    ],
     "lineupStatus": "confirmed",
     "lineup": [
       "Twenty One Pilots",
@@ -284,6 +296,12 @@
     "website": "https://www.flowfestival.com",
     "image": "https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?w=800",
     "lineupStatus": "partial",
+    "flyerImages": [
+      "/images/flow-festival/flow festival 2026_1.png",
+      "/images/flow-festival/flow festival 2026_2.png",
+      "/images/flow-festival/flow festival 2026_3.png",
+      "/images/flow-festival/flow festival 2026_4.png"
+    ],
     "lineup": [
       "Florence + The Machine",
       "Zara Larsson",
@@ -383,6 +401,9 @@
     "dates": "26-28 Junio 2026",
     "website": "https://tuska.fi",
     "image": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800",
+    "flyerImages": [
+      "/images/tuska/TUSKA26.jpg"
+    ],
     "lineupStatus": "partial",
     "lineup": [
       "Megadeth",
@@ -723,6 +744,9 @@
     "dates": "10-12 Julio 2026",
     "website": "https://ultraeurope.com",
     "lineupStatus": "partial",
+    "flyerImages": [
+      "/images/ultra-europe/ULTRA-EUROPE-2026.png"
+    ],
     "lineup": [
       "Alesso",
       "Axwell",
@@ -1374,6 +1398,9 @@
     "dates": "26-30 Agosto 2026",
     "website": "https://www.rockenseine.com/en/",
     "image": "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800",
+    "flyerImages": [
+      "/images/rock-in-seine/rock-in-seine-2026.png"
+    ],
     "lineupStatus": "confirmed",
     "lineup": [
       "The Cure",

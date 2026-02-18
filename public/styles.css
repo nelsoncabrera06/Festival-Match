@@ -1147,10 +1147,14 @@ body {
 .festival-full-flyer {
   width: 100%;
   max-width: 800px;
-  margin: 0 auto;
+  margin: 0 auto 20px;
   display: block;
   border-radius: 8px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+.festival-full-flyer:last-child {
+  margin-bottom: 0;
 }
 
 @media (max-width: 768px) {

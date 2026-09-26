@@ -47,7 +47,17 @@ server/auth.js        # Google OAuth + middlewares requireAuth/optionalAuth
 server/festivals.json # 58 festivales, 36 con lineup  ← MIGRAR A DB (step 4)
 public/               # app.js (3034 líneas), index.html, styles.css, i18n/
 migrations/           # SQL de una sola vez  ← CREAR (step 5)
+README.md             # Inglés (default en GitHub) — es el que se ve primero
+README_es.md          # Español, espejo de README.md
 ```
+
+**Los dos README van en paralelo:** si tocás uno, tocá el otro. Están en inglés y español
+a propósito (portfolio: el que llega a un recruiter es el inglés). Son cortos a propósito —
+~75 líneas, escaneables de un pantallazo. No convertirlos en documentación técnica.
+
+Números que aparecen en los README y hay que mantener al día si cambian: **58**
+festivales, **648 artistas en lineups**, **3 regiones** (europe / usa / latam),
+**3 idiomas** (es/en/fi), `npm start` en el **:8080**.
 
 ---
 

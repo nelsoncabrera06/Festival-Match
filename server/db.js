@@ -45,10 +45,14 @@ pool.on('error', (err) => {
   console.error('Error del pool de Postgres (conexion descartada):', err.message);
 });
 
-// Lista de emails con roles especiales (admins/devs)
-const ADMIN_EMAILS = [
-  'nelsoncabrera06@gmail.com', // Nelson Cabrera - admin,dev
-];
+// Lista de emails con roles especiales (admins/devs).
+//
+// Se lee de ADMIN_EMAILS para poder cambiarla sin deploy, con el valor
+// original como fallback para que el repo siga funcionando solo.
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'nelsoncabrera06@gmail.com')
+  .split(',')
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
 
 // Inicializar base de datos (crear tablas)
 async function initDatabase() {
@@ -171,10 +175,18 @@ async function findOrCreateUser(googleProfile) {
       [email, name, picture, user.id]
     );
   } else {
-    // Crear nuevo usuario
+    // Crear nuevo usuario.
+    //
+    // El rol se resuelve acá y no en la migracion. La migracion 001 hacia el
+    // UPDATE cuando la base todavia estaba vacia, asi que no le toco a ninguna
+    // fila: el primer admin que se registra con Google queda con 'user' y el
+    // panel de admin le responde 403, sin forma de arreglarlo desde la app.
+    // Resolviendolo en el INSERT el rol queda correcto siempre, y no hay que
+    // acordarse de correr un UPDATE a mano.
+    const role = ADMIN_EMAILS.includes(email.toLowerCase().trim()) ? 'admin,dev' : 'user';
     const insertResult = await pool.query(
-      'INSERT INTO users (google_id, email, name, picture) VALUES ($1, $2, $3, $4) RETURNING *',
-      [googleId, email, name, picture]
+      'INSERT INTO users (google_id, email, name, picture, role) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [googleId, email, name, picture, role]
     );
     user = insertResult.rows[0];
   }

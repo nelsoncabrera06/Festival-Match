@@ -1,0 +1,66 @@
+# ============================================================
+# Supabase Free pausa el proyecto a los 7 días sin actividad.
+#
+# Consecuencia: no es que la app quede lenta, es que el primer
+# visitante ve la app ROTA. Para un portfolio eso es lo peor que
+# puede pasar, porque el link que mandás en una postulación deja
+# de abrir justo cuando alguien lo mira.
+#
+# Este workflow hace un SELECT 1 diario contra la base. Eso cuenta
+# como actividad y resetea el contador. Gratis: GitHub Actions no
+# cuesta nada en repos publicos, y en privados son ~30 minutos al
+# mes contra los 2.000 incluidos en el plan gratuito.
+#
+# La alternativa de usar un cron de Vercel contra /api/heartbeat
+# NO sirve: los cron jobs de Vercel requieren el plan Pro ($25/mes).
+# ============================================================
+name: Keep Supabase awake
+
+on:
+  schedule:
+    # Todos los dias a las 11:17 UTC. A proposito NO es :00 -- la
+    # punta de la hora es cuando se acumulan todos los cron de
+    # GitHub y las ejecuciones se retrasan (a veces horas).
+    - cron: '17 11 * * *'
+  # Para poder probarlo a mano desde la pestana Actions.
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    # Corta si se cuelga: no queremos que un query trabado se coma
+    # los 6 horas de timeout por default del job.
+    timeout-minutes: 5
+
+    steps:
+      - name: Consultar la base
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          # psql viene preinstalado en los runners de ubuntu, no hace
+          # falta instalar postgresql-client.
+          #
+          # Sale con codigo de error != 0 si no hay conexion, y eso hace
+          # que el job falle. Es intencional: si la base esta pausada o
+          # la DATABASE_URL quedo mal, GitHub avisa por mail en vez de
+          # que te enteres cuando un recruiter abre el link.
+          psql "$DATABASE_URL" \
+            --no-password \
+            --set=ON_ERROR_STOP=1 \
+            --command "SELECT 1 AS ok, now() AS server_time;"
+
+      - name: Verificar que el proyecto no este pausado
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          # Si el proyecto esta pausado el SELECT 1 falla solo, pero
+          # este check deja el motivo explicito en el log.
+          state=$(psql "$DATABASE_URL" --no-password --tuples-only --no-align \
+            --command "SHOW transaction_read_only;" 2>/dev/null | tr -d ' \n')
+          if [ "$state" = "on" ]; then
+            echo "::error::La base esta en modo read-only. El proyecto de Supabase"
+            echo "::error::esta PAUSADO. Hay que desapausarlo a mano en el dashboard:"
+            echo "::error::https://supabase.com/dashboard/project/ujtkurimrtonnqeizucr"
+            exit 1
+          fi
+          echo "Base de datos activa y con escritura habilitada."

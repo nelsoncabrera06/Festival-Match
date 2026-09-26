@@ -42,11 +42,13 @@ Cada usuario carga sus artistas (a mano, MusicBrainz o Last.fm) y la app calcula
 app.js                # Entry point de Express para Vercel: crea la app y llama registerServer()
 vercel.json           # Rewrite SPA: todo lo que no sea /api, /auth o /health -> /index.html
 server/server.js      # Rutas API + auth + admin, dentro de registerServer(app) (1374 líneas)
-server/db.js          # Pool pg + schema init + todas las queries (555 líneas)
+server/db.js          # Pool pg serverless + schema init + todas las queries
 server/auth.js        # Google OAuth + middlewares requireAuth/optionalAuth
 server/festivals.json # 58 festivales, 36 con lineup  ← MIGRAR A DB (step 4)
 public/               # app.js (3034 líneas), index.html, styles.css, i18n/
-migrations/           # SQL de una sola vez  ← CREAR (step 5)
+migrations/           # Schema, aplicado una vez. 001_init.sql YA CORRIÓ en Supabase
+.github/workflows/    # keepalive.yml (cron diario contra Supabase) + docker-publish.yml (muerto, step 9)
+festival_match_backup_20260505.dump  # Backup de Cloud SQL, ignorado por git. Datos viejos, opcional
 README.md             # Inglés (default en GitHub) — es el que se ve primero
 README_es.md          # Español, espejo de README.md
 ```
@@ -63,9 +65,13 @@ festivales, **648 artistas en lineups**, **3 regiones** (europe / usa / latam),
 
 ## ⚠️ Migración a Vercel + Supabase
 
-**Estado:** el entrypoint de Express (step 2) ya está arreglado y verificado en producción.
-Falta el paso 1 (Supabase): sin base no hay login ni favoritos. Actualizar las casillas al
-avanzar cada paso.
+**Estado: la app está VIVA con base de datos en producción.** Login con Google, registro,
+sesiones, artistas, géneros, favoritos y el panel de admin funcionan contra Supabase.
+Verificado el 26/09/2026 con la suite de "Cómo verificar un deploy" (12 rutas en 200) y
+con el flujo de auth probado localmente contra la base real.
+
+Hechos: pasos 1, 2, 3, 5, 7 y 8. Falta el 4 (`festivals.json` → tabla), el 6 (código muerto
+de Spotify) y el 9 (limpieza de GCP/Docker).
 
 ### Por qué hay que hacerlo (contexto para sesiones futuras)
 
@@ -74,9 +80,17 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
 
 ### Pasos
 
-- [ ] **1. Supabase: proyecto + infra** (~30 min)
-  Crear proyecto free, sacar la **connection string del pooler (Supavisor, modo transaccional)**,
-  correr `migrations/001_init.sql` con el schema actual de `initDatabase()` + seed de las 58 filas de `festivals.json`.
+- [x] **1. Supabase: proyecto + infra** — **HECHO 26/09/2026** (`c32d202`)
+  Proyecto `festival-match`, ref `ujtkurimrtonnqeizucr`, región **us-east-2** (Ohio).
+  `migrations/001_init.sql` aplicado: las 7 tablas, verificadas **columna por columna contra
+  el dump de Cloud SQL** para que el restore de datos viejos no necesite transformaciones.
+  El seed de los 58 festivales quedó fuera de esta migración: va en `002_festivals.sql` junto con
+  el paso 4, para que el historial de migraciones cuente la historia.
+
+  **Lo que hay que saber para tocar la conexión (las dos trampas, ver "Trampas"):**
+  - Pooler **transaccional, puerto 6543**, host `aws-0-us-east-2.pooler.supabase.com`.
+    El "Direct connection" (`db.<ref>.supabase.co`) es **IPv6-only en free tier**: no sirve.
+  - La string **NO lleva `?sslmode=require`**, contra lo que dice la doc de Supabase.
 
 - [x] **2. Vercel: entry point** — **HECHO Y VERIFICADO EN PROD el 25/09/2026** (`c0d2699`)
   Después del push, `/api/demo/artists` pasó de 404 a 200 y las 10 rutas de la suite dan 200
@@ -128,33 +142,76 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   - Build logs: Vercel reporta el framework que detectó.
   - Alternativa si sigue sin detectarse: `"framework": "express"` explícito en `vercel.json`.
 
-- [ ] **3. Pool de Postgres serverless** (~15 min)
-  Usar la URL del **pooler**, no la conexión directa. `max: 1` por instancia, `sslmode=require`,
-  y `pool.on('error')` para que un drop de conexión no deje la instancia en estado indefinido.
+- [x] **3. Pool de Postgres serverless** — **HECHO 26/09/2026** (`c32d202`)
+  En `server/db.js`: `max: 1` (el pooler multiplexa), `connectionTimeoutMillis: 10000`,
+  `idleTimeoutMillis: 10000`, `ssl: { rejectUnauthorized: false }` explícito, y
+  `pool.on('error')`. **El handler de error no es opcional:** sin listener, un `'error'`
+  del pool es un `throw` no capturado que **mata la instancia** de Vercel. Pasa de verdad
+  con Supabase (corta conexiones ociosas, y el free tier pausa el proyecto).
+  Los `setInterval` de cleanup (sesiones y tour cache) quedaron detrás de
+  `if (require.main === module)`: en serverless no corren y son redundantes.
+  Además `generateSessionId()` pasó de `Math.random()` a `crypto.randomBytes()`: los ids
+  de sesión son credenciales bearer con 7 días de vida, no un string cualquiera.
 
-- [ ] **4. `festivals.json` → tabla `festivals`** (~1.5 h)
-  Reemplazar `getFestivals()` por una query. Reescribir los 4 endpoints que tocan el filesystem:
-  `GET /api/admin/festivals`, `PUT /api/admin/festivals/:id`, `DELETE /api/admin/festivals/:id`
-  y el approve de `POST /api/admin/suggestions/:id/approve` (que hoy hace `fs.writeFileSync`).
-  Borrar el `setInterval` de cleanup (líneas 510-513 de `db.js`): en serverless no corren y
-  además son redundantes (`tour_cache` se invalida por timestamp al leer, las sesiones por `expires_at > NOW()`).
+- [ ] **4. `festivals.json` → tabla `festivals`** (~1.5 h) — **es un BUG, no solo limpieza**
+  Los 4 endpoints que tocan el filesystem **están rotos en producción ahora mismo**:
+  `PUT /api/admin/festivals/:id`, `DELETE /api/admin/festivals/:id` y el approve de
+  `POST /api/admin/suggestions/:id/approve` hacen `fs.writeFileSync`, y en Vercel el
+  filesystem es read-only → `EROFS` → 500 "Error al guardar".
+  Reemplazar `getFestivals()` por una query, y crear `002_festivals.sql` con la tabla
+  `festivals` + seed de las 58 filas desde `festivals.json`. La forma del objeto festival
+  **no cambia** (`{ id, name, city, location, country, dates, website, image, flyer,
+  flyerImages[], lineupStatus, lineup[], description, note }`), así que el matching no
+  necesita refactor.
+  El `setInterval` de cleanup ya se borró de `db.js` (ver paso 3).
 
-- [ ] **5. `initDatabase()` fuera del arranque** (~10 min)
-  En Vercel correría en cada cold start. Dejarlo solo para dev local; el schema pasa a ser una migración de una vez.
+- [x] **5. `initDatabase()` fuera del arranque** — **HECHO, pero por accidente y mejor así**
+  No hubo que tocar nada: `initServices()` (y por lo tanto `initDatabase()`) solo corre
+  dentro de `if (require.main === module)` en `app.js`, y en Vercel eso nunca es cierto.
+  O sea que el schema en producción existe **únicamente** por `migrations/001_init.sql`.
+  `initDatabase()` sigue existiendo y se usa en dev local.
 
-- [ ] **6. APIs externas muertas** (~20 min)
-  - **Bandsintown está muerta:** `rest.bandsintown.com` devuelve **403** (API partner-only desde 2025).
-    `/api/artist-events` siempre cae al fallback. La UI ya tiene fallback a búsqueda de Google, así que no rompe.
-  - **worldtimeapi.org no responde.** `currentYear` puede ser `new Date().getFullYear()`; borrar `fetchCurrentYear()`.
+  **Consecuencia que hay que tener presente:** como el seed de admin vivía adentro de
+  `initDatabase()`, en producción nunca se iba a aplicar. La migración corrió con la base
+  vacía (`UPDATE 0`) y el primer admin que se registró con Google quedó con `role = 'user'`,
+  sin poder entrar al panel. **Arreglado en `findOrCreateUser()`** (`a13c62f`): el rol se
+  resuelve en el INSERT contra `ADMIN_EMAILS`, así no depende de acordarse de un UPDATE.
+  `ADMIN_EMAILS` también pasó a ser env var, con el valor original como fallback.
 
-- [ ] **7. Google OAuth** (~10 min)
-  Credenciales nuevas con el dominio de Vercel + actualizar `GOOGLE_REDIRECT_URI`.
-  El consent screen va a mostrar "app no verificada" (se acepta el warning, o se pide verificación).
+- [ ] **6. APIs externas muertas** (~20 min) — **parcial: worldtimeapi HECHO, falta Spotify**
+  - **worldtimeapi.org: HECHO** (`c32d202`). `fetchCurrentYear()` borrado; `currentYear`
+    quedó como `new Date().getFullYear()` a nivel de módulo.
+  - **Bandsintown está muerta:** `rest.bandsintown.com` devuelve **403** (partner-only desde 2025).
+    `/api/artist-events` siempre cae al fallback de búsqueda. La UI ya lo maneja, no rompe.
+  - **Spotify: código muerto, borrar.** `/api/top-artists` y `/api/spotify/*` guardan los
+    tokens en `spotifyTokenStore`, **un objeto en memoria**: en serverless cada instancia
+    tiene el suyo, así que el callback redirige a una instancia y el request siguiente
+    puede caer en otra que no conoce la sesión. Nunca funcionó en Vercel (funcionaba en GCP).
+    El `redirect('/?session=' + sessionId)` además tiraría el id de sesión en la URL.
 
-- [ ] **8. Supabase Free pausa el proyecto a los 7 días sin actividad** (~10 min)
-  Si nadie entra a la app por una semana, Supabase **pausa** la base y el primer visitante ve la app
-  rota, no lenta. Resolver con un **GitHub Actions cron** diario que haga un `SELECT 1` a la DB
-  (gratis). Alternativa: Vercel Cron diario contra un endpoint `/api/heartbeat`. Pro = $25/mes, fuera de presupuesto.
+- [x] **7. Google OAuth** — **HECHO 26/09/2026**
+  El proyecto de GCP viejo estaba **borrado** (lo eliminó para cortar costos), así que hubo
+  que crear credenciales nuevas: proyecto `festival-match`, consent screen **External /
+  In production**, redirect URI `https://festivalmatch.vercel.app/auth/google/callback`.
+  Se eligió In production a propósito: en *Testing* un recruiter no puede ni entrar
+  (le da "access blocked"). Se acepta el cartel de "app no verificada" y se documentó en
+  el README el click *Advanced → Go to Festival Match*.
+  Ojo: al crear el client, Google descarga un `client_secret_*.json` a la raíz del repo.
+  Ya está en `.gitignore` (este repo es público).
+  Verificado en producción: login con Google funcionando contra la base real.
+
+- [x] **8. Pausa de Supabase a los 7 días** — **HECHO 26/09/2026** (`.github/workflows/keepalive.yml`)
+  Es el fallo más silencioso del proyecto: no es que la app quede lenta, es que el primer
+  visitante la ve **rota**. Para un portfolio es lo peor, porque el link que mandás en una
+  postulación deja de abrir justo cuando alguien lo mira.
+  Cron diario `SELECT 1` a las **11:17 UTC** (no a las 11:00: en la punta de la hora se
+  acumulan todos los cron de GitHub y se retrasan). Falla con código ≠ 0 si la base no
+  responde, y chequea `transaction_read_only` para distinguir "pausado" de "caído", así
+  GitHub avisa por mail. Se probó a mano con *Run workflow* desde la pestaña Actions.
+  **Pendiente: crear el secret `DATABASE_URL` en GitHub** (Settings → Secrets and
+  variables → Actions). Sin eso el workflow no conecta. Ojo: es la misma string que en
+  Vercel, **terminada en `/postgres` y sin `?sslmode=require`**.
+  La alternativa con Vercel Cron quedó descartada: requiere el plan Pro ($25/mes).
 
 - [ ] **9. Limpieza GCP/Docker**
   Borrar `Dockerfile` (raíz), `server/Dockerfile`, `public/Dockerfile` y `.github/workflows/docker-publish.yml`
@@ -167,19 +224,143 @@ el panel admin (solo cambia la fuente de datos de los festivales), el sistema de
 
 ---
 
+## ⚠️ Trampas (costaron tiempo el 26/09/2026, no repetir)
+
+### 1. `?sslmode=require` ROMPE la conexión con node-postgres 8.16
+
+La doc de Supabase dice ponerlo. **Con `pg` 8.16.3 ese parámetro resuelve a
+`ssl.rejectUnauthorized = true`**, y como la connection string se parsea **después** del
+objeto de config, pisa el `ssl` del pool. Toda query falla con:
+
+```
+Error: self-signed certificate in certificate chain
+```
+
+Verificado con las 4 combinaciones: con `?sslmode=require` falla siempre (con o sin `ssl`
+explícito en el código); sin el parámetro funciona. **La string no lleva el parámetro y el
+TLS se configura en `server/db.js`.** Esto está documentado en el README también, porque es
+el tipo de cosa que cualquiera va a intentar y se va a romper.
+
+### 2. La cuál de las 3 connection strings de Supabase
+
+| | Host | Sirve |
+|---|---|---|
+| **Pooler transaccional** | `aws-0-us-east-2.pooler.supabase.com:6543` | ✅ **esta** |
+| Session pooler | mismo host, puerto 5432 | ✅ también sirve |
+| Direct connection | `db.ujtkurimrtonnqeizucr.supabase.co:5432` | ❌ **IPv6-only en free tier** |
+
+Regla para no equivocarse: **mirá el host**. Si dice `pooler.supabase.com` sirve; si dice
+`db.`, no.
+
+### 3. `pool.on('error')` no es opcional
+
+Sin listener, un `'error'` del pool es un `throw` no capturado que **mata la instancia** de
+Vercel. Con Supabase ocurre de verdad: el pooler corta conexiones ociosas y el free tier pausa
+el proyecto.
+
+### 4. Los secretos en el `.env` local y las copias duplicadas
+
+El `.env` de la raíz tiene **varias líneas `DB_PASSWORD` comentadas** y solo una es la válida
+(la de la sección `# Supabase`, con el project ref `ujtkurimrtonnqeizucr`).
+Además, la `DATABASE_URL` de **Vercel es una copia independiente**: cambiarla en `.env` no la
+cambia allá. Si divergen, el error es `password authentication failed` en prod con un `.env`
+que parece correcto.
+
+Al tocar la conexión, **probá siempre con `psql` antes de deployar.** La diferencia entre un
+error de DNS/TLS y uno de auth es lo que dice si el problema es la string o la password.
+
+### 5. `db.js` no carga `dotenv` por su cuenta
+
+`require('dotenv').config()` está en `app.js` y en `server/server.js`, **no** en `db.js`.
+Si probás `db.js` desde un script suelto, `DATABASE_URL` queda `undefined` y el pool cae al
+fallback `postgresql://localhost/festival_match`. Cargá dotenv vos en el script de test.
+
+### 6. `.gitignore` tenía dos problemas
+
+- `*.sql` (de la época de los backups de base) **se comía `migrations/`**, dejando el schema
+  sin versionar. Resuelto con `!migrations/*.sql`.
+- El `client_secret_*.json` que descarga el Google Cloud Console **no estaba ignorado** y el
+  repo es público. Resuelto.
+
+### 7. El proyecto de GCP viejo estaba borrado
+
+Lo eliminó para cortar costos, así que las credenciales de Google hubo que rehacerse desde
+cero. Si algún día se borra un proyecto de GCP, asumí que **todas** sus credenciales
+(client IDs, secrets, service accounts) mueren con él.
+
+---
+
+## Datos de la base vieja (opcional)
+
+Hay un backup en la raíz: **`festival_match_backup_20260505.dump`** (22k, `pg_dump` custom
+de Cloud SQL, 10/05/2026). Está en `.gitignore` (`*.dump`).
+
+Contenido (contado desde los `setval` del propio dump):
+
+| Tabla | Filas |
+|---|---|
+| `users` | 6 |
+| `user_artists` | ~30 |
+| `user_genres` | ~22 |
+| `user_festivals` | ~16 |
+| `festival_suggestions` | 6 |
+| `sessions` | 0 |
+| `tour_cache` | 0 |
+
+**El schema del dump es idéntico al de `migrations/001_init.sql`** (verificado columna por
+columna), así que el restore entra sin transformaciones.
+
+Si algún día se importa:
+
+- **Usar `pg_restore --data-only`**, nunca un restore completo. El DDL del dump tiene
+  `CREATE DATABASE ... LOCALE_PROVIDER = libc` y `GRANT ... TO cloudsqlsuperuser`, que no
+  existen en Supabase y hacen fallar el restore a mitad.
+- **No importar `sessions` ni `tour_cache`** (vacías y/o basura).
+- **El orden de restore puede chocar con los FKs**: en el dump las tablas salen
+  alfabéticamente, o sea `users` al final, pero `user_artists` referencia a `users`. Si
+  `pg_restore --data-only` se queja, hacer dos pasadas: `users` primero, después el resto.
+- **Las secuencias ya vienen en el dump** (`SEQUENCE SET` con `setval`), así que no hay que
+  arreglarlas a mano. Esto no es un problema con este backup, pero sí lo es con un
+  `pg_dump --data-only` común.
+- **Decisión tomada: importar `users` con `password_hash` en NULL.** No existe flujo de UI
+  para que un usuario logueado se cree su propia contraseña: `/auth/register` rechaza emails
+  existentes, `/auth/login` dice "Esta cuenta usa Google", y el único que puede poner una
+  contraseña es el panel admin. Así que NULL es lo único limpio, y de paso no se arrastran
+  hashes bcrypt de 2024 a un dominio público. **Conservar `google_id`**, que es lo que hace
+  que esas personas recuperen sus artistas al entrar con Google.
+
+---
+
+## Flujo de trabajo con git (regla del usuario)
+
+**`git add`, `git commit` y `git push` los hace Nelson, no el agente.** Preparar los cambios
+y darle el comando exacto sí es parte del trabajo.
+
+Está aplicado con `permissions` en `~/.config/opencode/opencode.jsonc` (`deny` en add, commit,
+push, pull, reset, checkout, switch, rebase, merge, stash, restore; `allow` en status, diff,
+log, show, blame; y `git *` cae en `ask`). Ojo: **la config se carga al arrancar la sesión**,
+así que recién en la sesión siguiente empieza a aplicar.
+
+AGENTS.md no sirve para esto: es instrucción que el agente lee pero nada la impone. La
+`permissions` del harness sí bloquean la operación.
+
+---
+
 ## Variables de entorno
 
-`.env.example` está incompleto: **le faltan `DATABASE_URL` y `LASTFM_API_KEY`**. Agregarlas al tocar esto.
+`.env.example` sigue incompleto: **le faltan `DATABASE_URL`, `LASTFM_API_KEY` y
+`ADMIN_EMAILS`**. Agregarlas al tocar esto.
 
 | Var | Notas |
 |---|---|
-| `DATABASE_URL` | **Del pooler de Supabase**, con `?sslmode=require`. Es la que falta. |
-| `GOOGLE_CLIENT_ID` / `_SECRET` / `GOOGLE_REDIRECT_URI` | Redirect URI apunta al dominio de Vercel |
-| `LASTFM_API_KEY` | Falta en `.env.example` |
+| `DATABASE_URL` | Del **pooler transaccional, puerto 6543**, **sin `?sslmode=require`** (ver Trampa 1) |
+| `GOOGLE_CLIENT_ID` / `_SECRET` / `GOOGLE_REDIRECT_URI` | Redirect URI apunta al dominio de Vercel. El `_SECRET` es el mismo en `.env` local y en Vercel |
+| `LASTFM_API_KEY` | Falta en `.env.example`. Sin ella no funciona la importación desde Last.fm |
+| `ADMIN_EMAILS` | Opcional, lista separada por comas. Sin la var, el fallback hardcodeado es `nelsoncabrera06@gmail.com` |
 | `SPOTIFY_*` | Deshabilitado, se puede borrar junto con el código muerto de Spotify |
-| `ADMIN_EMAILS` | Hoy hardcodeado en `db.js:12` → mover a env var |
 
-Nunca commitear `.env`. Ya está en `.gitignore`.
+Nunca commitear `.env`. Ya está en `.gitignore`. El repo es **público**: auditar el historial
+con `git log --all -p -S '<secreto>'` antes dedadeclarar que está limpio.
 
 ---
 
@@ -199,12 +380,17 @@ ejecuta directo: exporta `registerServer` / `initServices` / `PORT` y no abre ni
 - **URL en producción:** https://festivalmatch.vercel.app/
 - Deploy desde el **dashboard de Vercel** importando el repo de GitHub. El usuario **no puede
   usar el CLI de Vercel** (escribe a ciegas), así que no intentar eso como sugerencia.
-- **Estado al 25/09/2026:** la app **tiene backend funcionando en producción**. El commit
-  `c0d2699` arregló el entrypoint de Express y `/api/demo/artists` pasó de 404 a 200.
-  Lo que no anda todavía es lo que necesita base: sin `DATABASE_URL` no hay login, registro,
-  favoritos ni preferencias (el resto, incluido el modo demo, responde normal).
-  Siguiente paso del plan: el 1 (Supabase).
-- Commits: `c0d2699` (entrypoint de Express) ← `54b5dcd "I will host this in Vercel"`.
+- **Estado al 26/09/2026:** la app **está viva con base de datos**. `DATABASE_URL` está en
+  Vercel (pooler transaccional, sin `?sslmode=require`), Supabase tiene el schema aplicado,
+  y el login con Google funciona contra la base real. Verificado con la suite de abajo y
+  probando el flujo completo: registro, login, cookie de sesión, CRUD de artistas con el
+  UNIQUE (409 en duplicado), géneros, favoritos, sugerencia con FK a `users`, matching contra
+  lineups reales y búsqueda en MusicBrainz.
+- **Env vars en Vercel:** `DATABASE_URL`, `LASTFM_API_KEY`, `GOOGLE_CLIENT_ID`,
+  `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` (las 3, en Production/Preview/Development).
+- **Pendiente de configurar:** el secret `DATABASE_URL` en GitHub para el keepalive.
+- Commits: `a13c62f` (keepalive + rol admin + READMEs) ← `c32d202` (migración Supabase,
+  pool serverless, fixes de arranque) ← `e558f40` (READMEs) ← `c0d2699` (entrypoint).
 
 ### Cómo verificar un deploy (corré esto, no asumas)
 

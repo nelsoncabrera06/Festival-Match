@@ -53,8 +53,8 @@ migrations/           # SQL de una sola vez  ← CREAR (step 5)
 
 ## ⚠️ Migración a Vercel + Supabase
 
-**Estado:** el entrypoint de Express (step 2) ya está arreglado y verificado local; falta
-pushear y confirmar en prod. Todo lo demás sigue sin empezar. Actualizar las casillas al
+**Estado:** el entrypoint de Express (step 2) ya está arreglado y verificado en producción.
+Falta el paso 1 (Supabase): sin base no hay login ni favoritos. Actualizar las casillas al
 avanzar cada paso.
 
 ### Por qué hay que hacerlo (contexto para sesiones futuras)
@@ -68,7 +68,11 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   Crear proyecto free, sacar la **connection string del pooler (Supavisor, modo transaccional)**,
   correr `migrations/001_init.sql` con el schema actual de `initDatabase()` + seed de las 58 filas de `festivals.json`.
 
-- [x] **2. Vercel: entry point** — **código hecho el 25/09/2026, falta confirmar en prod**
+- [x] **2. Vercel: entry point** — **HECHO Y VERIFICADO EN PROD el 25/09/2026** (`c0d2699`)
+  Después del push, `/api/demo/artists` pasó de 404 a 200 y las 10 rutas de la suite dan 200
+  con JSON real. El frontend lo sigue sirviendo el CDN (`x-vercel-cache: HIT`), o sea que
+  el rewrite de `vercel.json` sigue ganándole al catch-all de la función, como se esperaba.
+
   **Causa del deploy sin backend:** `app.js` no cumplía el contrato de entry de Express
   que exige Vercel. La doc ([Express on Vercel](https://vercel.com/docs/frameworks/backend/express))
   pide dos cosas: que el archivo **importe `express`** y que **exporte la app** (en CommonJS,
@@ -106,7 +110,9 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   `DATABASE_URL` el server levanta igual (demo + MusicBrainz funcionan).
 
   **Lo único que no se puede verificar sin deployar:** que la detección de Vercel acepte
-  el entry. Si `/api/demo/artists` sigue dando 404 con `x-vercel-error: NOT_FOUND`:
+  el entry. ~~Si `/api/demo/artists` sigue dando 404 con `x-vercel-error: NOT_FOUND`:~~
+  ~~ya no aplica: el 25/09/2026 aceptó el entry y la función está andando.~~ Si algún día
+  vuelve a pasar, el orden de abajo es el que funcionó:
   - Dashboard → Project → Settings → General → **Framework Preset = Express**
     (ya se hizo una vez y no alcanzó *porque el entry no cumplía el contrato*; ahora sí).
   - Build logs: Vercel reporta el framework que detectó.
@@ -183,11 +189,12 @@ ejecuta directo: exporta `registerServer` / `initServices` / `PORT` y no abre ni
 - **URL en producción:** https://festivalmatch.vercel.app/
 - Deploy desde el **dashboard de Vercel** importando el repo de GitHub. El usuario **no puede
   usar el CLI de Vercel** (escribe a ciegas), así que no intentar eso como sugerencia.
-- **Estado al 25/09/2026:** el fix del entrypoint de Express está hecho y verificado local
-  (step 2 del plan), pero **el deploy de producción sigue siendo el viejo**: el frontend se
-  ve bien y la API da 404 en todas las rutas. Hay que pushear para que Vercel lo detected.
-  Después del push, correr la suite de abajo: si `/api/demo/artists` da 200, hay backend.
-- Commit del deploy anterior: `54b5dcd "I will host this in Vercel"`.
+- **Estado al 25/09/2026:** la app **tiene backend funcionando en producción**. El commit
+  `c0d2699` arregló el entrypoint de Express y `/api/demo/artists` pasó de 404 a 200.
+  Lo que no anda todavía es lo que necesita base: sin `DATABASE_URL` no hay login, registro,
+  favoritos ni preferencias (el resto, incluido el modo demo, responde normal).
+  Siguiente paso del plan: el 1 (Supabase).
+- Commits: `c0d2699` (entrypoint de Express) ← `54b5dcd "I will host this in Vercel"`.
 
 ### Cómo verificar un deploy (corré esto, no asumas)
 

@@ -12,6 +12,34 @@ const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+
+// Año actual, a nivel de modulo y no dentro de registerServer().
+//
+// Antes vivia adentro de registerServer() y se llenaba con fetchCurrentYear(),
+// que consultaba worldtimeapi.org. Eso rompia: initServices() (que esta a nivel
+// de modulo) la llamaba y no la tenia en scope -> ReferenceError. No se notaba
+// en produccion porque en Vercel initServices() nunca corre, solo en `npm start`.
+//
+// Y la API ya no responde (esta caida desde 2025, ver AGENTS.md paso 6), asi
+// que se fue la llamada de red: para lo que usa la app, el reloj del sistema
+// alcanza y queda una dependencia menos.
+let currentYear = new Date().getFullYear();
+
+// IP local de la maquina, para el banner de arranque en dev. Tarnbien a nivel de
+// modulo por el mismo motivo que currentYear: initServices() la llama, y vive
+// afuera de registerServer().
+function getLocalIP() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      // Buscar IPv4 que no sea localhost
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return null;
+}
 const FESTIVALS_PATH = path.join(__dirname, 'festivals.json');
 
 // Festivales: import estático en vez de fs.readFileSync en cada request.
@@ -1206,35 +1234,13 @@ function registerServer(app) {
       .trim();
   }
 
-  function getLocalIP() {
-    const interfaces = os.networkInterfaces();
-    for (const name of Object.keys(interfaces)) {
-      for (const iface of interfaces[name]) {
-        // Buscar IPv4 que no sea localhost
-        if (iface.family === 'IPv4' && !iface.internal) {
-          return iface.address;
-        }
-      }
-    }
-    return null;
-  }
+  // (getLocalIP y currentYear viven a nivel de modulo, arriba del archivo)
 
   // ==========================================
-  // AÑO ACTUAL (se obtiene de internet al iniciar)
+  // AÑO ACTUAL
   // ==========================================
-
-  let currentYear = new Date().getFullYear(); // Fallback al año del sistema
-
-  async function fetchCurrentYear() {
-    try {
-      const response = await axios.get('http://worldtimeapi.org/api/ip', { timeout: 5000 });
-      const dateStr = response.data.datetime; // "2026-01-12T..."
-      currentYear = parseInt(dateStr.substring(0, 4));
-      console.log(`Año actual obtenido de internet: ${currentYear}`);
-    } catch (err) {
-      console.log(`No se pudo obtener el año de internet, usando año del sistema: ${currentYear}`);
-    }
-  }
+  // `currentYear` se declara a nivel de modulo (arriba de este archivo), no
+  // adentro de registerServer(), porque initServices() también lo usa.
 
   // Endpoint para obtener el año actual
   app.get('/api/current-year', (req, res) => {
@@ -1352,7 +1358,6 @@ function registerServer(app) {
 async function initServices() {
   try {
     await db.initDatabase();
-    await fetchCurrentYear();
     const localIP = getLocalIP();
 
     console.log(`\nFestival Match ${currentYear} inicializado correctamente:`);

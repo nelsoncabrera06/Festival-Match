@@ -6,6 +6,10 @@ node_modules/
 .env.local
 .env.*.local
 
+# JSON de credenciales que descarga el Google Cloud Console al crear un OAuth
+# client. Trae el client_secret adentro. NUNCA commitear: el repo es publico.
+client_secret_*.json
+
 # Base de datos SQLite
 *.db
 *.sqlite
@@ -45,6 +49,10 @@ public/images/
 
 #db backups
 *.sql
+
+# ...pero las migraciones SI son codigo, no backups. Sin esta excepcion el
+# `*.sql` de arriba se come migrations/ y el schema no queda versionado.
+!migrations/*.sql
 
 # .github
 #.github/workflows/

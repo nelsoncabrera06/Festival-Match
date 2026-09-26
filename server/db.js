@@ -1,11 +1,48 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const SALT_ROUNDS = 10;
 
 // Configurar pool de conexiones PostgreSQL
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://localhost/festival_match'
+  connectionString: process.env.DATABASE_URL || 'postgresql://localhost/festival_match',
+
+  // max: 1 porque esto corre en Vercel serverless. Cada instancia maneja requests
+  // concurrentes, pero no necesita mas de una conexion: el pooler de Supabase
+  // (Supavisor, transaction mode) multiplexa las conexiones reales. Con el
+  // default de 10, un cold start de N instancias abre 10*N conexiones y
+  // Supabase free las corta.
+  max: 1,
+
+  // Fallar rapido si no se puede conectar, en vez de dejar el request colgado
+  // hasta que Vercel mate la funcion.
+  connectionTimeoutMillis: 10000,
+
+  // Cerrar las conexiones ociosas antes de que Supabase las cierre por timeout.
+  idleTimeoutMillis: 10000,
+
+  // Supabase documenta esto explicitamente para node-postgres.
+  //
+  // OJO: por que NO esta el `?sslmode=require` en la connection string, que es
+  // lo que dice la doc de Supabase. Con pg 8.16.3 ese parametro se traduce a
+  // ssl.rejectUnauthorized = true (al reves de lo que significa "require"), y
+  // como la connection string se parsea DESPUES del objeto de config, pisa
+  // este `ssl` y termina fallando con:
+  //   Error: self-signed certificate in certificate chain
+  // Verificado con las 4 combinaciones: con sslmode=require falla siempre
+  // (con o sin este `ssl` explícito); sin sslmode funciona. Por eso la URL
+  //ConnectionString no lleva el parametro y el TLS se configura acá.
+  ssl: { rejectUnauthorized: false }
+});
+
+// Sin este listener, un 'error' del pool es un throw no capturado que MATA la
+// instancia de Vercel. Con Supabase no es hipotetico: el pooler cierra
+// conexiones ociosas y el free tier pausa el proyecto, y node-postgres emite
+// 'error' en ambos casos. Con el listener el error se loguea, el pool descarta
+// esa conexion y el request sigue.
+pool.on('error', (err) => {
+  console.error('Error del pool de Postgres (conexion descartada):', err.message);
 });
 
 // Lista de emails con roles especiales (admins/devs)
@@ -498,19 +535,24 @@ async function deleteSuggestion(suggestionId) {
 // ==========================================
 
 function generateSessionId() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-  for (let i = 0; i < 64; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
+  // crypto, no Math.random: los ids de sesion son credenciales bearer (con la
+  // cookie httpOnly, quien tenga el string puede pedir un festival con los
+  // datos del usuario). Math.random() no es CSPRNG y con 7 dias de vida el
+  // espacio de adivinar es innecesariamente grande.
+  return crypto.randomBytes(32).toString('base64url');
 }
 
-// Limpiar sesiones expiradas cada hora
-setInterval(() => cleanExpiredSessions().catch(console.error), 60 * 60 * 1000);
-
-// Limpiar cache de tours expirado cada 6 horas
-setInterval(() => cleanExpiredTourCache().catch(console.error), 6 * 60 * 60 * 1000);
+// Limpiar sesiones expiradas cada hora, y el cache de tours cada 6 horas.
+//
+// Solo en dev local (`node app.js`). En Vercel los setInterval no se ejecutan de
+// forma confiable: la funcion se congela entre requests. Y ademas son
+// redundantes, porque ambos datos se limpian solos al leer: las sesiones con
+// `expires_at > NOW()` y el tour cache comparando `fetched_at` contra
+// TOUR_CACHE_DURATION.
+if (require.main === module) {
+  setInterval(() => cleanExpiredSessions().catch(console.error), 60 * 60 * 1000);
+  setInterval(() => cleanExpiredTourCache().catch(console.error), 6 * 60 * 60 * 1000);
+}
 
 module.exports = {
   pool,

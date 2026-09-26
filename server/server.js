@@ -17,9 +17,20 @@ const cookieParser = require('cookie-parser');
 const os = require('os');
 const FESTIVALS_PATH = path.join(__dirname, 'festivals.json');
 
-// Función para leer festivales (dinámico, sin cache)
+// Festivales: import estático en vez de fs.readFileSync en cada request.
+// Dos motivos:
+//  1. El bundler de Vercel (@vercel/nft) solo incluye en la function los archivos
+//     que puede rastrear estáticamente. Un require() se rastrea; un
+//     fs.readFileSync(path.join(__dirname, ...)) guardado en una variable, no.
+//     Con require, festivals.json viaja dentro del bundle.
+//   2. Evita una lectura de disco por request.
+// Consecuencia: los cambios en festivals.json requieren reiniciar (npm run dev).
+// En producción además no se pueden escribir archivos (fs read-only en Vercel):
+// la escritura desde el panel admin se migra a Supabase.
+const festivals = require('./festivals.json');
+
 function getFestivals() {
-  return JSON.parse(fs.readFileSync(FESTIVALS_PATH, 'utf8'));
+  return festivals;
 }
 
 // Base de datos y autenticacion
@@ -43,10 +54,10 @@ const spotifyTokenStore = {};
 // ==========================================
 // PAGINA PRINCIPAL
 // ==========================================
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
-});
+// index.html no se sirve desde acá: en local lo resuelve express.static
+// (sirve index.html por defecto en '/') y en producción lo sirve el CDN de
+// Vercel desde public/. La ruta SPA de deep links sí la atiende el catch-all
+// al final del archivo.
 
 // ==========================================
 // GOOGLE OAUTH
@@ -813,7 +824,13 @@ app.get('/api/artist-events/:artistName', async (req, res) => {
   }
 
   // NIVEL 2: Check cache en base de datos (persiste entre reinicios)
-  const dbCacheData = await db.getTourCache(artistName, region);
+  // Un fallo de DB no debe romper la respuesta: se trata como cache miss.
+  let dbCacheData = null;
+  try {
+    dbCacheData = await db.getTourCache(artistName, region);
+  } catch (err) {
+    console.warn(`[Cache DB] no se pudo leer el cache de ${artistName}: ${err.message}`);
+  }
   if (dbCacheData) {
     console.log(`[Cache DB] ${artistName} (${region})`);
     // Guardar en memoria para próximas consultas rápidas
@@ -890,7 +907,11 @@ app.get('/api/artist-events/:artistName', async (req, res) => {
     };
 
     // Guardar en base de datos (nivel 2 - persiste entre reinicios)
-    await db.setTourCache(artistName, region, result);
+    // Sin await a propósito: escribir la cache no debe retrasar la respuesta,
+    // y si falla solo perdemos el cache, no el request.
+    db.setTourCache(artistName, region, result).catch(err =>
+      console.warn(`[Cache DB] no se pudo guardar el cache de ${artistName}: ${err.message}`)
+    );
 
     res.json(result);
   } catch (err) {
@@ -1290,6 +1311,18 @@ app.get('*', (req, res) => {
 });
 
 // ==========================================
+// ERROR HANDLER
+// ==========================================
+// Sin esto, un error devuelve el HTML de Express y deja la función de Vercel en
+// un estado indefinido. Express 4 tampoco captura rechazos de handlers async,
+// así que este handler es la red de seguridad final.
+app.use((err, req, res, next) => {
+  console.error('Error no manejado en', req.method, req.originalUrl, '->', err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: 'Error interno del servidor' });
+});
+
+// ==========================================
 // INICIAR SERVIDOR
 // ==========================================
 
@@ -1321,7 +1354,15 @@ async function startServer() {
   }
 }
 
-startServer().catch(err => {
-  console.error('Error iniciando servidor:', err);
-  process.exit(1);
-});
+// Solo arrancamos un listener cuando este archivo se ejecuta directamente
+// (`node server/server.js`, o `npm start` / `npm run dev`).
+// En Vercel la app se importa desde app.js en la raíz y las requests entran
+// por el handler de la función: abrir un puerto ahí no corresponde.
+if (require.main === module) {
+  startServer().catch(err => {
+    console.error('Error iniciando servidor:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = app;

@@ -39,12 +39,14 @@ Cada usuario carga sus artistas (a mano, MusicBrainz o Last.fm) y la app calcula
 ## Estructura
 
 ```
+app.js                # Entry point para Vercel: reexporta server/server.js
+vercel.json           # Rewrite SPA: todo lo que no sea /api, /auth o /health -> /index.html
 server/server.js      # Express monolith: rutas API + auth + admin (1327 líneas)
 server/db.js          # Pool pg + schema init + todas las queries (555 líneas)
 server/auth.js        # Google OAuth + middlewares requireAuth/optionalAuth
-server/festivals.json # 58 festivals, 36 con lineup  ← MIGRAR A DB
+server/festivals.json # 58 festivales, 36 con lineup  ← MIGRAR A DB (step 4)
 public/               # app.js (3034 líneas), index.html, styles.css, i18n/
-migrations/           # SQL de una sola vez  ← CREAR
+migrations/           # SQL de una sola vez  ← CREAR (step 5)
 ```
 
 ---
@@ -64,11 +66,14 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   Crear proyecto free, sacar la **connection string del pooler (Supavisor, modo transaccional)**,
   correr `migrations/001_init.sql` con el schema actual de `initDatabase()` + seed de las 58 filas de `festivals.json`.
 
-- [ ] **2. Vercel: entry point** (~15 min) — *desbloquea el deploy*
-  Extraer la app a `app.js` en la raíz del repo con `module.exports = app`.
-  Vercel auto-detecta Express solo en `app.js` / `index.js` / `server.js` (raíz o `src/`);
-  hoy el entry está en `server/server.js` y **no lo va a detectar**.
-  Dejar `server/server.js` solo para dev local (con `listen`), sin `listen` en Vercel.
+- [x] **2. Vercel: entry point** (~15 min) — *desbloquea el deploy* — **HECHO**
+  `app.js` en la raíz reexporta la app. `server/server.js` ahora solo hace `listen`
+  cuando se ejecuta directo (`require.main === module`). `vercel.json` rewritea
+  todo lo que no sea `/api`, `/auth` o `/health` a `/index.html` para los deep links
+  de la SPA (que usa History API, no hash). `package.json` `main` → `app.js`.
+  Además: `festivals.json` pasó de `fs.readFileSync` a `require` (para que el
+  bundler de Vercel lo rastree e incluya en la función) y se agregó un error
+  handler final, que Express 4 no tiene y Vercel recomienda.
 
 - [ ] **3. Pool de Postgres serverless** (~15 min)
   Usar la URL del **pooler**, no la conexión directa. `max: 1` por instancia, `sslmode=require`,
@@ -130,8 +135,23 @@ Nunca commitear `.env`. Ya está en `.gitignore`.
 ```bash
 npm run dev     # node --watch server/server.js, en :8080
 npm start       # node server/server.js
-vercel dev     # para replicar el entorno de Vercel antes de deployar
+vercel dev      # para replicar el entorno de Vercel antes de deployar
 ```
+
+## Deploy
+
+El proyecto ya está preparado para Vercel sin base de datos (el modo demo anda entero).
+Deploy recomendado: **importar el repo de GitHub en vercel.com/new** para tener
+auto-deploy en cada push y preview deployments por PR.
+
+Si se prefiere por CLI: `npx vercel` y después `npx vercel --prod`.
+
+**Sin `DATABASE_URL` la app levanta igual.** `initDatabase()` falla y se captura, el
+server sigue andando, y solo se cae lo que necesita DB: login, registro, favoritos y
+preferencias. Todo lo demás responde normal, incluido el modo demo
+(`/api/demo/artists`, `/api/demo/festivals`) y la búsqueda de artistas en MusicBrainz.
+El cache de tour dates quedó tolerante a fallos de DB (un cache miss no rompe el request).
+Los endpoints `/api/admin/*` requieren sesión, así que sin DB devuelven 401 y no llegan a tocar la base.
 
 ---
 

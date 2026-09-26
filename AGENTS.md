@@ -39,9 +39,9 @@ Cada usuario carga sus artistas (a mano, MusicBrainz o Last.fm) y la app calcula
 ## Estructura
 
 ```
-app.js                # Entry point para Vercel: reexporta server/server.js
+app.js                # Entry point de Express para Vercel: crea la app y llama registerServer()
 vercel.json           # Rewrite SPA: todo lo que no sea /api, /auth o /health -> /index.html
-server/server.js      # Express monolith: rutas API + auth + admin (1327 líneas)
+server/server.js      # Rutas API + auth + admin, dentro de registerServer(app) (1374 líneas)
 server/db.js          # Pool pg + schema init + todas las queries (555 líneas)
 server/auth.js        # Google OAuth + middlewares requireAuth/optionalAuth
 server/festivals.json # 58 festivales, 36 con lineup  ← MIGRAR A DB (step 4)
@@ -53,7 +53,9 @@ migrations/           # SQL de una sola vez  ← CREAR (step 5)
 
 ## ⚠️ Migración a Vercel + Supabase
 
-**Estado:** planeada, sin empezar. Actualizar las casillas al avanzar cada paso.
+**Estado:** el entrypoint de Express (step 2) ya está arreglado y verificado local; falta
+pushear y confirmar en prod. Todo lo demás sigue sin empezar. Actualizar las casillas al
+avanzar cada paso.
 
 ### Por qué hay que hacerlo (contexto para sesiones futuras)
 
@@ -66,14 +68,49 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   Crear proyecto free, sacar la **connection string del pooler (Supavisor, modo transaccional)**,
   correr `migrations/001_init.sql` con el schema actual de `initDatabase()` + seed de las 58 filas de `festivals.json`.
 
-- [x] **2. Vercel: entry point** (~15 min) — *desbloquea el deploy* — **HECHO**
-  `app.js` en la raíz reexporta la app. `server/server.js` ahora solo hace `listen`
-  cuando se ejecuta directo (`require.main === module`). `vercel.json` rewritea
-  todo lo que no sea `/api`, `/auth` o `/health` a `/index.html` para los deep links
-  de la SPA (que usa History API, no hash). `package.json` `main` → `app.js`.
-  Además: `festivals.json` pasó de `fs.readFileSync` a `require` (para que el
-  bundler de Vercel lo rastree e incluya en la función) y se agregó un error
-  handler final, que Express 4 no tiene y Vercel recomienda.
+- [x] **2. Vercel: entry point** — **código hecho el 25/09/2026, falta confirmar en prod**
+  **Causa del deploy sin backend:** `app.js` no cumplía el contrato de entry de Express
+  que exige Vercel. La doc ([Express on Vercel](https://vercel.com/docs/frameworks/backend/express))
+  pide dos cosas: que el archivo **importe `express`** y que **exporte la app** (en CommonJS,
+  `module.exports = app`) o use un port listener. El `app.js` viejo solo hacía
+  `module.exports = require('./server/server')`: técnicamente exportaba una app de Express,
+  pero no importaba `express` ni creaba ninguna app, así que la detección —que es estática—
+  no lo reconocía y no armaba la función. Por eso `Framework Preset = Express` en el dashboard
+  no alcanzó: el preset estaba bien, el entry no.
+
+  **Lo que quedó (no revertir):**
+  - `app.js` (raíz, 62 líneas) es el entry: `require('express')`, `const app = express()`,
+    los middlewares globales (`cors`, `express.json`, `cookieParser`, `express.static`),
+    `registerServer(app)` y `module.exports = app`. Ese es el patrón que la doc marca
+    como "default export". Importado sin abrir puerto: verificado que `require('./app.js')`
+    registra 42 rutas + 7 middlewares y **no** llama `listen`.
+  - `server/server.js` exporta `{ registerServer, initServices, PORT }`. Las ~40 rutas
+    viven dentro de `registerServer(app)`; ya no crea su propia app ni importa
+    `express`/`cors`/`cookie-parser` (todo eso se mudó a `app.js`).
+  - `initServices()` (ex `startServer()`) hace `initDatabase` + `fetchCurrentYear` + logs,
+    ya **sin** el `listen`: el puerto lo abre `app.js` detrás de
+    `if (require.main === module)`, y se llama después de escuchar para que un fallo de DB
+    no tumbe el arranque.
+  - `npm start` / `npm run dev` → `node app.js` (antes `node server/server.js`).
+  - El catch-all `app.get('*')` ahora pasa callback a `res.sendFile`: en Vercel
+    `express.static()` se ignora y `public/` no viaja en el bundle, así que si una ruta de
+    la SPA llegara a la función devuelve 404 con un log claro en vez de un 500 opaco.
+  - `vercel.json` (sin cambios, verificado en prod): rewritea todo lo que no sea `/api`,
+    `/auth` o `/health` a `/index.html` para los deep links de la SPA (History API, no hash).
+  - `festivals.json` vía `require` y no `fs.readFileSync`, para que el bundler lo rastree.
+  - Error handler final al cierre de `registerServer` (Express 4 no captura rechazos async).
+  - Cache de tour dates tolerante a fallos de DB, para que el modo demo funcione sin base.
+
+  **Verificado localmente** (suite completa en "Cómo verificar un deploy"): las 11 rutas
+  dan 200, los deep links devuelven el HTML de la SPA, los 404 de `/api/*` son JSON, y sin
+  `DATABASE_URL` el server levanta igual (demo + MusicBrainz funcionan).
+
+  **Lo único que no se puede verificar sin deployar:** que la detección de Vercel acepte
+  el entry. Si `/api/demo/artists` sigue dando 404 con `x-vercel-error: NOT_FOUND`:
+  - Dashboard → Project → Settings → General → **Framework Preset = Express**
+    (ya se hizo una vez y no alcanzó *porque el entry no cumplía el contrato*; ahora sí).
+  - Build logs: Vercel reporta el framework que detectó.
+  - Alternativa si sigue sin detectarse: `"framework": "express"` explícito en `vercel.json`.
 
 - [ ] **3. Pool de Postgres serverless** (~15 min)
   Usar la URL del **pooler**, no la conexión directa. `max: 1` por instancia, `sslmode=require`,
@@ -133,18 +170,57 @@ Nunca commitear `.env`. Ya está en `.gitignore`.
 ## Comandos
 
 ```bash
-npm run dev     # node --watch server/server.js, en :8080
-npm start       # node server/server.js
+npm run dev     # node --watch app.js, en :8080
+npm start       # node app.js
 vercel dev      # para replicar el entorno de Vercel antes de deployar
 ```
 
+`app.js` es el entry de Express **y** el script de arranque. `server/server.js` ya no se
+ejecuta directo: exporta `registerServer` / `initServices` / `PORT` y no abre ningún puerto.
+
 ## Deploy
 
-El proyecto ya está preparado para Vercel sin base de datos (el modo demo anda entero).
-Deploy recomendado: **importar el repo de GitHub en vercel.com/new** para tener
-auto-deploy en cada push y preview deployments por PR.
+- **URL en producción:** https://festivalmatch.vercel.app/
+- Deploy desde el **dashboard de Vercel** importando el repo de GitHub. El usuario **no puede
+  usar el CLI de Vercel** (escribe a ciegas), así que no intentar eso como sugerencia.
+- **Estado al 25/09/2026:** el fix del entrypoint de Express está hecho y verificado local
+  (step 2 del plan), pero **el deploy de producción sigue siendo el viejo**: el frontend se
+  ve bien y la API da 404 en todas las rutas. Hay que pushear para que Vercel lo detected.
+  Después del push, correr la suite de abajo: si `/api/demo/artists` da 200, hay backend.
+- Commit del deploy anterior: `54b5dcd "I will host this in Vercel"`.
 
-Si se prefiere por CLI: `npx vercel` y después `npx vercel --prod`.
+### Cómo verificar un deploy (corré esto, no asumas)
+
+```bash
+B=https://festivalmatch.vercel.app
+# 1. ¿Hay función de backend? Tiene que dar 200. Si da 404, no hay backend.
+curl -s -o /dev/null -w '%{http_code}\n' "$B/api/demo/artists"
+# 2. Si lo anterior da 200, chequeá el resto:
+for p in "/" "/festivals" "/i18n/es.json" "/health" "/api/current-year" "/api/genres" \
+         "/api/demo/festivals?region=europe" "/api/artist-events/Coldplay" "/auth/me"; do
+  printf "%-38s -> %s\n" "$p" "$(curl -s -o /dev/null -w '%{http_code}' "$B$p" --max-time 20)"
+done
+```
+
+Distinguir el 404 de Vercel del 404 de la app (importante, se confunden fácil):
+
+```bash
+curl -s -D - -o /dev/null "$B/api/demo/artists" | grep -i "x-vercel-error\|content-type"
+```
+
+- `x-vercel-error: NOT_FOUND` + `content-type: text/plain` → **no hay función**, el routing
+  de Vercel no encontró handler. Es el síntoma del problema de detección de Express.
+- `content-type: application/json` → la función **sí** está corriendo y es la app la que 404.
+
+Ojo con un detalle del sitio estático viejo: el rewrite de `vercel.json` hace que
+`/cualquier/cosa` (incluso `/server/db.js` o `/package.json`) devuelva **200 con el HTML de
+`index.html`**. Por eso un 200 en una ruta rara no prueba nada: mirá el `content-type`.
+
+**Si el frontend se rompe después del deploy** (la función existe pero `/` da error), lo más
+probable es que una ruta de la SPA esté llegando a la función en vez de al CDN. En los logs
+aparece `Catch-all: no se pudo servir public/index.html`. Es el orden de routing de Vercel
+(filesystem → rewrite → función): si el rewrite de `vercel.json` no está, se arregla
+poniéndolo de vuelta, no tocando Express.
 
 **Sin `DATABASE_URL` la app levanta igual.** `initDatabase()` falla y se captura, el
 server sigue andando, y solo se cae lo que necesita DB: login, registro, favoritos y
@@ -159,6 +235,8 @@ Los endpoints `/api/admin/*` requieren sesión, así que sin DB devuelven 401 y 
 
 - Español en comentarios, nombres de variables y mensajes de error hacia el usuario (es un producto en español).
 - Las queries van en `db.js` como SQL en strings con parámetros `$1, $2`. **Siempre parametrizadas**, nunca interpoladas.
-- Rutas de API en `/api/*`, auth en `/auth/*`. Si agregás una ruta, actualizá el catch-all `app.get('*')` de `server.js:1285`.
+- Rutas de API en `/api/*`, auth en `/auth/*`. Si agregás una ruta, va **dentro de
+  `registerServer(app)`** en `server/server.js` (el catch-all `app.get('*')` está al final
+  de esa función, ~línea 1307). Ninguna ruta se registra a nivel de módulo.
 - `public/i18n/{es,en,fi}.json`: toda string nueva de UI va en los 3 idiomas.
 - Comentá los cambios de arquitectura acá arriba y en el código, con el **por qué** — el objetivo es que el proyecto se lea bien en un portfolio.

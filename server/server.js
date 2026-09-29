@@ -74,7 +74,7 @@ const bcrypt = require('bcryptjs');
 const SALT_ROUNDS = 10;
 
 //const PORT = process.env.PORT || 3002;
-const PORT = process.env.PORT || 8080; // Cambiado a 8080 para compatibilidad con Google cloud
+const PORT = process.env.PORT || 8080;
 
 // Almacenamiento en memoria de tokens Spotify (en produccion usar Redis/DB)
 const spotifyTokenStore = {};
@@ -1310,7 +1310,7 @@ function registerServer(app) {
   });
 
   // ==========================================
-  // HEALTH CHECK (para Cloud Run)
+  // HEALTH CHECK
   // ==========================================
 
   app.get('/health', (req, res) => {

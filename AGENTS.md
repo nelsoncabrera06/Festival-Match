@@ -30,21 +30,17 @@ El secret `DATABASE_URL` ya existe en GitHub (Settings → Secrets and variables
 el workflow corre bien: *"Base de datos activa y con escritura habilitada"*, verificado el
 29/09/2026. **No hay nada pendiente acá.** La base no se va a pausar.
 
-Lo que sigue son tareas de higiene, ninguna urgente: **6** (borrar el código muerto de
-Spotify, ~20 min) y **9** (limpieza de GCP/Docker). Son puras borradas de archivos que ya
-no se usan: 3 Dockerfiles (`Dockerfile`, `server/Dockerfile`, `public/Dockerfile`) +
-`.github/workflows/docker-publish.yml`, y las 13 referencias a Spotify en
-`server/server.js`. Los README ya no mencionan ni Spotify ni Docker, así que no hay que
-tocarlos.
+El demo user (4b) está terminado. Los pasos **6** (Spotify) y **9** (GCP/Docker) quedan
+pospuestos por decisión de Nelson: Spotify puede revisarse más adelante y Docker forma
+parte del caso práctico de Terraform en `Festival-Match-infra`. **No borrar Dockerfiles ni
+`.github/workflows/docker-publish.yml`.** Antes de tocar cualquier resto de GCP, mostrar el
+inventario y acordar el alcance.
 
-### 🔜 Si la próxima sesión es la del demo: arrancar por **4b**
+### Estado de tareas siguientes
 
-Nelson dejó el 4b para otra sesión. El brief completo está en el checklist, en
-"**4b. Usuario demo read-only en la DB**": cómo funciona hoy el demo línea por línea, qué
-falta en el schema (`user_artists` sin columna `image`, géneros en otra tabla), por qué se
-descartó el reset por sesión, y las 3 decisiones que hay que preguntarle antes de escribir
-código (login del usuario demo, qué hacer con los favoritos, y si el demo expone endpoints
-de escritura).
+El demo user (4b) ya está en Supabase y probado por Nelson. No hay otro ítem de
+implementación activo: Spotify (6) queda para más adelante y la limpieza GCP/Docker (9)
+requiere acordar el alcance; Docker se conserva por el proyecto Terraform relacionado.
 
 Un detalle que conviene tener presente: hoy el demo son **20** artistas hardcodeados en
 `server/server.js:1043`, no 22 (este doc decía 22; corregido el 29/09/2026). Y
@@ -122,9 +118,8 @@ sesiones, artistas, géneros, favoritos y el panel de admin funcionan contra Sup
 Verificado el 26/09/2026 con la suite de "Cómo verificar un deploy" (12 rutas en 200) y
 con el flujo de auth probado localmente contra la base real.
 
-Hechos: pasos 1, 2, 3, 4, 5, 7 y 8. Falta el 6 (código muerto de Spotify) y el 9
-(limpieza de GCP/Docker). El 4 está **completo y con el seed aplicado en Supabase**;
-falta commitearlo, deployarlo y probar el panel admin a mano.
+Hechos: pasos 1, 2, 3, 4, 5, 7 y 8, y 4b (demo read-only). Los pasos 6 y 9 están
+pospuestos. El 4 está **completo y con el seed aplicado en Supabase**.
 
 ### Por qué hay que hacerlo (contexto para sesiones futuras)
 
@@ -313,7 +308,7 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   **Resuelto: el seed ya está aplicado, el orden se respetó.** La lección, para que no se
   repita: **`initDatabase()` no es inocuo contra la base real.**
 
-- [ ] **4b. Usuario demo read-only en la DB** — **EN IMPLEMENTACIÓN** (29/09/2026)
+- [x] **4b. Usuario demo read-only en la DB** — **HECHO** (29/09/2026)
   Goal: que `/api/demo/*` deje de servir un array hardcodeado y lea de un usuario real de la
   DB, para que el demo no se desincronice del matching ni de los artistas reales.
 
@@ -322,7 +317,7 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   compartido y de solo lectura para visitantes. Nelson cargará a mano algunos artistas
   favoritos y festivales favoritos en DB una vez creada la cuenta.
 
-  **Implementado localmente (aún no aplicado ni probado en producción):**
+  **Implementado, migración aplicada por Nelson y demo probado:**
   - `migrations/003_demo_user.sql` crea `demo@festival-match.invalid` sin credenciales y
     siembra los 20 artistas actuales. `user_artists.image` queda disponible para cargar
     imágenes. La migración no agrega favoritos; se cargarán manualmente después.
@@ -336,7 +331,8 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
     vuelve a inicio sin llamar a `/auth/logout` ni afectar sesiones reales.
   - El badge “Modo Demo - Artistas de ejemplo” ya tiene traducciones es/en/fi y se actualiza
     al cambiar el idioma mientras el demo está abierto.
-  - Falta aplicar la migración, cargar las imágenes/favoritos deseados y probar el demo.
+  - Las imágenes y los festivales favoritos se pueden ajustar manualmente en DB cuando
+    Nelson quiera curar el perfil; esto no bloquea el funcionamiento del demo.
 
   **Investigación previa del 29/09/2026:**
 
@@ -386,12 +382,13 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   resuelve en el INSERT contra `ADMIN_EMAILS`, así no depende de acordarse de un UPDATE.
   `ADMIN_EMAILS` también pasó a ser env var, con el valor original como fallback.
 
-- [ ] **6. APIs externas muertas** (~20 min) — **parcial: worldtimeapi HECHO, falta Spotify**
+- [ ] **6. APIs externas muertas** (~20 min) — **POSPUESTO por Nelson (29/09/2026)**
   - **worldtimeapi.org: HECHO** (`c32d202`). `fetchCurrentYear()` borrado; `currentYear`
     quedó como `new Date().getFullYear()` a nivel de módulo.
   - **Bandsintown está muerta:** `rest.bandsintown.com` devuelve **403** (partner-only desde 2025).
     `/api/artist-events` siempre cae al fallback de búsqueda. La UI ya lo maneja, no rompe.
-  - **Spotify: código muerto, borrar.** `/api/top-artists` y `/api/spotify/*` guardan los
+  - **Spotify: revisar más adelante antes de borrar.** Nelson vio que el Dashboard parece
+    permitir crear apps de nuevo y no quiere invertir tiempo en esto ahora. `/api/top-artists` y `/api/spotify/*` guardan los
     tokens en `spotifyTokenStore`, **un objeto en memoria**: en serverless cada instancia
     tiene el suyo, así que el callback redirige a una instancia y el request siguiente
     puede caer en otra que no conoce la sesión. Nunca funcionó en Vercel (funcionaba en GCP).
@@ -422,9 +419,18 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   y sin `?sslmode=require`**.
   La alternativa con Vercel Cron quedó descartada: requiere el plan Pro ($25/mes).
 
-- [ ] **9. Limpieza GCP/Docker**
-  Borrar `Dockerfile` (raíz), `server/Dockerfile`, `public/Dockerfile` y `.github/workflows/docker-publish.yml`
-  (publicaban imágenes a GHCR para GCP). O moverlos a una rama `archive/gcp`.
+- [ ] **9. Restos de GCP / Docker** — **NO BORRAR Docker (decisión de Nelson, 29/09/2026)**
+  Docker es parte del proyecto relacionado `Festival-Match-infra`, usado para aprender
+  Terraform y desplegar esta app. Conservar los 3 Dockerfiles y
+  `.github/workflows/docker-publish.yml` (publica las imágenes a GHCR que puede consumir
+  esa infraestructura). Inventario actual de referencias GCP en este repo:
+  En `server/server.js` ya se quitaron los dos comentarios obsoletos: el que atribuía el
+  puerto 8080 a Google Cloud y la etiqueta de Cloud Run en `/health` (29/09/2026). La ruta
+  sigue siendo útil para verificar la app. `migrations/001_init.sql` y este archivo mencionan
+  GCP/Cloud SQL como contexto histórico; `package-lock.json` trae `gcp-metadata` como
+  dependencia transitiva de `google-auth-library`. No hay configuración `gcloud` ni archivos
+  de despliegue de Cloud Run/Cloud SQL. Las referencias históricas se conservan.
+  **Google OAuth sigue activo y no es basura.**
 
 ### Lo que NO hay que tocar
 

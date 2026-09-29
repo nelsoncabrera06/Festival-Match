@@ -69,7 +69,8 @@
         "allCountries": "Kaikki maat",
         "allCities": "Kaikki kaupungit",
         "topArtists": "Suosikkiartistisi",
-        "demoBadge": "Demotila – esimerkkiartistit"
+        "demoBadge": "Demotila – esimerkkiartistit",
+        "searchFestival": "Hae festivaaleja..."
     },
     "regions": {
         "europe": "Eurooppa",

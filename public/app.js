@@ -19,6 +19,7 @@ let festivalsData = []; // Cache de festivales para calendario
 let currentRegion = 'europe'; // Región actual (europe, usa, latam)
 let currentCountry = ''; // Filtro de país ('' = todos)
 let currentCity = ''; // Filtro de ciudad ('' = todas)
+let currentFestivalSearch = '';
 let currentYear = new Date().getFullYear(); // Año actual (se actualiza desde el servidor)
 let userRole = 'user'; // Rol del usuario
 let isUserAdmin = false; // Es admin?
@@ -180,6 +181,7 @@ function cacheElements() {
   // Cascade filters
   elements.countryFilter = document.getElementById('country-filter');
   elements.cityFilter = document.getElementById('city-filter');
+  elements.festivalCatalogSearch = document.getElementById('festival-catalog-search');
 
   // Last.fm
   elements.lastfmUsername = document.getElementById('lastfm-username');
@@ -349,6 +351,10 @@ function setupEventListeners() {
   // Cascade filters (Country/City)
   elements.countryFilter?.addEventListener('change', handleCountryChange);
   elements.cityFilter?.addEventListener('change', handleCityChange);
+  elements.festivalCatalogSearch?.addEventListener('input', (event) => {
+    currentFestivalSearch = event.target.value.trim().toLocaleLowerCase();
+    applyFiltersAndRender();
+  });
 
   // Busqueda de festivales favoritos
   elements.festivalSearch?.addEventListener('input', handleFestivalSearch);
@@ -2230,6 +2236,13 @@ function filterFestivals(festivals) {
   return festivals.filter(f => {
     if (currentCountry && f.country !== currentCountry) return false;
     if (currentCity && f.city !== currentCity) return false;
+    if (currentFestivalSearch) {
+      const searchableText = [f.name, f.city, f.country, f.location]
+        .filter(Boolean)
+        .join(' ')
+        .toLocaleLowerCase();
+      if (!searchableText.includes(currentFestivalSearch)) return false;
+    }
     return true;
   });
 }

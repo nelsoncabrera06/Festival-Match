@@ -11,7 +11,6 @@
         "demoBtn": "Probar con artistas de ejemplo",
         "demoNote": "Prueba la app sin crear cuenta",
         "googleNote": "Guarda tus preferencias y accede desde cualquier dispositivo",
-        "spotifyDisabled": "Integración con Spotify pausada temporalmente",
         "or": "o",
         "emailTab": "Email",
         "registerTab": "Registrarse"
@@ -40,6 +39,26 @@
             "description": "Importa artistas desde tu perfil de Last.fm",
             "placeholder": "Tu usuario de Last.fm",
             "loadBtn": "Cargar"
+        },
+        "spotify": {
+            "title": "Spotify",
+            "description": "Conecta tu cuenta e importa tus artistas más escuchados",
+            "connect": "Conectar Spotify",
+            "import": "Cargar mis top artistas",
+            "disconnect": "Desconectar",
+            "connected": "Spotify está conectado.",
+            "notConnected": "Conecta Spotify para ver tus artistas más escuchados.",
+            "notConfigured": "Spotify todavía no está configurado en el servidor.",
+            "authorizationDenied": "No autorizaste el acceso a Spotify.",
+            "stateMismatch": "No se pudo validar la conexión. Inténtalo otra vez.",
+            "connectionFailed": "No se pudo conectar con Spotify. Inténtalo otra vez.",
+            "allowlistError": "Tu cuenta todavía no está autorizada en la app de Spotify.",
+            "rateLimitError": "Spotify limitó las consultas. Espera un momento e intenta de nuevo.",
+            "reconnectError": "La conexión venció. Desconecta Spotify y vuelve a conectarlo.",
+            "importFailed": "No se pudieron cargar tus artistas de Spotify.",
+            "noArtists": "Spotify no devolvió artistas para este período.",
+            "addFailed": "No se pudo agregar el artista.",
+            "disconnectFailed": "No se pudo desconectar Spotify."
         }
     },
     "results": {

@@ -97,6 +97,14 @@ async function initDatabase() {
       UNIQUE(user_id, festival_id)
     );
 
+    CREATE TABLE IF NOT EXISTS spotify_connections (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      refresh_token_encrypted TEXT NOT NULL,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    ALTER TABLE spotify_connections ENABLE ROW LEVEL SECURITY;
+    REVOKE ALL PRIVILEGES ON TABLE spotify_connections FROM anon, authenticated;
+
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -229,6 +237,28 @@ async function getLastfmUsername(userId) {
 async function setLastfmUsername(userId, username) {
   await pool.query('UPDATE users SET lastfm_username = $1 WHERE id = $2', [username || null, userId]);
   return true;
+}
+
+async function getSpotifyConnection(userId) {
+  const result = await pool.query(
+    'SELECT refresh_token_encrypted FROM spotify_connections WHERE user_id = $1',
+    [userId]
+  );
+  return result.rows[0] || null;
+}
+
+async function setSpotifyConnection(userId, encryptedRefreshToken) {
+  await pool.query(`
+    INSERT INTO spotify_connections (user_id, refresh_token_encrypted)
+    VALUES ($1, $2)
+    ON CONFLICT (user_id) DO UPDATE
+    SET refresh_token_encrypted = EXCLUDED.refresh_token_encrypted,
+        updated_at = CURRENT_TIMESTAMP
+  `, [userId, encryptedRefreshToken]);
+}
+
+async function deleteSpotifyConnection(userId) {
+  await pool.query('DELETE FROM spotify_connections WHERE user_id = $1', [userId]);
 }
 
 async function getUserRole(userId) {
@@ -781,6 +811,9 @@ module.exports = {
   getUserByEmail,
   getLastfmUsername,
   setLastfmUsername,
+  getSpotifyConnection,
+  setSpotifyConnection,
+  deleteSpotifyConnection,
   // Auth con email/password
   registerUser,
   loginUser,

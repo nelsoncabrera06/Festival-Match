@@ -9,6 +9,7 @@
 
 require('dotenv').config();
 const axios = require('axios');
+const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -60,7 +61,7 @@ function getLocalIP() {
 //
 // NOTA: getFestivals() ya no existe como funcion. Los 4 callers ahora usan
 // db.getFestivals(), que es async: /api/user/festivals, /api/demo/festivals,
-// /api/festivals (Spotify) y /api/artist-events/:artistName, que usa
+// /api/festivals y /api/artist-events/:artistName, que usa
 // findArtistInFestivals(). Los tres primeros ya estaban dentro de un try/catch;
 // al cuarto hubo que agregarselo. findArtistInFestivals() recibio el catalogo
 // como parametro en vez de llamar a la DB por su cuenta: su unico caller ya lo
@@ -76,8 +77,56 @@ const SALT_ROUNDS = 10;
 //const PORT = process.env.PORT || 3002;
 const PORT = process.env.PORT || 8080;
 
-// Almacenamiento en memoria de tokens Spotify (en produccion usar Redis/DB)
-const spotifyTokenStore = {};
+const SPOTIFY_AUTH_URL = 'https://accounts.spotify.com/authorize';
+const SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token';
+const SPOTIFY_TOP_ARTISTS_URL = 'https://api.spotify.com/v1/me/top/artists';
+const SPOTIFY_SCOPES = 'user-top-read';
+
+function getSpotifyConfig() {
+  return {
+    clientId: process.env.SPOTIFY_CLIENT_ID,
+    clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+    redirectUri: process.env.SPOTIFY_REDIRECT_URI,
+    tokenKey: process.env.SPOTIFY_TOKEN_ENCRYPTION_KEY,
+  };
+}
+
+function getSpotifyEncryptionKey() {
+  const key = Buffer.from(getSpotifyConfig().tokenKey || '', 'base64');
+  if (key.length !== 32) {
+    throw new Error('SPOTIFY_TOKEN_ENCRYPTION_KEY debe ser una clave base64 de 32 bytes');
+  }
+  return key;
+}
+
+function encryptSpotifyToken(token) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', getSpotifyEncryptionKey(), iv);
+  const ciphertext = Buffer.concat([cipher.update(token, 'utf8'), cipher.final()]);
+  return [iv, cipher.getAuthTag(), ciphertext].map(part => part.toString('base64url')).join('.');
+}
+
+function decryptSpotifyToken(encryptedToken) {
+  const parts = encryptedToken.split('.');
+  if (parts.length !== 3) throw new Error('Refresh token de Spotify inválido');
+  const [iv, authTag, ciphertext] = parts.map(part => Buffer.from(part, 'base64url'));
+  if (iv.length !== 12 || authTag.length !== 16 || ciphertext.length === 0) {
+    throw new Error('Refresh token de Spotify inválido');
+  }
+  const decipher = crypto.createDecipheriv('aes-256-gcm', getSpotifyEncryptionKey(), iv);
+  decipher.setAuthTag(authTag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+}
+
+function spotifyOAuthCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production' || process.env.VERCEL === '1',
+    sameSite: 'lax',
+    maxAge: 10 * 60 * 1000,
+    path: '/auth/spotify',
+  };
+}
 
 /**
  * Registra todas las rutas (auth, API y admin) sobre la app de Express que recibe.
@@ -1095,147 +1144,177 @@ function registerServer(app) {
   });
 
   // ==========================================
-  // SPOTIFY API (deshabilitado por ahora)
+  // SPOTIFY: conexión OAuth y sugerencias de top artists
   // ==========================================
 
-  const SPOTIFY_SCOPES = 'user-top-read';
+  app.get('/auth/spotify/login', auth.requireAuth, (req, res) => {
+    const { clientId, clientSecret, redirectUri, tokenKey } = getSpotifyConfig();
+    if (!clientId || !clientSecret || !redirectUri || !tokenKey) {
+      return res.redirect('/preferences?spotify_error=not_configured');
+    }
 
-  app.get('/login', (req, res) => {
-    const state = generateRandomString(16);
-    const authUrl = new URL('https://accounts.spotify.com/authorize');
+    try {
+      getSpotifyEncryptionKey();
+    } catch (err) {
+      console.error(err.message);
+      return res.redirect('/preferences?spotify_error=not_configured');
+    }
 
-    authUrl.searchParams.append('response_type', 'code');
-    authUrl.searchParams.append('client_id', process.env.SPOTIFY_CLIENT_ID);
-    authUrl.searchParams.append('scope', SPOTIFY_SCOPES);
-    authUrl.searchParams.append('redirect_uri', process.env.REDIRECT_URI);
-    authUrl.searchParams.append('state', state);
+    const state = crypto.randomBytes(32).toString('base64url');
+    const authorizeUrl = new URL(SPOTIFY_AUTH_URL);
+    authorizeUrl.search = new URLSearchParams({
+      response_type: 'code',
+      client_id: clientId,
+      scope: SPOTIFY_SCOPES,
+      redirect_uri: redirectUri,
+      state,
+    }).toString();
 
-    res.redirect(authUrl.toString());
+    res.cookie('spotify_oauth_state', state, spotifyOAuthCookieOptions());
+    res.redirect(authorizeUrl.toString());
   });
 
-  app.get('/callback', async (req, res) => {
-    const { code, error } = req.query;
+  app.get('/auth/spotify/callback', auth.requireAuth, async (req, res) => {
+    const { clientId, clientSecret, redirectUri } = getSpotifyConfig();
+    const { code, error, state } = req.query;
+    const expectedState = req.cookies?.spotify_oauth_state;
+    const clearStateCookie = () => res.clearCookie('spotify_oauth_state', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production' || process.env.VERCEL === '1',
+      sameSite: 'lax',
+      path: '/auth/spotify',
+    });
 
     if (error) {
-      return res.redirect('/?error=' + error);
+      clearStateCookie();
+      return res.redirect('/preferences?spotify_error=authorization_denied');
+    }
+
+    const receivedState = Buffer.from(String(state || ''));
+    const savedState = Buffer.from(String(expectedState || ''));
+    if (!code || !expectedState || receivedState.length !== savedState.length ||
+        !crypto.timingSafeEqual(receivedState, savedState)) {
+      clearStateCookie();
+      return res.redirect('/preferences?spotify_error=state_mismatch');
+    }
+
+    clearStateCookie();
+
+    if (!clientId || !clientSecret || !redirectUri) {
+      return res.redirect('/preferences?spotify_error=not_configured');
     }
 
     try {
       const tokenResponse = await axios.post(
-        'https://accounts.spotify.com/api/token',
+        SPOTIFY_TOKEN_URL,
         new URLSearchParams({
           grant_type: 'authorization_code',
-          code: code,
-          redirect_uri: process.env.REDIRECT_URI,
+          code: String(code),
+          redirect_uri: redirectUri,
         }),
         {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': 'Basic ' + Buffer.from(
-              process.env.SPOTIFY_CLIENT_ID + ':' + process.env.SPOTIFY_CLIENT_SECRET
-            ).toString('base64'),
-          },
+          auth: { username: clientId, password: clientSecret },
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         }
       );
 
-      const { access_token, refresh_token, expires_in } = tokenResponse.data;
-      const sessionId = generateRandomString(32);
-      spotifyTokenStore[sessionId] = {
-        accessToken: access_token,
-        refreshToken: refresh_token,
-        expiresAt: Date.now() + (expires_in * 1000),
-      };
+      if (!tokenResponse.data.refresh_token) {
+        throw new Error('Spotify no devolvió un refresh token');
+      }
 
-      res.redirect('/?session=' + sessionId);
+      await db.setSpotifyConnection(
+        req.user.id,
+        encryptSpotifyToken(tokenResponse.data.refresh_token)
+      );
+      res.redirect('/preferences');
     } catch (err) {
-      console.error('Error en callback:', err.response?.data || err.message);
-      res.redirect('/?error=token_error');
+      console.error('Error conectando Spotify:', err.response?.status || err.message);
+      res.redirect('/preferences?spotify_error=connection_failed');
     }
   });
 
-  app.get('/api/top-artists', async (req, res) => {
-    const sessionId = req.headers['x-session-id'];
-
-    if (!sessionId || !spotifyTokenStore[sessionId]) {
-      return res.status(401).json({ error: 'No autorizado' });
-    }
-
+  app.get('/api/spotify/connection', auth.requireAuth, async (req, res) => {
     try {
-      const response = await axios.get('https://api.spotify.com/v1/me/top/artists', {
-        headers: {
-          'Authorization': 'Bearer ' + spotifyTokenStore[sessionId].accessToken,
-        },
-        params: { limit: 50, time_range: 'medium_term' },
-      });
-
-      const artists = response.data.items.map(artist => ({
-        name: artist.name,
-        image: artist.images[0]?.url,
-        genres: artist.genres,
-      }));
-
-      res.json({ artists });
+      const connection = await db.getSpotifyConnection(req.user.id);
+      res.json({ connected: Boolean(connection) });
     } catch (err) {
-      console.error('Error obteniendo artistas:', err.response?.data || err.message);
-      res.status(500).json({ error: 'Error al obtener artistas' });
+      console.error('Error consultando conexión de Spotify:', err.message);
+      res.status(500).json({ error: 'No se pudo consultar la conexión de Spotify' });
     }
   });
 
-  app.get('/api/festivals', async (req, res) => {
-    const sessionId = req.headers['x-session-id'];
+  app.delete('/api/spotify/connection', auth.requireAuth, async (req, res) => {
+    try {
+      await db.deleteSpotifyConnection(req.user.id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error desconectando Spotify:', err.message);
+      res.status(500).json({ error: 'No se pudo desconectar Spotify' });
+    }
+  });
 
-    if (!sessionId || !spotifyTokenStore[sessionId]) {
-      return res.status(401).json({ error: 'No autorizado' });
+  app.get('/api/spotify/top-artists', auth.requireAuth, async (req, res) => {
+    const { clientId, clientSecret } = getSpotifyConfig();
+    if (!clientId || !clientSecret) {
+      return res.status(503).json({ error: 'Spotify no está configurado en el servidor' });
     }
 
     try {
-      const artistsResponse = await axios.get('https://api.spotify.com/v1/me/top/artists', {
-        headers: {
-          'Authorization': 'Bearer ' + spotifyTokenStore[sessionId].accessToken,
-        },
+      const connection = await db.getSpotifyConnection(req.user.id);
+      if (!connection) {
+        return res.status(404).json({ error: 'Conecta tu cuenta de Spotify primero' });
+      }
+
+      const refreshToken = decryptSpotifyToken(connection.refresh_token_encrypted);
+      const refreshed = await axios.post(
+        SPOTIFY_TOKEN_URL,
+        new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }),
+        {
+          auth: { username: clientId, password: clientSecret },
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        }
+      );
+
+      if (refreshed.data.refresh_token) {
+        await db.setSpotifyConnection(
+          req.user.id,
+          encryptSpotifyToken(refreshed.data.refresh_token)
+        );
+      }
+
+      const response = await axios.get(SPOTIFY_TOP_ARTISTS_URL, {
+        headers: { Authorization: `Bearer ${refreshed.data.access_token}` },
         params: { limit: 50, time_range: 'medium_term' },
       });
 
-      const userArtists = artistsResponse.data.items.map(a => normalizeString(a.name));
-
-      const festivalsWithMatch = (await db.getFestivals()).map(festival => {
-        const festivalArtists = festival.lineup.map(a => normalizeString(a));
-        const matches = userArtists.filter(artist => festivalArtists.includes(artist));
-        const matchPercentage = userArtists.length > 0
-          ? Math.round((matches.length / userArtists.length) * 100)
-          : 0;
-
-        return {
-          ...festival,
-          matchPercentage,
-          matchedArtists: matches.length,
-          totalUserArtists: userArtists.length,
-          artistsInCommon: festival.lineup.filter(a =>
-            userArtists.includes(normalizeString(a))
-          ),
-        };
+      res.json({
+        artists: (response.data.items || []).map(artist => ({
+          name: artist.name,
+          image: artist.images?.[0]?.url || null,
+          genres: artist.genres || [],
+        })),
       });
-
-      festivalsWithMatch.sort((a, b) => b.matchPercentage - a.matchPercentage);
-      res.json({ festivals: festivalsWithMatch });
     } catch (err) {
-      console.error('Error calculando matches:', err.response?.data || err.message);
-      res.status(500).json({ error: 'Error al calcular matches' });
+      const status = err.response?.status;
+      console.error('Error obteniendo top artists de Spotify:', status || err.message);
+
+      if (status === 400 && err.response?.data?.error === 'invalid_grant') {
+        await db.deleteSpotifyConnection(req.user.id).catch(() => {});
+        return res.status(401).json({ error: 'La conexión venció; conecta Spotify de nuevo' });
+      }
+      if (status === 403) {
+        return res.status(403).json({ error: 'Tu cuenta de Spotify debe estar autorizada en la allowlist de la app' });
+      }
+      if (status === 429) {
+        return res.status(429).json({ error: 'Spotify limitó las consultas; espera un momento e intenta de nuevo' });
+      }
+      res.status(502).json({ error: 'Spotify no pudo devolver tus artistas ahora' });
     }
   });
 
   // ==========================================
   // UTILIDADES
   // ==========================================
-
-  function generateRandomString(length) {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < length; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-  }
 
   function normalizeString(str) {
     return str

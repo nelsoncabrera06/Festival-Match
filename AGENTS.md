@@ -30,19 +30,21 @@ El secret `DATABASE_URL` ya existe en GitHub (Settings → Secrets and variables
 el workflow corre bien: *"Base de datos activa y con escritura habilitada"*, verificado el
 29/09/2026. **No hay nada pendiente acá.** La base no se va a pausar.
 
-El demo user (4b) está terminado. Los pasos **6** (Spotify) y **9** (GCP/Docker) quedan
-pospuestos por decisión de Nelson: Spotify puede revisarse más adelante y Docker forma
-parte del caso práctico de Terraform en `Festival-Match-infra`. **No borrar Dockerfiles ni
-`.github/workflows/docker-publish.yml`.** Antes de tocar cualquier resto de GCP, mostrar el
-inventario y acordar el alcance.
+El demo user (4b) está terminado. El paso **6** (Spotify) queda en pausa: la integración
+está preparada en el código, pero Spotify no permite crear la app desde el Dashboard (error
+genérico incluso en otro navegador). Retomar cuando Spotify lo resuelva. El paso **9** (GCP/Docker) queda pospuesto: Docker forma parte del caso
+práctico de Terraform en `Festival-Match-infra`. **No borrar Dockerfiles ni
+`.github/workflows/docker-publish.yml`.** Antes de tocar cualquier otro resto de GCP, mostrar
+el inventario y acordar el alcance.
 
 ### Estado de tareas siguientes
 
 El demo user (4b) ya está en Supabase y probado por Nelson. La migración **004** para RLS y
 revocar permisos Data API se ejecutó correctamente en Supabase (29/09/2026); Security
 Advisor quedó en 0 errores y muestra 8 sugerencias informativas de “RLS enabled, no policy”,
-esperadas porque ninguna tabla de la app se expone por la Data API. Spotify (6) queda
-pospuesto y Docker se conserva por el proyecto Terraform.
+esperadas porque ninguna tabla de la app se expone por la Data API. La conexión directa con
+Spotify queda pausada por un fallo del Developer Dashboard; Last.fm ya está integrada y
+probada. Docker se conserva.
 
 El perfil demo tiene **20 artistas en DB**. `public/app.js` también mantiene una lista de
 nombres para la sección de fechas de gira. `npm start` local sigue conectando a
@@ -94,8 +96,8 @@ server/festivals.json # 58 festivales, 36 con lineup. YA NO SE LEE EN RUNTIME: e
 public/               # app.js (3034 líneas), index.html, styles.css, i18n/
 scripts/              # generate-festivals-migration.js (genera 002_festivals.sql)
 migrations/           # Schema versionado. 001_init.sql, 002_festivals.sql y
-                      # 003_demo_user.sql aplicados. 004_secure_public_tables.sql pendiente.
-.github/workflows/    # keepalive.yml (cron diario contra Supabase) + docker-publish.yml (muerto, step 9)
+                      # 003_demo_user.sql y 004_secure_public_tables.sql aplicados; 005 pendiente.
+.github/workflows/    # keepalive.yml (cron Supabase) + docker-publish.yml (GHCR para Terraform)
 migrations/festival_match_backup_20260505.dump  # Backup de Cloud SQL (20260505). Ignorado por
                       # git vía `*.dump`. Datos viejos de 2026, opcional. NO confundir con
                       # los .sql de al lado: esos SÍ están versionados (ver Trampa 6)
@@ -120,8 +122,9 @@ sesiones, artistas, géneros, favoritos y el panel de admin funcionan contra Sup
 Verificado el 26/09/2026 con la suite de "Cómo verificar un deploy" (12 rutas en 200) y
 con el flujo de auth probado localmente contra la base real.
 
-Hechos: pasos 1, 2, 3, 4, 5, 7 y 8, y 4b (demo read-only). Los pasos 6 y 9 están
-pospuestos. El 4 está **completo y con el seed aplicado en Supabase**.
+Hechos: pasos 1, 2, 3, 4, 5, 7 y 8, y 4b (demo read-only). El paso 6 está parcialmente
+implementado y pausado por Spotify; el paso 9 queda pospuesto. El 4 está **completo y con
+el seed aplicado en Supabase**.
 
 ### Por qué hay que hacerlo (contexto para sesiones futuras)
 
@@ -384,17 +387,21 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   resuelve en el INSERT contra `ADMIN_EMAILS`, así no depende de acordarse de un UPDATE.
   `ADMIN_EMAILS` también pasó a ser env var, con el valor original como fallback.
 
-- [ ] **6. APIs externas muertas** (~20 min) — **POSPUESTO por Nelson (29/09/2026)**
+- [ ] **6. APIs externas** — **Spotify pausado; Last.fm funciona** (29/09/2026)
   - **worldtimeapi.org: HECHO** (`c32d202`). `fetchCurrentYear()` borrado; `currentYear`
     quedó como `new Date().getFullYear()` a nivel de módulo.
   - **Bandsintown está muerta:** `rest.bandsintown.com` devuelve **403** (partner-only desde 2025).
     `/api/artist-events` siempre cae al fallback de búsqueda. La UI ya lo maneja, no rompe.
-  - **Spotify: revisar más adelante antes de borrar.** Nelson vio que el Dashboard parece
-    permitir crear apps de nuevo y no quiere invertir tiempo en esto ahora. `/api/top-artists` y `/api/spotify/*` guardan los
-    tokens en `spotifyTokenStore`, **un objeto en memoria**: en serverless cada instancia
-    tiene el suyo, así que el callback redirige a una instancia y el request siguiente
-    puede caer en otra que no conoce la sesión. Nunca funcionó en Vercel (funcionaba en GCP).
-    El `redirect('/?session=' + sessionId)` además tiraría el id de sesión en la URL.
+  - **Spotify:** OAuth y UI reescritos para Vercel. La nueva tabla de tokens es
+    `spotify_connections` (migración 005); los refresh tokens se cifran con AES-256-GCM.
+    Usa `SPOTIFY_REDIRECT_URI` y `SPOTIFY_TOKEN_ENCRYPTION_KEY`; ver `.env.example`.
+    Rutas bajo `/auth/spotify/*` y `/api/spotify/*`, protegidas por la sesión de Festival
+    Match. Nelson ya aplicó `005_spotify_connections.sql` en Supabase. La app de Spotify no
+    se pudo crear: el Dashboard muestra errores genéricos al guardar y al cargar la página,
+    incluso desde otro navegador. Por eso siguen pendientes las credenciales, las env vars
+    de Vercel, la allowlist y la prueba end-to-end. No seguir investigando ahora; retomar
+    cuando el Dashboard permita crear la app. Last.fm ya está integrada y Nelson confirmó
+    que funciona.
 
 - [x] **7. Google OAuth** — **HECHO 26/09/2026**
   El proyecto de GCP viejo estaba **borrado** (lo eliminó para cortar costos), así que hubo
@@ -605,7 +612,9 @@ AGENTS.md no sirve para esto: es instrucción que el agente lee pero nada la imp
 | `GOOGLE_CLIENT_ID` / `_SECRET` / `GOOGLE_REDIRECT_URI` | Redirect URI apunta al dominio de Vercel. El `_SECRET` es el mismo en `.env` local y en Vercel |
 | `LASTFM_API_KEY` | Falta en `.env.example`. Sin ella no funciona la importación desde Last.fm |
 | `ADMIN_EMAILS` | Opcional, lista separada por comas. Sin la var, el fallback hardcodeado es `nelsoncabrera06@gmail.com` |
-| `SPOTIFY_*` | Deshabilitado, se puede borrar junto con el código muerto de Spotify |
+| `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | Credenciales de la app Spotify; secretos solo en `.env`/Vercel |
+| `SPOTIFY_REDIRECT_URI` | Debe coincidir exactamente con el URI permitido en Spotify Dashboard |
+| `SPOTIFY_TOKEN_ENCRYPTION_KEY` | 32 bytes codificados en base64; `openssl rand -base64 32` |
 
 Nunca commitear `.env`. Ya está en `.gitignore`. El repo es **público**: auditar el historial
 con `git log --all -p -S '<secreto>'` antes dedadeclarar que está limpio.

@@ -2442,6 +2442,30 @@ body {
   border: 1px solid transparent;
 }
 
+.spotify-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.spotify-feedback {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin: 8px 0;
+}
+
+.spotify-feedback:empty {
+  display: none;
+}
+
+.suggestion-artist-image {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .suggestion-tag:not(.already-added):hover {
   background: rgba(29, 185, 84, 0.15);
   border-color: var(--spotify-green);

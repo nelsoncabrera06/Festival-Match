@@ -94,10 +94,11 @@ async function init() {
   const urlParams = new URLSearchParams(window.location.search);
   const authSuccess = urlParams.get('auth');
   const error = urlParams.get('error');
+  const spotifyError = urlParams.get('spotify_error');
 
   // Limpiar URL
-  if (authSuccess || error) {
-    window.history.replaceState({}, document.title, '/');
+  if (authSuccess || error || spotifyError) {
+    window.history.replaceState({}, document.title, spotifyError ? '/preferences' : '/');
   }
 
   if (error) {
@@ -111,6 +112,9 @@ async function init() {
   // Verificar si hay usuario logueado. Los botones quedan activos mientras
   // responde /auth/me, incluso si esa consulta tarda o falla.
   await checkAuth();
+  if (spotifyError && elements.spotifyFeedback) {
+    showSpotifyFeedback(spotifyErrorToTranslationKey(spotifyError));
+  }
 
   // Escuchar cambios de idioma para re-renderizar contenido dinamico
   window.addEventListener('languageChanged', handleLanguageChange);
@@ -183,6 +187,13 @@ function cacheElements() {
   elements.lastfmSuggestions = document.getElementById('lastfm-suggestions');
   elements.lastfmToggle = document.getElementById('lastfm-toggle');
   elements.lastfmSection = document.querySelector('.lastfm-section.collapsible');
+
+  // Spotify
+  elements.spotifyConnectBtn = document.getElementById('spotify-connect-btn');
+  elements.spotifyImportBtn = document.getElementById('spotify-import-btn');
+  elements.spotifyDisconnectBtn = document.getElementById('spotify-disconnect-btn');
+  elements.spotifyFeedback = document.getElementById('spotify-feedback');
+  elements.spotifySuggestions = document.getElementById('spotify-suggestions');
 
   // Suggest Festival Modal
   elements.suggestFestivalBtn = document.getElementById('suggest-festival-btn');
@@ -355,6 +366,13 @@ function setupEventListeners() {
     }
   });
   elements.lastfmToggle?.addEventListener('click', toggleLastfmSection);
+
+  // Spotify
+  elements.spotifyConnectBtn?.addEventListener('click', () => {
+    window.location.href = '/auth/spotify/login';
+  });
+  elements.spotifyImportBtn?.addEventListener('click', loadSpotifyTopArtists);
+  elements.spotifyDisconnectBtn?.addEventListener('click', disconnectSpotify);
 
   // Suggest Festival Modal
   elements.suggestFestivalBtn?.addEventListener('click', openSuggestFestivalModal);
@@ -1364,12 +1382,13 @@ async function startDemo() {
 
 async function loadUserPreferences() {
   try {
-    const [artistsRes, genresRes, availableGenresRes, favoriteFestivalsRes, lastfmUsernameRes] = await Promise.all([
+    const [artistsRes, genresRes, availableGenresRes, favoriteFestivalsRes, lastfmUsernameRes, spotifyConnectionRes] = await Promise.all([
       fetch('/api/user/artists', { credentials: 'include' }),
       fetch('/api/user/genres', { credentials: 'include' }),
       fetch('/api/genres'),
       fetch('/api/user/favorite-festivals', { credentials: 'include' }),
       fetch('/api/user/lastfm-username', { credentials: 'include' }),
+      fetch('/api/spotify/connection', { credentials: 'include' }),
     ]);
 
     const artistsData = await artistsRes.json();
@@ -1377,6 +1396,7 @@ async function loadUserPreferences() {
     const availableGenresData = await availableGenresRes.json();
     const favoriteFestivalsData = await favoriteFestivalsRes.json();
     const lastfmUsernameData = await lastfmUsernameRes.json();
+    const spotifyConnectionData = await spotifyConnectionRes.json();
 
     myArtists = artistsData.artists || [];
     myGenres = genresData.genres || [];
@@ -1387,6 +1407,7 @@ async function loadUserPreferences() {
     if (lastfmUsernameData.username && elements.lastfmUsername) {
       elements.lastfmUsername.value = lastfmUsernameData.username;
     }
+    setSpotifyConnectionState(Boolean(spotifyConnectionData.connected));
 
     renderMyArtists();
     renderGenreSelector();
@@ -2740,6 +2761,132 @@ function getCountryFlagByName(countryName) {
 }
 
 // ==========================================
+// Spotify
+// ==========================================
+
+function spotifyErrorToTranslationKey(code) {
+  const errors = {
+    not_configured: 'notConfigured',
+    authorization_denied: 'authorizationDenied',
+    state_mismatch: 'stateMismatch',
+    connection_failed: 'connectionFailed',
+  };
+  return `preferences.spotify.${errors[code] || 'connectionFailed'}`;
+}
+
+function showSpotifyFeedback(key) {
+  if (!elements.spotifyFeedback) return;
+  elements.spotifyFeedback.dataset.translationKey = key;
+  elements.spotifyFeedback.textContent = t(key);
+}
+
+function setSpotifyConnectionState(connected) {
+  elements.spotifyConnectBtn.style.display = connected ? 'none' : '';
+  elements.spotifyImportBtn.style.display = connected ? '' : 'none';
+  elements.spotifyDisconnectBtn.style.display = connected ? '' : 'none';
+  showSpotifyFeedback(connected
+    ? 'preferences.spotify.connected'
+    : 'preferences.spotify.notConnected');
+}
+
+async function loadSpotifyTopArtists() {
+  elements.spotifyImportBtn.disabled = true;
+  elements.spotifySuggestions.innerHTML = `
+    <div class="lastfm-loading"><div class="mini-loader"></div><span>${escapeHtml(t('common.loading'))}</span></div>
+  `;
+
+  try {
+    const response = await fetch('/api/spotify/top-artists', { credentials: 'include' });
+    const data = await response.json();
+    if (!response.ok) {
+      if (response.status === 403) throw new Error(t('preferences.spotify.allowlistError'));
+      if (response.status === 429) throw new Error(t('preferences.spotify.rateLimitError'));
+      if (response.status === 401) throw new Error(t('preferences.spotify.reconnectError'));
+      throw new Error(data.error || t('preferences.spotify.importFailed'));
+    }
+
+    renderSpotifySuggestions(data.artists || []);
+    showSpotifyFeedback('preferences.spotify.connected');
+  } catch (err) {
+    console.error('Error cargando artistas de Spotify:', err.message);
+    elements.spotifySuggestions.innerHTML = '';
+    elements.spotifyFeedback.textContent = err.message;
+    delete elements.spotifyFeedback.dataset.translationKey;
+  } finally {
+    elements.spotifyImportBtn.disabled = false;
+  }
+}
+
+function renderSpotifySuggestions(artists) {
+  if (artists.length === 0) {
+    elements.spotifySuggestions.innerHTML = `<div class="lastfm-empty"><span>${escapeHtml(t('preferences.spotify.noArtists'))}</span></div>`;
+    return;
+  }
+
+  const myArtistNames = new Set(myArtists.map(artist => artist.artist_name.toLowerCase()));
+  elements.spotifySuggestions.innerHTML = artists.map(artist => {
+    const alreadyAdded = myArtistNames.has(artist.name.toLowerCase());
+    return `
+      <div class="suggestion-tag ${alreadyAdded ? 'already-added' : ''}"
+           data-name="${escapeHtml(artist.name)}" ${alreadyAdded ? '' : 'role="button" tabindex="0"'}>
+        ${alreadyAdded ? '✓' : '+'}
+        ${artist.image ? `<img class="suggestion-artist-image" src="${escapeHtml(artist.image)}" alt="" onerror="this.style.display='none'">` : ''}
+        <span class="suggestion-name">${escapeHtml(artist.name)}</span>
+      </div>
+    `;
+  }).join('');
+
+  elements.spotifySuggestions.querySelectorAll('.suggestion-tag:not(.already-added)').forEach(tag => {
+    tag.addEventListener('click', () => addSpotifySuggestionToFavorites(tag));
+    tag.addEventListener('keypress', event => {
+      if (event.key === 'Enter' || event.key === ' ') addSpotifySuggestionToFavorites(tag);
+    });
+  });
+}
+
+async function addSpotifySuggestionToFavorites(tag) {
+  const artistName = tag.dataset.name;
+  if (!artistName || myArtists.some(artist => artist.artist_name.toLowerCase() === artistName.toLowerCase())) return;
+
+  try {
+    const response = await fetch('/api/user/artists', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ artistName }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || t('preferences.spotify.addFailed'));
+
+    myArtists.push(data.artist);
+    renderMyArtists();
+    tag.classList.add('already-added');
+    tag.removeAttribute('role');
+    tag.removeAttribute('tabindex');
+    if (tag.firstChild?.nodeType === Node.TEXT_NODE) tag.firstChild.textContent = '✓';
+  } catch (err) {
+    console.error('Error agregando artista de Spotify:', err.message);
+    elements.spotifyFeedback.textContent = err.message;
+    delete elements.spotifyFeedback.dataset.translationKey;
+  }
+}
+
+async function disconnectSpotify() {
+  try {
+    const response = await fetch('/api/spotify/connection', {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (!response.ok) throw new Error(t('preferences.spotify.disconnectFailed'));
+    elements.spotifySuggestions.innerHTML = '';
+    setSpotifyConnectionState(false);
+  } catch (err) {
+    elements.spotifyFeedback.textContent = err.message;
+    delete elements.spotifyFeedback.dataset.translationKey;
+  }
+}
+
+// ==========================================
 // Last.fm Sugerencias
 // ==========================================
 
@@ -2920,6 +3067,9 @@ function escapeHtml(text) {
 
 function handleLanguageChange(event) {
   console.log('Language changed to:', event.detail.lang);
+
+  const spotifyTranslationKey = elements.spotifyFeedback?.dataset.translationKey;
+  if (spotifyTranslationKey) elements.spotifyFeedback.textContent = t(spotifyTranslationKey);
 
   const demoBadge = document.querySelector('.demo-badge');
   if (demoBadge) demoBadge.textContent = t('results.demoBadge');

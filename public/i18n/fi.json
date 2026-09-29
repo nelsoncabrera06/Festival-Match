@@ -11,7 +11,6 @@
         "demoBtn": "Kokeile esimerkkiartisteilla",
         "demoNote": "Kokeile sovellusta ilman tiliä",
         "googleNote": "Tallenna asetuksesi ja käytä miltä tahansa laitteelta",
-        "spotifyDisabled": "Spotify-integraatio väliaikaisesti pois käytöstä",
         "or": "tai",
         "emailTab": "Sähköposti",
         "registerTab": "Rekisteröidy"
@@ -40,6 +39,26 @@
             "description": "Tuo artistit Last.fm-profiilista",
             "placeholder": "Last.fm-käyttäjänimesi",
             "loadBtn": "Lataa"
+        },
+        "spotify": {
+            "title": "Spotify",
+            "description": "Yhdistä tilisi ja tuo kuunnelluimmat artistisi",
+            "connect": "Yhdistä Spotify",
+            "import": "Lataa suosituimmat artistini",
+            "disconnect": "Katkaise yhteys",
+            "connected": "Spotify on yhdistetty.",
+            "notConnected": "Yhdistä Spotify nähdäksesi kuunnelluimmat artistisi.",
+            "notConfigured": "Spotifya ei ole vielä määritetty palvelimella.",
+            "authorizationDenied": "Et hyväksynyt Spotify-yhteyttä.",
+            "stateMismatch": "Yhteyttä ei voitu vahvistaa. Yritä uudelleen.",
+            "connectionFailed": "Spotify-yhteys epäonnistui. Yritä uudelleen.",
+            "allowlistError": "Spotify-tiliäsi ei ole vielä lisätty sovelluksen sallittujen listalle.",
+            "rateLimitError": "Spotify rajoitti pyyntöjä. Odota hetki ja yritä uudelleen.",
+            "reconnectError": "Yhteys vanheni. Katkaise Spotify-yhteys ja yhdistä uudelleen.",
+            "importFailed": "Spotify-artistejasi ei voitu ladata.",
+            "noArtists": "Spotify ei palauttanut artisteja tällä aikavälillä.",
+            "addFailed": "Artistia ei voitu lisätä.",
+            "disconnectFailed": "Spotify-yhteyttä ei voitu katkaista."
         }
     },
     "results": {

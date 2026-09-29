@@ -38,13 +38,15 @@ inventario y acordar el alcance.
 
 ### Estado de tareas siguientes
 
-El demo user (4b) ya está en Supabase y probado por Nelson. No hay otro ítem de
-implementación activo: Spotify (6) queda para más adelante y la limpieza GCP/Docker (9)
-requiere acordar el alcance; Docker se conserva por el proyecto Terraform relacionado.
+El demo user (4b) ya está en Supabase y probado por Nelson. La migración **004** para RLS y
+revocar permisos Data API se ejecutó correctamente en Supabase (29/09/2026); Security
+Advisor quedó en 0 errores y muestra 8 sugerencias informativas de “RLS enabled, no policy”,
+esperadas porque ninguna tabla de la app se expone por la Data API. Spotify (6) queda
+pospuesto y Docker se conserva por el proyecto Terraform.
 
-Un detalle que conviene tener presente: hoy el demo son **20** artistas hardcodeados en
-`server/server.js:1043`, no 22 (este doc decía 22; corregido el 29/09/2026). Y
-`npm start` local sigue conectando a **producción**, así que sembrar el usuario demoTesting es una escritura real en Supabase: avisar antes.
+El perfil demo tiene **20 artistas en DB**. `public/app.js` también mantiene una lista de
+nombres para la sección de fechas de gira. `npm start` local sigue conectando a
+**producción**: toda operación de escritura desde local afecta Supabase.
 
 ---
 
@@ -91,8 +93,8 @@ server/festivals.json # 58 festivales, 36 con lineup. YA NO SE LEE EN RUNTIME: e
                       # fuente editable del seed que genera scripts/ (step 4)
 public/               # app.js (3034 líneas), index.html, styles.css, i18n/
 scripts/              # generate-festivals-migration.js (genera 002_festivals.sql)
-migrations/           # Schema, aplicado una vez con psql. 001_init.sql y
-                      # 002_festivals.sql YA CORRIERON en Supabase (29/09/2026)
+migrations/           # Schema versionado. 001_init.sql, 002_festivals.sql y
+                      # 003_demo_user.sql aplicados. 004_secure_public_tables.sql pendiente.
 .github/workflows/    # keepalive.yml (cron diario contra Supabase) + docker-publish.yml (muerto, step 9)
 migrations/festival_match_backup_20260505.dump  # Backup de Cloud SQL (20260505). Ignorado por
                       # git vía `*.dump`. Datos viejos de 2026, opcional. NO confundir con
@@ -431,6 +433,20 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   dependencia transitiva de `google-auth-library`. No hay configuración `gcloud` ni archivos
   de despliegue de Cloud Run/Cloud SQL. Las referencias históricas se conservan.
   **Google OAuth sigue activo y no es basura.**
+
+- [x] **10. Seguridad Supabase: RLS en tablas de `public`** — **HECHO** (29/09/2026)
+  El Security Advisor muestra las 8 tablas de la app (`festival_suggestions`, `festivals`,
+  `sessions`, `tour_cache`, `user_artists`, `user_festivals`, `user_genres`, `users`) con RLS
+  desactivado; la consulta de Nelson confirmó permisos SELECT/INSERT/UPDATE/DELETE para
+  `anon` en todas. `migrations/004_secure_public_tables.sql` activa RLS sin políticas y
+  revoca privilegios a `anon`/`authenticated` en tablas y secuencias. Nelson la ejecutó en
+  Supabase y SQL Editor respondió `Success. No rows returned`. La app no usa la Data
+  API desde el navegador; Express conecta por `DATABASE_URL` con el usuario pooler
+  `postgres.<project-ref>`, por lo que las consultas backend siguen como owner. Verificado
+  en Advisor: 0 errores y 8 sugerencias informativas por no tener políticas. Son esperadas:
+  con RLS activado y sin políticas, `anon`/`authenticated` no acceden; el backend usa la
+  conexión PostgreSQL propia. No agregar políticas salvo que en el futuro se exponga una
+  tabla deliberadamente por la Data API.
 
 ### Lo que NO hay que tocar
 

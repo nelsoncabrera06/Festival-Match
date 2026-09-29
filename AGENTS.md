@@ -313,11 +313,26 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   **Resuelto: el seed ya está aplicado, el orden se respetó.** La lección, para que no se
   repita: **`initDatabase()` no es inocuo contra la base real.**
 
-- [ ] **4b. Usuario demo read-only en la DB** — **DECIDIDO, NO IMPLEMENTADO** (empezar 29/09 o después)
+- [ ] **4b. Usuario demo read-only en la DB** — **EN IMPLEMENTACIÓN** (29/09/2026)
   Goal: que `/api/demo/*` deje de servir un array hardcodeado y lea de un usuario real de la
   DB, para que el demo no se desincronice del matching ni de los artistas reales.
 
-  **Investigado el 29/09/2026. Esto es lo que hay que saber antes de escribir una línea:**
+  **Decisiones de Nelson (29/09/2026):** el demo entra al hacer click, sin iniciar sesión;
+  el usuario de DB es una cuenta técnica sin contraseña ni acceso OAuth. El perfil es
+  compartido y de solo lectura para visitantes. Nelson cargará a mano algunos artistas
+  favoritos y festivales favoritos en DB una vez creada la cuenta.
+
+  **Implementado localmente (aún no aplicado ni probado en producción):**
+  - `migrations/003_demo_user.sql` crea `demo@festival-match.invalid` sin credenciales y
+    siembra los 20 artistas actuales. `user_artists.image` queda disponible para cargar
+    imágenes. La migración no agrega favoritos; se cargarán manualmente después.
+  - `db.getDemoProfile()` busca esa cuenta y devuelve artistas y favoritos.
+  - `/api/demo/artists` y `/api/demo/festivals` leen el perfil de DB. Los festivales marcan
+    `isFavorite` desde `user_festivals`.
+  - Las rutas de escritura existentes requieren sesión; las rutas demo son solo GET.
+  - Falta aplicar la migración, cargar las imágenes/favoritos deseados y probar el demo.
+
+  **Investigación previa del 29/09/2026:**
 
   **Cómo funciona hoy el demo (verificado en el código):**
   - `server/server.js:1043` — `demoArtists`, un array de **20** artistas (no 22, como decía
@@ -338,7 +353,7 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
     el que entra borra los artistas del que está mirando. En un portfolio dos personas a la
     vez es el caso normal. O sea que el usuario demo **se comparte y nunca se escribe**.
 
-  **El trabajo de schema que falta:**
+  **Schema:**
   - `user_artists` **no tiene columna `image`** (`migrations/001_init.sql:46`), y el demo
     actual muestra fotos de Spotify. Hay que agregar `image TEXT` nullable → migración
     `003_demo_user.sql`.
@@ -348,18 +363,6 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
     `image` y con sus géneros. **Comparar contra `server/festivals.json`**: ese archivo
     ya es la fuente del seed y `scripts/generate-festivals-migration.js` es el patrón a
     seguir para generar la migración en vez de escribir el SQL a mano.
-
-  **Decisiones que todavía hay que tomar (no inventarlas, preguntarle a Nelson):**
-  - ¿El usuario demo se puede loguear por `/auth/login`? Hoy no debería: conviene usar un
-    `email` que no exista en Google, y revisar que `findOrCreateUser()` no lo enganche a una
-    cuenta real.
-  - ¿Qué pasa con los favoritos? Hoy el demo fuerza `isFavorite: false`. Con un usuario real
-    de DB se podría leer de `user_festivals`, pero eso haría que los favoritos de un visitante
-    **modifiquen los del siguiente** (mismo problema que el reset). Decidir si se siguen
-    forzando en `false` o si se agrega `is_favorite` como estado del cliente.
-  - Si el demo pasa a ser read-only sobre un usuario de la DB, `user_festivals` y
-    `user_artists` quedan **compartidos**. Hay que decidir si el demo expone los endpoints
-    de escritura o queda solo en lectura.
 
   **Verificación:** `npm run test:festivals` y la suite de deploy (abajo) tienen que seguir
   dando lo mismo. Y probar el demo a mano, que es el único path que no usa sesión.

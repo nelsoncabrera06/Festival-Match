@@ -75,9 +75,11 @@ async function initDatabase() {
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       artist_name TEXT NOT NULL,
       musicbrainz_id TEXT,
+      image TEXT,
       added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(user_id, artist_name)
     );
+    ALTER TABLE user_artists ADD COLUMN IF NOT EXISTS image TEXT;
 
     CREATE TABLE IF NOT EXISTS user_genres (
       id SERIAL PRIMARY KEY,
@@ -336,12 +338,26 @@ async function cleanExpiredSessions() {
 
 async function getUserArtists(userId) {
   const result = await pool.query(`
-    SELECT id, artist_name, musicbrainz_id, added_at
+    SELECT id, artist_name, musicbrainz_id, image, added_at
     FROM user_artists
     WHERE user_id = $1
     ORDER BY added_at DESC
   `, [userId]);
   return result.rows;
+}
+
+async function getDemoProfile() {
+  const user = await pool.query("SELECT id FROM users WHERE email = 'demo@festival-match.invalid'");
+  if (!user.rows[0]) return null;
+  const userId = user.rows[0].id;
+  const [artists, favorites] = await Promise.all([
+    getUserArtists(userId),
+    getUserFavoriteFestivals(userId),
+  ]);
+  return {
+    artists: artists.map(({ artist_name, image }) => ({ name: artist_name, image, genres: [] })),
+    favoriteFestivalIds: favorites.map(({ festival_id }) => festival_id),
+  };
 }
 
 async function addUserArtist(userId, artistName, musicbrainzId = null) {
@@ -776,6 +792,7 @@ module.exports = {
   getSession,
   deleteSession,
   getUserArtists,
+  getDemoProfile,
   addUserArtist,
   removeUserArtist,
   getUserGenres,

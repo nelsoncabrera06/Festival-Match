@@ -1040,44 +1040,31 @@ function registerServer(app) {
   // MODO DEMO (sin autenticacion)
   // ==========================================
 
-  const demoArtists = [
-    { name: 'Charli XCX', image: 'https://i.scdn.co/image/ab6761610000e5eb9e35c40cec4c80095f1a3ef9', genres: ['art pop', 'dance pop'] },
-    { name: 'Dua Lipa', image: 'https://i.scdn.co/image/ab6761610000e5eb1bbee4a02f85ecc58d385c3e', genres: ['dance pop', 'pop'] },
-    { name: 'Fred Again..', image: 'https://i.scdn.co/image/ab6761610000e5eb5c0f95e7c4be4a9c0b9c5c48', genres: ['uk electronic'] },
-    { name: 'Bicep', image: 'https://i.scdn.co/image/ab6761610000e5ebd969cf117d0b0d4424bebdc5', genres: ['electronica', 'uk dance'] },
-    { name: 'The 1975', image: 'https://i.scdn.co/image/ab6761610000e5eb3c6c7c3a4e1c8c1e0e8c3b3e', genres: ['modern rock', 'pop'] },
-    { name: 'Arctic Monkeys', image: 'https://i.scdn.co/image/ab6761610000e5eb7da39dea0a72f581535fb11f', genres: ['garage rock', 'modern rock'] },
-    { name: 'LCD Soundsystem', image: 'https://i.scdn.co/image/ab6761610000e5eb4c3f8c1c5c3c5c3c5c3c5c3c', genres: ['dance-punk', 'indietronica'] },
-    { name: 'Disclosure', image: 'https://i.scdn.co/image/ab6761610000e5eb8c9c9c9c9c9c9c9c9c9c9c9c', genres: ['uk garage', 'house'] },
-    { name: 'Fontaines D.C.', image: 'https://i.scdn.co/image/ab6761610000e5eb1c1c1c1c1c1c1c1c1c1c1c1c', genres: ['post-punk', 'art punk'] },
-    { name: 'Jamie xx', image: 'https://i.scdn.co/image/ab6761610000e5eb2c2c2c2c2c2c2c2c2c2c2c2c', genres: ['uk electronic', 'indietronica'] },
-    { name: 'Four Tet', image: 'https://i.scdn.co/image/ab6761610000e5eb3c3c3c3c3c3c3c3c3c3c3c3c', genres: ['electronica', 'folktronica'] },
-    { name: 'Peggy Gou', image: 'https://i.scdn.co/image/ab6761610000e5eb4c4c4c4c4c4c4c4c4c4c4c4c', genres: ['house', 'tech house'] },
-    { name: 'Clairo', image: 'https://i.scdn.co/image/ab6761610000e5eb5c5c5c5c5c5c5c5c5c5c5c5c', genres: ['bedroom pop', 'indie pop'] },
-    { name: 'Tame Impala', image: 'https://i.scdn.co/image/ab6761610000e5eb6c6c6c6c6c6c6c6c6c6c6c6c', genres: ['psychedelic rock', 'neo-psychedelia'] },
-    { name: 'The Killers', image: 'https://i.scdn.co/image/ab6761610000e5eb7c7c7c7c7c7c7c7c7c7c7c7c', genres: ['alternative rock', 'new wave'] },
-    { name: 'Gorillaz', image: 'https://i.scdn.co/image/ab6761610000e5eb8c8c8c8c8c8c8c8c8c8c8c8c', genres: ['alternative rock', 'trip hop'] },
-    { name: 'Glass Animals', image: 'https://i.scdn.co/image/ab6761610000e5eb9c9c9c9c9c9c9c9c9c9c9c9c', genres: ['indietronica', 'psychedelic pop'] },
-    { name: 'Jungle', image: 'https://i.scdn.co/image/ab6761610000e5ebacacacacacacacacacacacac', genres: ['funk', 'neo soul'] },
-    { name: 'JPEGMAFIA', image: 'https://i.scdn.co/image/ab6761610000e5ebbcbcbcbcbcbcbcbcbcbcbcbc', genres: ['experimental hip hop', 'industrial hip hop'] },
-    { name: 'Little Simz', image: 'https://i.scdn.co/image/ab6761610000e5ebcccccccccccccccccccccccc', genres: ['uk hip hop', 'conscious hip hop'] },
-  ];
-
-  app.get('/api/demo/artists', (req, res) => {
-    res.json({ artists: demoArtists, isDemo: true });
+  app.get('/api/demo/artists', async (req, res) => {
+    try {
+      const profile = await db.getDemoProfile();
+      if (!profile) return res.status(503).json({ error: 'El perfil demo todavía no está configurado' });
+      res.json({ artists: profile.artists, isDemo: true });
+    } catch (err) {
+      console.error('Error cargando artistas demo:', err.message);
+      res.status(500).json({ error: 'Error al cargar el modo demo' });
+    }
   });
 
   app.get('/api/demo/festivals', async (req, res) => {
     try {
       const region = req.query.region || 'europe';
       const regionConfig = REGIONS[region] || REGIONS.europe;
+      const profile = await db.getDemoProfile();
+      if (!profile) return res.status(503).json({ error: 'El perfil demo todavía no está configurado' });
 
       // Filtrar festivales por región
       const regionFestivals = (await db.getFestivals()).filter(f =>
         regionConfig.countryCodes.includes(f.country)
       );
 
-      const userArtists = demoArtists.map(a => normalizeString(a.name));
+      const userArtists = profile.artists.map(a => normalizeString(a.name));
+      const favoriteIds = new Set(profile.favoriteFestivalIds);
 
       const festivalsWithMatch = regionFestivals.map(festival => {
         const festivalArtists = festival.lineup.map(a => normalizeString(a));
@@ -1094,7 +1081,7 @@ function registerServer(app) {
           artistsInCommon: festival.lineup.filter(a =>
             userArtists.includes(normalizeString(a))
           ),
-          isFavorite: false, // Demo mode no tiene favoritos
+          isFavorite: favoriteIds.has(festival.id),
         };
       });
 

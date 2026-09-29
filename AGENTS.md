@@ -334,6 +334,8 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
     error que devuelve la API si la configuración DB del demo todavía falta.
   - El menú superior también aparece en modo demo como “Demo user”; el logout del demo
     vuelve a inicio sin llamar a `/auth/logout` ni afectar sesiones reales.
+  - El badge “Modo Demo - Artistas de ejemplo” ya tiene traducciones es/en/fi y se actualiza
+    al cambiar el idioma mientras el demo está abierto.
   - Falta aplicar la migración, cargar las imágenes/favoritos deseados y probar el demo.
 
   **Investigación previa del 29/09/2026:**

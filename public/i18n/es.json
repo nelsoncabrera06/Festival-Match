@@ -49,7 +49,8 @@
         "region": "Región",
         "allCountries": "Todos los países",
         "allCities": "Todas las ciudades",
-        "topArtists": "Tus Top Artistas"
+        "topArtists": "Tus Top Artistas",
+        "demoBadge": "Modo Demo - Artistas de ejemplo"
     },
     "regions": {
         "europe": "Europa",

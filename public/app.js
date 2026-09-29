@@ -1834,7 +1834,7 @@ async function loadFestivals() {
 
 function renderUserArtists(artists, isDemoMode) {
   const demoNotice = isDemoMode
-    ? '<div class="demo-badge">Modo Demo - Artistas de ejemplo</div>'
+    ? `<div class="demo-badge">${t('results.demoBadge')}</div>`
     : '';
 
   if (artists.length === 0) {
@@ -2920,6 +2920,9 @@ function escapeHtml(text) {
 
 function handleLanguageChange(event) {
   console.log('Language changed to:', event.detail.lang);
+
+  const demoBadge = document.querySelector('.demo-badge');
+  if (demoBadge) demoBadge.textContent = t('results.demoBadge');
 
   // Re-renderizar contenido dinamico que no tiene data-i18n
   // (porque se genera desde JavaScript)

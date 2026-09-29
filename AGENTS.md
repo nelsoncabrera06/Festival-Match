@@ -5,13 +5,12 @@ Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje 
 
 ---
 
-## 🔴 RETOMAR ACÁ — 29/09/2026, sesión 3
+## 🔴 RETOMAR ACÁ — 29/09/2026, sesión 4
 
 **El paso 4 está CERRADO.** Seed aplicado, commiteado, pusheado, deployado, y el panel admin
 funcionando en producción (edit de lineup, borrado y aprobación de sugerencia probados a mano).
 
-**Estado del working tree:** limpio respecto del paso 4. Quedan sin commitear solo las
-actualizaciones de `AGENTS.md` de esta sesión (documentación).
+**Estado del working tree:** limpio al retomar esta sesión.
 
 **El paso 4 hizo esto:** `festivals.json` → tabla `festivals`. Los 4 endpoints del panel admin
 dejaron de hacer `fs.writeFileSync` (que en Vercel daba `EROFS` → 500). Se generó
@@ -44,7 +43,17 @@ revocar permisos Data API se ejecutó correctamente en Supabase (29/09/2026); Se
 Advisor quedó en 0 errores y muestra 8 sugerencias informativas de “RLS enabled, no policy”,
 esperadas porque ninguna tabla de la app se expone por la Data API. La conexión directa con
 Spotify queda pausada por un fallo del Developer Dashboard; Last.fm ya está integrada y
-probada. Docker se conserva.
+probada. La migración **005** de conexiones Spotify también fue aplicada manualmente en
+Supabase, aunque la conexión no se puede completar hasta crear una app de Spotify. Docker
+se conserva.
+
+En esta sesión se agregó un buscador de festivales a `/festivals`, con filtros por nombre,
+ciudad, ubicación y país, compatible con grilla/lista/calendario e idiomas es/en/fi. Nelson
+lo probó en producción y confirmó que funciona; quiere pulir el diseño más adelante.
+También se quitó `prompt: 'consent'` del OAuth de Google: Nelson confirmó que ahora el login
+va más directo. Si se necesita probar localmente Google OAuth, agregar
+`http://localhost:8080/auth/google/callback` a las URI autorizadas de Google y usarlo en
+`GOOGLE_REDIRECT_URI` del `.env`.
 
 El perfil demo tiene **20 artistas en DB**. `public/app.js` también mantiene una lista de
 nombres para la sección de fechas de gira. `npm start` local sigue conectando a
@@ -96,7 +105,7 @@ server/festivals.json # 58 festivales, 36 con lineup. YA NO SE LEE EN RUNTIME: e
 public/               # app.js (3034 líneas), index.html, styles.css, i18n/
 scripts/              # generate-festivals-migration.js (genera 002_festivals.sql)
 migrations/           # Schema versionado. 001_init.sql, 002_festivals.sql y
-                      # 003_demo_user.sql y 004_secure_public_tables.sql aplicados; 005 pendiente.
+                      # 003_demo_user.sql, 004_secure_public_tables.sql y 005 aplicados.
 .github/workflows/    # keepalive.yml (cron Supabase) + docker-publish.yml (GHCR para Terraform)
 migrations/festival_match_backup_20260505.dump  # Backup de Cloud SQL (20260505). Ignorado por
                       # git vía `*.dump`. Datos viejos de 2026, opcional. NO confundir con
@@ -123,8 +132,8 @@ Verificado el 26/09/2026 con la suite de "Cómo verificar un deploy" (12 rutas e
 con el flujo de auth probado localmente contra la base real.
 
 Hechos: pasos 1, 2, 3, 4, 5, 7 y 8, y 4b (demo read-only). El paso 6 está parcialmente
-implementado y pausado por Spotify; el paso 9 queda pospuesto. El 4 está **completo y con
-el seed aplicado en Supabase**.
+implementado y pausado por Spotify; el paso 9 queda pospuesto. El 10 (RLS) también está
+completo. El 4 está **completo y con el seed aplicado en Supabase**.
 
 ### Por qué hay que hacerlo (contexto para sesiones futuras)
 
@@ -401,7 +410,7 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
     incluso desde otro navegador. Por eso siguen pendientes las credenciales, las env vars
     de Vercel, la allowlist y la prueba end-to-end. No seguir investigando ahora; retomar
     cuando el Dashboard permita crear la app. Last.fm ya está integrada y Nelson confirmó
-    que funciona.
+    que funciona. Spotify queda cerrado por ahora; no investigar hasta que Nelson lo retome.
 
 - [x] **7. Google OAuth** — **HECHO 26/09/2026**
   El proyecto de GCP viejo estaba **borrado** (lo eliminó para cortar costos), así que hubo

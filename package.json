@@ -5,7 +5,10 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "dev": "node --watch app.js"
+    "dev": "node --watch app.js",
+    "seed:festivals": "node scripts/generate-festivals-migration.js",
+    "seed:festivals:check": "node scripts/generate-festivals-migration.js --check",
+    "test:festivals": "node scripts/verify-festivals-roundtrip.js && node scripts/verify-festivals-queries.js"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

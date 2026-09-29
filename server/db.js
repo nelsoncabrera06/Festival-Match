@@ -111,6 +111,26 @@ async function initDatabase() {
       UNIQUE(artist_name, region)
     );
 
+    CREATE TABLE IF NOT EXISTS festivals (
+      id            TEXT PRIMARY KEY,
+      name          TEXT NOT NULL,
+      city          TEXT NOT NULL,
+      location      TEXT NOT NULL,
+      country       TEXT NOT NULL,
+      dates         TEXT NOT NULL,
+      website       TEXT NOT NULL DEFAULT '',
+      image         TEXT,
+      flyer         TEXT,
+      flyer_images  TEXT[] NOT NULL DEFAULT '{}',
+      description   TEXT,
+      lineup_status TEXT NOT NULL DEFAULT 'unannounced',
+      lineup        TEXT[] NOT NULL DEFAULT '{}',
+      note          TEXT,
+      sort_order    INTEGER NOT NULL,
+      created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS festival_suggestions (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -398,6 +418,177 @@ async function removeUserGenre(userId, genreId) {
 }
 
 // ==========================================
+// Catalogo de Festivales
+// ==========================================
+//
+// Estas 4 funciones reemplazan a leer/escribir server/festivals.json con
+// fs.readFileSync / fs.writeFileSync. El motivo del cambio esta en
+// migrations/002_festivals.sql: en Vercel el filesystem es read-only, asi que el
+// panel de admin (PUT/DELETE /api/admin/festivals/:id y el approve de
+// sugerencias) fallaba con EROFS -> 500 "Error al guardar".
+//
+// Ademas elimina una segunda fuente de verdad: antes getFestivals() devolvia el
+// array en memoria del require() mientras GET /api/admin/festivals releia el
+// archivo, asi que una edicion se veia en el panel y no en el matching hasta
+// reiniciar. Ahora hay una sola fuente.
+
+// Fila de la tabla -> objeto con la misma forma que tenia en festivals.json.
+//
+// El mapeo es explicito y no `SELECT *` por dos razones:
+//  1. El frontend (public/app.js) consume claves camelCase: lineup_status ->
+//     lineupStatus, flyer_images -> flyerImages.
+//  2. Las claves opcionales se OMITEN, no se devuelven como undefined. En el
+//     JSON original un festival sin flyer no tenia la clave `flyer`; 3 de los 58
+//     no tienen `image`. Devolverlas en undefined daria el mismo JSON en la
+//     respuesta (JSON.stringify las dropea) pero un objeto distinto: aparecerian
+//     en Object.keys(). Omitirlas deja el round-trip exacto.
+function rowToFestival(row) {
+  const festival = {
+    id: row.id,
+    name: row.name,
+    city: row.city,
+    location: row.location,
+    country: row.country,
+    dates: row.dates,
+    website: row.website,
+  };
+
+  // Orden de las claves opcionales: el que tenian en el JSON, no el de la tabla.
+  if (row.image) festival.image = row.image;
+  if (row.flyer) festival.flyer = row.flyer;
+  if (row.flyer_images.length > 0) festival.flyerImages = row.flyer_images;
+
+  festival.lineupStatus = row.lineup_status;
+  festival.lineup = row.lineup;
+
+  if (row.description) festival.description = row.description;
+  if (row.note) festival.note = row.note;
+
+  return festival;
+}
+
+const FESTIVAL_COLUMNS = `
+  id, name, city, location, country, dates, website,
+  image, flyer, flyer_images, description, lineup_status, lineup, note,
+  sort_order
+`;
+
+async function getFestivals() {
+  const result = await pool.query(
+    `SELECT ${FESTIVAL_COLUMNS} FROM festivals ORDER BY sort_order`
+  );
+  return result.rows.map(rowToFestival);
+}
+
+async function getFestivalById(id) {
+  const result = await pool.query(
+    `SELECT ${FESTIVAL_COLUMNS} FROM festivals WHERE id = $1`,
+    [id]
+  );
+  return result.rows[0] ? rowToFestival(result.rows[0]) : null;
+}
+
+// Crear un festival. Lo usa POST /api/admin/suggestions/:id/approve cuando una
+// sugerencia se aprueba y el festival todavia no existe.
+//
+// sort_order se calcula con MAX(sort_order) + 1 en vez de venir del caller: es
+// NOT NULL y la idea es que un festival nuevo vaya al final de la lista, que es
+// donde uno esperaria ver un festival recien sugerido. La alternativa (mandarlo
+// desde el caller) obliga a que cada endpoint que cree un festival se acuerde de
+// calcularlo.
+async function createFestival(festival) {
+  const result = await pool.query(
+    `INSERT INTO festivals
+       (id, name, city, location, country, dates, website, image, flyer,
+        flyer_images, description, lineup_status, lineup, note, sort_order)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+             (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM festivals))
+     RETURNING ${FESTIVAL_COLUMNS}`,
+    [
+      festival.id,
+      festival.name,
+      festival.city,
+      festival.location,
+      festival.country,
+      festival.dates,
+      festival.website || '',
+      festival.image || null,
+      festival.flyer || null,
+      festival.flyerImages || [],
+      festival.description || null,
+      festival.lineupStatus || 'unannounced',
+      festival.lineup || [],
+      festival.note || null,
+    ]
+  );
+
+  // El guard no es decorativo: si el id colisiona con uno existente el INSERT
+  // revienta con 23505 y nunca llega aca, pero un RETURNING vacio por lo que
+  // fuera no debe dejar rowToFestival leyendo result.rows[0].undefined.
+  if (!result.rows[0]) return null;
+  return rowToFestival(result.rows[0]);
+}
+
+// Actualizar un festival (panel admin).
+//
+// whitelist de campos, no "UPDATE lo que venga en el body": el body viene de un
+// formulario y tambien de cualquiera que haga un PUT a mano. `id` y `sort_order`
+// quedan fuera a proposito (el id es la identidad y el sort_order es el orden
+// curado del seed). Los campos ausentes del body no se tocan, que es lo que
+// permitia el forEach sobre el JSON.
+const UPDATABLE_FESTIVAL_FIELDS = {
+  name: 'name',
+  city: 'city',
+  location: 'location',
+  country: 'country',
+  dates: 'dates',
+  website: 'website',
+  image: 'image',
+  flyer: 'flyer',
+  flyerImages: 'flyer_images',
+  description: 'description',
+  lineupStatus: 'lineup_status',
+  lineup: 'lineup',
+  note: 'note',
+};
+
+async function updateFestival(id, updates) {
+  const sets = [];
+  const values = [];
+
+  for (const [key, column] of Object.entries(UPDATABLE_FESTIVAL_FIELDS)) {
+    if (updates[key] === undefined) continue;
+    values.push(updates[key] === null ? null : updates[key]);
+    sets.push(`${column} = $${values.length}`);
+  }
+
+  if (sets.length === 0) {
+    // Nada que actualizar: se devuelve el estado actual en vez de un error, que
+    // es lo que hacia el forEach sobre el JSON (escribia el archivo sin cambios).
+    return getFestivalById(id);
+  }
+
+  values.push(id);
+  const result = await pool.query(
+    `UPDATE festivals
+     SET ${sets.join(', ')}, updated_at = NOW()
+     WHERE id = $${values.length}
+     RETURNING ${FESTIVAL_COLUMNS}`,
+    values
+  );
+
+  return result.rows[0] ? rowToFestival(result.rows[0]) : null;
+}
+
+async function deleteFestival(id) {
+  const result = await pool.query(
+    `DELETE FROM festivals WHERE id = $1 RETURNING ${FESTIVAL_COLUMNS}`,
+    [id]
+  );
+  return result.rows[0] ? rowToFestival(result.rows[0]) : null;
+}
+
+// ==========================================
 // Funciones de Festivales Favoritos
 // ==========================================
 
@@ -591,6 +782,15 @@ module.exports = {
   addUserGenre,
   removeUserGenre,
   getAvailableGenres,
+  // Catalogo de festivales (tabla festivals, antes server/festivals.json)
+  getFestivals,
+  getFestivalById,
+  createFestival,
+  updateFestival,
+  deleteFestival,
+  // Campos que PUT /api/admin/festivals/:id puede escribir. Exportado para que
+  // un test pueda verificar que el SET de la query sale de acá y de otro lugar.
+  UPDATABLE_FESTIVAL_FIELDS,
   // Festivales favoritos
   getUserFavoriteFestivals,
   addUserFestival,

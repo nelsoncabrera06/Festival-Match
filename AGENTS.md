@@ -5,6 +5,75 @@ Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje 
 
 ---
 
+## 🔴 RETOMAR ACÁ — 29/09/2026, sesión 2
+
+**El paso 4 está COMPLETO: escrito, verificado y con el seed APLICADO en Supabase.**
+Lo único que falta es **commitear y deployar**. Si estás leyendo esto en una sesión nueva,
+esto es lo primero.
+
+**Estado del working tree** (4 modificados, 2 sin trackear, nada commiteado):
+
+```
+ M .env.example
+ M AGENTS.md
+ M package.json
+ M server/db.js
+ M server/server.js
+?? migrations/002_festivals.sql
+?? scripts/
+```
+
+**El paso 4 hizo todo esto** (detalle completo más abajo, en el checklist):
+`festivals.json` → tabla `festivals`. Los 4 endpoints del panel admin dejaron de hacer
+`fs.writeFileSync` (que en Vercel daba `EROFS` → 500). Se generó `002_festivals.sql` con
+un script, se escribieron 5 queries en `db.js`, y se migraron los 4 callers del catálogo
+en `server.js`. **El matching no necesitó refactor**: `rowToFestival()` devuelve un objeto
+deep-equal al del JSON, verificado.
+
+### Seed APLICADO (29/09/2026)
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/002_festivals.sql
+# BEGIN / NOTICE: relation "festivals" already exists, skipping
+# CREATE TABLE / INSERT 0 58 / COMMIT
+```
+
+Verificado contra producción — todos los números cuadran con lo documentado:
+
+| | esperado | real |
+|---|---|---|
+| filas | 58 | 58 ✅ |
+| artistas en lineups | 648 | 648 ✅ |
+| `sort_order` 1..58 continuo | sí | sí ✅ |
+| `image` NULL | 3 | 3 ✅ |
+| `flyer` NULL | 55 | 55 ✅ |
+| `lineup_status = 'hiatus'` | 2 | 2 ✅ |
+
+Las 8 rutas de la suite de deploy siguen en 200 después de aplicar el seed (producción
+sigue corriendo el código viejo, que lee el JSON del bundle — por eso `/api/demo/festivals`
+devuelve 43 para `region=europe`, el subconjunto correcto de los 58).
+
+### Lo que falta ahora
+
+1. **Commitear** (lo hace Nelson) y **deployar**.
+2. **Probar el panel admin a mano** — editar un lineup, borrar, aprobar una sugerencia.
+   Los 3 casos que fallaban en producción (`EROFS` → 500) no se pueden probar sin sesión
+   de admin, así que hasta que se haga, el paso 4 está **verificado pero no probado en vivo**.
+
+**Cuidado con el `ON CONFLICT` del seed**: sobrescribe todas las columnas, incluido
+`lineup`. Re-aplicar la migración **deshace los cambios hechos desde el panel admin**. Ya no
+es urgente (la tabla se acaba de sembrar), pero desde que se empiece a editar el catálogo
+desde el admin, correr `002_festivals.sql` de nuevo es una pérdida de trabajo.
+
+**Trampa vigente**: `app.js:23` hace `dotenv.config()`, y el `.env` de la raíz apunta a la
+**Supabase de producción**. Correr `npm start` local **es** conectarse a producción, e
+`initDatabase()` (que corre dentro de `if (require.main === module)`) crea tablas ahí — fue
+justo así como la tabla `festivals` apareció vacía en producción. Para probar contra otra
+base hay que **exportar** `DATABASE_URL`, no hacer `env -u DATABASE_URL` (dotenv no pisa
+variables ya seteadas, pero sí llena las que faltan).
+
+---
+
 ## Qué es el proyecto
 
 App web que matchea el gusto musical de un usuario con flexibles europeos /riberyanos / latinoamericanos.
@@ -41,12 +110,15 @@ Cada usuario carga sus artistas (a mano, MusicBrainz o Last.fm) y la app calcula
 ```
 app.js                # Entry point de Express para Vercel: crea la app y llama registerServer()
 vercel.json           # Rewrite SPA: todo lo que no sea /api, /auth o /health -> /index.html
-server/server.js      # Rutas API + auth + admin, dentro de registerServer(app) (1374 líneas)
+server/server.js      # Rutas API + auth + admin, dentro de registerServer(app)
 server/db.js          # Pool pg serverless + schema init + todas las queries
 server/auth.js        # Google OAuth + middlewares requireAuth/optionalAuth
-server/festivals.json # 58 festivales, 36 con lineup  ← MIGRAR A DB (step 4)
+server/festivals.json # 58 festivales, 36 con lineup. YA NO SE LEE EN RUNTIME: es la
+                      # fuente editable del seed que genera scripts/ (step 4)
 public/               # app.js (3034 líneas), index.html, styles.css, i18n/
-migrations/           # Schema, aplicado una vez. 001_init.sql YA CORRIÓ en Supabase
+scripts/              # generate-festivals-migration.js (genera 002_festivals.sql)
+migrations/           # Schema, aplicado una vez con psql. 001_init.sql y
+                      # 002_festivals.sql YA CORRIERON en Supabase (29/09/2026)
 .github/workflows/    # keepalive.yml (cron diario contra Supabase) + docker-publish.yml (muerto, step 9)
 festival_match_backup_20260505.dump  # Backup de Cloud SQL, ignorado por git. Datos viejos, opcional
 README.md             # Inglés (default en GitHub) — es el que se ve primero
@@ -70,8 +142,9 @@ sesiones, artistas, géneros, favoritos y el panel de admin funcionan contra Sup
 Verificado el 26/09/2026 con la suite de "Cómo verificar un deploy" (12 rutas en 200) y
 con el flujo de auth probado localmente contra la base real.
 
-Hechos: pasos 1, 2, 3, 5, 7 y 8. Falta el 4 (`festivals.json` → tabla), el 6 (código muerto
-de Spotify) y el 9 (limpieza de GCP/Docker).
+Hechos: pasos 1, 2, 3, 4, 5, 7 y 8. Falta el 6 (código muerto de Spotify) y el 9
+(limpieza de GCP/Docker). El 4 está **completo y con el seed aplicado en Supabase**;
+falta commitearlo, deployarlo y probar el panel admin a mano.
 
 ### Por qué hay que hacerlo (contexto para sesiones futuras)
 
@@ -125,7 +198,9 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
     la SPA llegara a la función devuelve 404 con un log claro en vez de un 500 opaco.
   - `vercel.json` (sin cambios, verificado en prod): rewritea todo lo que no sea `/api`,
     `/auth` o `/health` a `/index.html` para los deep links de la SPA (History API, no hash).
-  - `festivals.json` vía `require` y no `fs.readFileSync`, para que el bundler lo rastree.
+  - ~~`festivals.json` vía `require` y no `fs.readFileSync`, para que el bundler lo rastree.~~
+    **Reemplazado el 29/09/2026 por el paso 4**: el catálogo vive en la tabla `festivals`.
+    Este require ya no está; el seed lo genera `scripts/generate-festivals-migration.js`.
   - Error handler final al cierre de `registerServer` (Express 4 no captura rechazos async).
   - Cache de tour dates tolerante a fallos de DB, para que el modo demo funcione sin base.
 
@@ -153,17 +228,120 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   Además `generateSessionId()` pasó de `Math.random()` a `crypto.randomBytes()`: los ids
   de sesión son credenciales bearer con 7 días de vida, no un string cualquiera.
 
-- [ ] **4. `festivals.json` → tabla `festivals`** (~1.5 h) — **es un BUG, no solo limpieza**
-  Los 4 endpoints que tocan el filesystem **están rotos en producción ahora mismo**:
-  `PUT /api/admin/festivals/:id`, `DELETE /api/admin/festivals/:id` y el approve de
-  `POST /api/admin/suggestions/:id/approve` hacen `fs.writeFileSync`, y en Vercel el
-  filesystem es read-only → `EROFS` → 500 "Error al guardar".
-  Reemplazar `getFestivals()` por una query, y crear `002_festivals.sql` con la tabla
-  `festivals` + seed de las 58 filas desde `festivals.json`. La forma del objeto festival
-  **no cambia** (`{ id, name, city, location, country, dates, website, image, flyer,
-  flyerImages[], lineupStatus, lineup[], description, note }`), así que el matching no
-  necesita refactor.
-  El `setInterval` de cleanup ya se borró de `db.js` (ver paso 3).
+- [x] **4. `festivals.json` → tabla `festivals`** — **HECHO Y APLICADO 29/09/2026** (sin commitear)
+  Arregla el bug: los 4 endpoints que tocaban el filesystem dejaron de hacerlo. En Vercel
+  `fs.writeFileSync` daba `EROFS` → 500 "Error al guardar".
+
+  **Lo que quedó:**
+  - `migrations/002_festivals.sql` — tabla `festivals` + seed de las 58 filas.
+    **GENERADO** por `scripts/generate-festivals-migration.js` desde `server/festivals.json`.
+    Editar el `.sql` a mano se pierde en la próxima regeneración; para cambiar un lineup se
+    edita el JSON, se regenera y se aplica con psql. Tiene `--check` para verificar que esté
+    al día (usable en CI o antes de un deploy).
+  - `db.js`: `getFestivals` / `getFestivalById` / `createFestival` / `updateFestival` /
+    `deleteFestival`, más `rowToFestival()` que mapea la fila a **exactamente** el objeto que
+    tenía en el JSON. `initDatabase()` también crea la tabla, así que el dev local levanta
+    con el schema listo (el seed no: eso va con psql, como `001_init.sql`).
+  - `server.js`: los 4 callers de `getFestivals()` ahora usan `await db.getFestivals()`.
+    **Ojo, son 4 y no 3**: el cuarto es `findArtistInFestivals()`, que usa
+    `/api/artist-events/:artistName` y era fácil no ver. Le cambié la firma para que reciba
+    el catálogo ya cargado en vez de hacer una segunda query con un pool de `max: 1`.
+    **Ese cuarto endpoint no tenía try/catch**, y como el catálogo ahora es una query, un
+    fallo de base le daba un 500. Se degrada a `festivalAppearances: []` con un `console.warn`,
+    igual que el NIVEL 2 ya hacía con su cache. Recordar esto al tocar cualquier endpoint que
+    ahora lea de la DB: las queries nuevas pueden fallar y el try/catch tiene que existir.
+
+  **Lo que se gana:** una sola fuente de verdad. Antes `getFestivals()` devolvía el array del
+  `require()` mientras `GET /api/admin/festivals` releía el archivo, así que una edición se
+  veía en el panel y no en el matching hasta reiniciar. Eso desapareció por construcción.
+
+  **Lo que se pierde:** editar el catálogo editando un archivo ya no cambia la app. Hace
+  falta regenerar el seed y aplicarlo. Es el costo de que el admin pueda escribir.
+
+  **Decisiones de schema, y por qué:**
+  - `id TEXT PRIMARY KEY`, no `SERIAL`: el id es un slug legible que ya se usaba, sale en
+    las URLs del frontend y es la referencia de `user_festivals.festival_id`.
+  - `lineup` / `flyer_images` como `TEXT[]`, no `jsonb`: son listas de strings planos, y el
+    matching los recibe como array de JS sin parsear nada.
+  - **Sin columna `region`**: se deriva de `country` con `REGIONS[region].countryCodes`.
+    Con columna habría dos definiciones de región peleándose.
+  - `sort_order INTEGER NOT NULL`: preserva el orden curado del JSON (los festivals gemelos
+    están juntos, y el orden es del autor). `ORDER BY sort_order` devuelve el mismo orden.
+  - `CHECK (lineup_status IN ('confirmed','partial','unannounced','hiatus'))`: lo escribe el
+    admin desde un select. Sin el CHECK entraría garbage y el frontend caería en silencio al
+    default `unannounced`.
+  - `updateFestival` usa un **whitelist** (`UPDATABLE_FESTIVAL_FIELDS`) armado en el
+    mismo archivo que la query, no `SELECT *` ni "lo que venga en el body". `id` y
+    `sort_order` quedan fuera a propósito.
+
+  **Cómo verificar (29/09/2026):** los tests quedaron en el repo y **no necesitan base de
+  datos**: interceptan el módulo `pg` y simulan lo que Postgres respondería.
+  ```bash
+  npm run test:festivals          # los dos tests
+  npm run seed:festivals:check    # el .sql está al día con el JSON
+  ```
+  - `scripts/verify-festivals-roundtrip.js` — **deep-equal de los 58 objetos** DB contra el
+    JSON. Es lo que garantiza que el matching no cambia: mismas claves, mismos valores. Las
+    claves opcionales se **omiten** en vez de volver `undefined`, así que ni siquiera
+    aparecen en `Object.keys()`. También checkea invariantes: `lineup` siempre array,
+    `lineupStatus` siempre uno de los 4, orden preservado.
+  - `scripts/verify-festivals-queries.js` — que ningún valor de usuario quede interpolado en
+    el SQL (usa valores marcador que no pueden aparecer por casualidad), que la cantidad de
+    `$N` coincida con los parámetros, que las columnas del `SET` salgan del whitelist, y que
+    `id`/`sort_order` no sean escribibles.
+  - El seed en sí se verificó parseando el `.sql`: 58 filas × 15 valores, 648 artistas,
+    3 `image` NULL, 55 `flyer` NULL, 2 `hiatus`, `sort_order` 1..58, apostrophes escapados
+    (`Open''er`, `Parque O''Higgins`).
+  - **Y después contra la base real**: seed aplicado con `psql` (ver "Seed APLICADO" arriba),
+    los 6 números verificados con `SELECT` directo contra Supabase.
+
+  ### ⚠️ `psql` en esta máquina: existe, pero NO está en el PATH
+
+  Costó media sesión de la sesión 1. **`libpq` 18.6 ya estaba instalada** (del 11/08), pero
+  Homebrew la instala como *keg-only* (no la linkea en `/opt/homebrew`) porque conflictúa
+  con `postgresql`. Por eso `which psql` no da nada y `brew info libpq` dice "Installed":
+  **es el chequeo que hay que hacer antes de concluir que falta.**
+
+  ```bash
+  ls /opt/homebrew/opt/libpq/bin/psql        # el binario, aunque which no lo encuentre
+  brew info libpq                            # "Installed (on request)"?
+  ```
+
+  El 29/09/2026 se agregó al final de `~/.zshrc` (con backup en `~/.zshrc.bak`):
+  ```bash
+  export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+  ```
+  Si en algún momento `psql` vuelve a faltar del PATH, es que esa línea se perdió: repetir
+  esto. **No hace falta `brew install` ni Docker.** Docker no se usa para nada en este
+  proyecto, y en una máquina de 8 GB es una carga que no vale la pena.
+
+  ### ⚠️ El `.env` local apunta a PRODUCCIÓN
+
+  `app.js:23` hace `dotenv.config()`, así que **`npm start` local se conecta a la Supabase de
+  producción**, no a un Postgres local. Y como `initServices()` → `initDatabase()` corre
+  dentro de `if (require.main === module)`, al levantar el server local **se crean tablas en
+  producción** (el `CREATE TABLE IF NOT EXISTS` de `initDatabase()`). Fue exactamente así
+  como la tabla `festivals` apareció vacía en Supabase.
+
+  Para probar contra otra base hay que **exportar** `DATABASE_URL`, no hacer
+  `env -u DATABASE_URL` (dotenv no pisa variables ya seteadas, pero sí llena las que faltan).
+
+  El orden del deploy fue obligatorio y por un motivo concreto: con la tabla vacía,
+  `/api/demo/festivals` devuelve **200 con lista vacía**, no un error. Si se hubiera
+  deployado el código sin sembrar primero, la app habría mostrado 0 festivales en
+  producción sin decir nada — el peor tipo de falla para un portfolio: silenciosa.
+  **Resuelto: el seed ya está aplicado, el orden se respetó.** La lección, para que no se
+  repita: **`initDatabase()` no es inocuo contra la base real.**
+
+- [ ] **4b. Usuario demo read-only en la DB** (decidido, no implementado)
+  Cuando se implemente, tener en cuenta dos cosas ya investigadas:
+  - Hoy el demo son 22 artistas hardcodeados en `server/server.js` y `/api/demo/*` no pide
+    sesión. Nelson quiere que el demo sea un usuario real de la DB.
+  - **Read-only, con reset por sesión DESCARTADO**: con N visitantes compartiendo un `user_id`,
+    el que entra borra los artistas del que está mirando. En un portfolio, dos personas a la
+    vez es el caso normal.
+  - `user_artists` **no tiene columna `image`** y el demo actual muestra fotos de Spotify:
+    hay que agregar `image TEXT` nullable. Decidido, no implementado.
 
 - [x] **5. `initDatabase()` fuera del arranque** — **HECHO, pero por accidente y mejor así**
   No hubo que tocar nada: `initServices()` (y por lo tanto `initDatabase()`) solo corre
@@ -288,6 +466,18 @@ Lo eliminó para cortar costos, así que las credenciales de Google hubo que reh
 cero. Si algún día se borra un proyecto de GCP, asumí que **todas** sus credenciales
 (client IDs, secrets, service accounts) mueren con él.
 
+### 8. `which psql` no prueba que `psql` falte (29/09/2026)
+
+Homebrew instala `libpq` como **keg-only**, sin linkearla en `/opt/homebrew`, porque
+conflictúa con `postgresql`. En esta máquina `libpq` 18.6 estaba instalada desde el 11/08 y
+`which psql` no encontraba nada. La sesión anterior concluyó de ahí que faltaba y
+planteó un bloqueo de entorno que no existía (y propuso instalar Docker, que no hacía falta).
+
+Antes de instalar nada: `brew info libpq` (dice "Installed (on request)") y
+`ls /opt/homebrew/opt/libpq/bin/psql`. El chequeo cuesta un segundo y evita instalar
+35 MB que ya estaban ahí. Ya está agregado al PATH en `~/.zshrc`; si desaparece, es que se
+perdió esa línea, no que falte el paquete.
+
 ---
 
 ## Datos de la base vieja (opcional)
@@ -372,6 +562,24 @@ npm start       # node app.js
 vercel dev      # para replicar el entorno de Vercel antes de deployar
 ```
 
+**Ojo:** `npm start` local se conecta a la **Supabase de producción** (ver la trampa del
+`.env`). Para levantar contra otra base, exportar `DATABASE_URL` explícitamente.
+
+Para las migraciones, `psql` (ya está en el PATH, ver la nota del paso 4):
+
+```bash
+# aplicar una migración
+set -a; source ./.env; set +a
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/002_festivals.sql
+
+# verificar que la URL es la del pooler transaccional, SIN imprimir la password
+echo "$DATABASE_URL" | sed -E 's#://[^@]*@#://***:***@#'
+```
+
+`-v ON_ERROR_STOP=1` es lo que hace que `psql` aborte en el primer error en vez de seguir y
+commitear la transacción a medias. Con el `BEGIN`/`COMMIT` del `.sql` es seguro igual, pero
+con `ON_ERROR_STOP` el fallo es ruidoso en vez de silencioso.
+
 `app.js` es el entry de Express **y** el script de arranque. `server/server.js` ya no se
 ejecuta directo: exporta `registerServer` / `initServices` / `PORT` y no abre ningún puerto.
 
@@ -389,6 +597,12 @@ ejecuta directo: exporta `registerServer` / `initServices` / `PORT` y no abre ni
 - **Env vars en Vercel:** `DATABASE_URL`, `LASTFM_API_KEY`, `GOOGLE_CLIENT_ID`,
   `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` (las 3, en Production/Preview/Development).
 - **Pendiente de configurar:** el secret `DATABASE_URL` en GitHub para el keepalive.
+- **Próximo deploy (29/09/2026):** el paso 4 (`festivals.json` → tabla `festivals`). El
+  código está en el working tree **sin commitear ni pusheado**. El seed ya está aplicado
+  en Supabase (58 filas verificadas), así que el orden seed → deploy se respetó y se puede
+  deployar sin riesgo. **Después del deploy hay que probar el panel admin a mano**:
+  editar un lineup, borrar un festival, aprobar una sugerencia. Es lo único del paso 4 que
+  no se puede verificar sin una sesión de admin.
 - Commits: `a13c62f` (keepalive + rol admin + READMEs) ← `c32d202` (migración Supabase,
   pool serverless, fixes de arranque) ← `e558f40` (READMEs) ← `c0d2699` (entrypoint).
 

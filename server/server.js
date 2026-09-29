@@ -40,23 +40,32 @@ function getLocalIP() {
   }
   return null;
 }
-const FESTIVALS_PATH = path.join(__dirname, 'festivals.json');
-
-// Festivales: import estático en vez de fs.readFileSync en cada request.
-// Dos motivos:
-//  1. El bundler de Vercel (@vercel/nft) solo incluye en la function los archivos
-//     que puede rastrear estáticamente. Un require() se rastrea; un
-//     fs.readFileSync(path.join(__dirname, ...)) guardado en una variable, no.
-//     Con require, festivals.json viaja dentro del bundle.
-//   2. Evita una lectura de disco por request.
-// Consecuencia: los cambios en festivals.json requieren reiniciar (npm run dev).
-// En producción además no se pueden escribir archivos (fs read-only en Vercel):
-// la escritura desde el panel admin se migra a Supabase.
-const festivals = require('./festivals.json');
-
-function getFestivals() {
-  return festivals;
-}
+// El catalogo de festivales vive en la tabla `festivals` de Postgres, no en un
+// JSON. El por que y el historial estan en migrations/002_festivals.sql.
+//
+// Que se gana y que se pierde:
+//
+// Se gana que el panel de admin puede escribir. Con el JSON, PUT y DELETE de
+//   /api/admin/festivals/:id y el approve de sugerencias hacian
+//   fs.writeFileSync, que en Vercel falla con EROFS (el filesystem es read-only)
+//   y devuelve 500 "Error al guardar". Ademas habia dos fuentes de verdad:
+//   getFestivals() devolvia el array capturado por require() al arrancar, mient
+//   ras GET /api/admin/festivals releia el archivo. Una edicion se veia en el
+//   panel y no en el matching hasta reiniciar el proceso.
+//
+// Se pierde que el catalogo se edite editando un archivo. server/festivals.json
+//   sigue siendo la fuente editable y la entrada de
+//   scripts/generate-festivals-migration.js, pero tocarlo ya no cambia la app:
+//   hay que regenerar el seed y aplicarlo con psql.
+//
+// NOTA: getFestivals() ya no existe como funcion. Los 4 callers ahora usan
+// db.getFestivals(), que es async: /api/user/festivals, /api/demo/festivals,
+// /api/festivals (Spotify) y /api/artist-events/:artistName, que usa
+// findArtistInFestivals(). Los tres primeros ya estaban dentro de un try/catch;
+// al cuarto hubo que agregarselo. findArtistInFestivals() recibio el catalogo
+// como parametro en vez de llamar a la DB por su cuenta: su unico caller ya lo
+// tiene en la mano, y con un pool de max: 1 dos queries al mismo catalogo en un
+// request es trabajo de sobra.
 
 // Base de datos y autenticacion
 const db = require('./db');
@@ -454,81 +463,73 @@ function registerServer(app) {
     res.json({ suggestions });
   });
 
-  // Aprobar sugerencia - auto-agrega a festivals.json
+  // Aprobar sugerencia - auto-agrega a la tabla festivals
   app.post('/api/admin/suggestions/:id/approve', auth.requireAuth, requireAdmin, async (req, res) => {
-    const suggestionId = parseInt(req.params.id);
-    const suggestion = await db.getSuggestionById(suggestionId);
-
-    if (!suggestion) {
-      return res.status(404).json({ error: 'Sugerencia no encontrada' });
-    }
-
-    // Leer festivals.json actualizado
-    let festivalsData;
     try {
-      festivalsData = JSON.parse(fs.readFileSync(FESTIVALS_PATH, 'utf8'));
-    } catch (err) {
-      console.error('Error leyendo festivals.json:', err);
-      return res.status(500).json({ error: 'Error al leer la lista de festivales' });
-    }
+      const suggestionId = parseInt(req.params.id);
+      const suggestion = await db.getSuggestionById(suggestionId);
 
-    // Verificar si el festival ya existe (por nombre, case-insensitive)
-    const festivalExists = festivalsData.some(
-      f => f.name.toLowerCase() === suggestion.festival_name.toLowerCase()
-    );
+      if (!suggestion) {
+        return res.status(404).json({ error: 'Sugerencia no encontrada' });
+      }
 
-    if (festivalExists) {
-      // Ya existe: eliminar la sugerencia
-      await db.deleteSuggestion(suggestionId);
-      return res.json({
-        success: true,
-        alreadyExists: true,
-        message: 'Este festival ya estaba en la lista. Sugerencia eliminada.'
+      // Verificar si el festival ya existe (por nombre, case-insensitive)
+      const existing = await db.pool.query(
+        'SELECT id FROM festivals WHERE LOWER(name) = LOWER($1)',
+        [suggestion.festival_name]
+      );
+
+      if (existing.rows.length > 0) {
+        // Ya existe: eliminar la sugerencia
+        await db.deleteSuggestion(suggestionId);
+        return res.json({
+          success: true,
+          alreadyExists: true,
+          message: 'Este festival ya estaba en la lista. Sugerencia eliminada.'
+        });
+      }
+
+      // Mapeo de codigos de pais a nombres
+      const countryNames = {
+        'US': 'Estados Unidos', 'AR': 'Argentina', 'BR': 'Brasil', 'CL': 'Chile',
+        'CO': 'Colombia', 'MX': 'Mexico', 'ES': 'Espana', 'DE': 'Alemania',
+        'BE': 'Belgica', 'DK': 'Dinamarca', 'FI': 'Finlandia', 'GB': 'Reino Unido',
+        'HR': 'Croacia', 'HU': 'Hungria', 'NL': 'Paises Bajos', 'PL': 'Polonia',
+        'PT': 'Portugal', 'FR': 'Francia', 'IT': 'Italia', 'SE': 'Suecia',
+        'NO': 'Noruega', 'AT': 'Austria', 'CH': 'Suiza', 'CZ': 'Republica Checa',
+        'RS': 'Serbia', 'OTHER': 'Otro'
+      };
+
+      // Crear nuevo festival
+      const newFestival = await db.createFestival({
+        id: suggestion.festival_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+        name: suggestion.festival_name,
+        city: suggestion.city,
+        location: `${suggestion.city}, ${countryNames[suggestion.country] || suggestion.country}`,
+        country: suggestion.country,
+        dates: suggestion.dates_info || 'TBA',
+        website: suggestion.website || '',
+        lineupStatus: 'unannounced',
+        lineup: []
       });
-    }
 
-    // Mapeo de codigos de pais a nombres
-    const countryNames = {
-      'US': 'Estados Unidos', 'AR': 'Argentina', 'BR': 'Brasil', 'CL': 'Chile',
-      'CO': 'Colombia', 'MX': 'Mexico', 'ES': 'Espana', 'DE': 'Alemania',
-      'BE': 'Belgica', 'DK': 'Dinamarca', 'FI': 'Finlandia', 'GB': 'Reino Unido',
-      'HR': 'Croacia', 'HU': 'Hungria', 'NL': 'Paises Bajos', 'PL': 'Polonia',
-      'PT': 'Portugal', 'FR': 'Francia', 'IT': 'Italia', 'SE': 'Suecia',
-      'NO': 'Noruega', 'AT': 'Austria', 'CH': 'Suiza', 'CZ': 'Republica Checa',
-      'RS': 'Serbia', 'OTHER': 'Otro'
-    };
+      if (!newFestival) {
+        return res.status(500).json({ error: 'Error al guardar el festival' });
+      }
 
-    // Crear nuevo festival
-    const newFestival = {
-      id: suggestion.festival_name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
-      name: suggestion.festival_name,
-      city: suggestion.city,
-      location: `${suggestion.city}, ${countryNames[suggestion.country] || suggestion.country}`,
-      country: suggestion.country,
-      dates: suggestion.dates_info || 'TBA',
-      website: suggestion.website || '',
-      lineupStatus: 'unannounced',
-      lineup: []
-    };
+      // Actualizar status en DB
+      await db.updateSuggestionStatus(suggestionId, 'approved');
 
-    // Agregar al array y guardar
-    festivalsData.push(newFestival);
-    try {
-      fs.writeFileSync(FESTIVALS_PATH, JSON.stringify(festivalsData, null, 2), 'utf8');
+      res.json({
+        success: true,
+        alreadyExists: false,
+        message: 'Festival agregado a la lista!',
+        festival: newFestival
+      });
     } catch (err) {
-      console.error('Error escribiendo festivals.json:', err);
-      return res.status(500).json({ error: 'Error al guardar el festival' });
+      console.error('Error aprobando sugerencia:', err.message);
+      res.status(500).json({ error: 'Error al guardar el festival' });
     }
-
-    // Actualizar status en DB
-    await db.updateSuggestionStatus(suggestionId, 'approved');
-
-    res.json({
-      success: true,
-      alreadyExists: false,
-      message: 'Festival agregado a la lista!',
-      festival: newFestival
-    });
   });
 
   // Rechazar sugerencia
@@ -548,12 +549,15 @@ function registerServer(app) {
   // ==========================================
 
   // Obtener todos los festivales (admin)
+  //
+  // Devuelve TODOS los festivales, sin filtro de region: el panel admin
+  // necesita ver el catalogo completo para poder editar cualquiera.
   app.get('/api/admin/festivals', auth.requireAuth, requireAdmin, async (req, res) => {
     try {
-      const festivalsData = JSON.parse(fs.readFileSync(FESTIVALS_PATH, 'utf8'));
+      const festivalsData = await db.getFestivals();
       res.json({ festivals: festivalsData });
     } catch (err) {
-      console.error('Error leyendo festivals.json:', err);
+      console.error('Error leyendo festivales:', err.message);
       res.status(500).json({ error: 'Error al leer festivales' });
     }
   });
@@ -564,25 +568,22 @@ function registerServer(app) {
     const updates = req.body;
 
     try {
-      let festivalsData = JSON.parse(fs.readFileSync(FESTIVALS_PATH, 'utf8'));
-      const index = festivalsData.findIndex(f => f.id === festivalId);
+      // El whitelist de campos vive en db.updateFestival (UPDATABLE_FESTIVAL_FIELDS),
+      // junto con la query: asi no puede quedar desincronizado con las columnas.
+      const festival = await db.updateFestival(festivalId, updates);
 
-      if (index === -1) {
+      if (!festival) {
         return res.status(404).json({ error: 'Festival no encontrado' });
       }
 
-      // Actualizar campos permitidos
-      const allowedFields = ['name', 'city', 'location', 'country', 'dates', 'website', 'lineupStatus', 'lineup', 'image'];
-      allowedFields.forEach(field => {
-        if (updates[field] !== undefined) {
-          festivalsData[index][field] = updates[field];
-        }
-      });
-
-      fs.writeFileSync(FESTIVALS_PATH, JSON.stringify(festivalsData, null, 2), 'utf8');
-      res.json({ success: true, festival: festivalsData[index] });
+      res.json({ success: true, festival });
     } catch (err) {
-      console.error('Error actualizando festival:', err);
+      // 23514 = check_violation: lineup_status con un valor fuera de los 4
+      // permitidos. No es un 500 generico, es un dato invalido del formulario.
+      if (err.code === '23514') {
+        return res.status(400).json({ error: 'lineupStatus invalido' });
+      }
+      console.error('Error actualizando festival:', err.message);
       res.status(500).json({ error: 'Error al actualizar festival' });
     }
   });
@@ -592,18 +593,15 @@ function registerServer(app) {
     const festivalId = req.params.id;
 
     try {
-      let festivalsData = JSON.parse(fs.readFileSync(FESTIVALS_PATH, 'utf8'));
-      const index = festivalsData.findIndex(f => f.id === festivalId);
+      const deleted = await db.deleteFestival(festivalId);
 
-      if (index === -1) {
+      if (!deleted) {
         return res.status(404).json({ error: 'Festival no encontrado' });
       }
 
-      const deletedFestival = festivalsData.splice(index, 1)[0];
-      fs.writeFileSync(FESTIVALS_PATH, JSON.stringify(festivalsData, null, 2), 'utf8');
-      res.json({ success: true, deleted: deletedFestival });
+      res.json({ success: true, deleted });
     } catch (err) {
-      console.error('Error eliminando festival:', err);
+      console.error('Error eliminando festival:', err.message);
       res.status(500).json({ error: 'Error al eliminar festival' });
     }
   });
@@ -806,11 +804,16 @@ function registerServer(app) {
   const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 horas
 
   // Funcion para buscar artista en festivales
-  function findArtistInFestivals(artistName) {
+  //
+  // Recibe el catalogo ya cargado en vez de llamar a db.getFestivals() por su
+  // cuenta: el unico caller (/api/artist-events/:artistName) ya lo tiene en la
+  // mano para el filtro por region, y dos queries al mismo catalogo en un
+  // request es trabajo de sobra con un pool de max: 1.
+  function findArtistInFestivals(artistName, festivals) {
     const normalizedArtist = normalizeString(artistName);
     const festivalMatches = [];
 
-    for (const festival of getFestivals()) {
+    for (const festival of festivals) {
       if (festival.lineup && festival.lineup.length > 0) {
         const found = festival.lineup.find(a => normalizeString(a) === normalizedArtist);
         if (found) {
@@ -838,7 +841,18 @@ function registerServer(app) {
     }
 
     // Buscar en festivales de la región seleccionada
-    const allFestivalAppearances = findArtistInFestivals(artistName);
+    //
+    // El catalogo se lee de la DB (paso 4), y este endpoint NO tiene try/catch
+    // alrededor: un fallo de base no puede devolver 500, porque
+    // festivalAppearances se agrega a la respuesta en todos los caminos (cache en
+    // memoria, cache en DB, y la llamada a la API). Se degrada a lista vacía, que
+    // es el mismo criterio que ya usa el NIVEL 2 de abajo con su cache.
+    let allFestivalAppearances = [];
+    try {
+      allFestivalAppearances = findArtistInFestivals(artistName, await db.getFestivals());
+    } catch (err) {
+      console.warn(`[Catalogo] no se pudo leer la tabla festivals: ${err.message}`);
+    }
     const festivalAppearances = allFestivalAppearances.filter(f =>
       regionConfig.countryCodes.includes(f.country)
     );
@@ -966,55 +980,60 @@ function registerServer(app) {
   // ==========================================
 
   app.get('/api/user/festivals', auth.requireAuth, async (req, res) => {
-    const region = req.query.region || 'europe';
-    const regionConfig = REGIONS[region] || REGIONS.europe;
+    try {
+      const region = req.query.region || 'europe';
+      const regionConfig = REGIONS[region] || REGIONS.europe;
 
-    // Filtrar festivales por región
-    const regionFestivals = getFestivals().filter(f =>
-      regionConfig.countryCodes.includes(f.country)
-    );
+      // Filtrar festivales por región
+      const regionFestivals = (await db.getFestivals()).filter(f =>
+        regionConfig.countryCodes.includes(f.country)
+      );
 
-    // Obtener festivales favoritos del usuario
-    const userFavorites = await db.getUserFavoriteFestivals(req.user.id);
-    const favoriteIds = new Set(userFavorites.map(f => f.festival_id));
+      // Obtener festivales favoritos del usuario
+      const userFavorites = await db.getUserFavoriteFestivals(req.user.id);
+      const favoriteIds = new Set(userFavorites.map(f => f.festival_id));
 
-    const userArtistsList = await db.getUserArtists(req.user.id);
-    const userArtists = userArtistsList.map(a => normalizeString(a.artist_name));
+      const userArtistsList = await db.getUserArtists(req.user.id);
+      const userArtists = userArtistsList.map(a => normalizeString(a.artist_name));
 
-    if (userArtists.length === 0) {
-      return res.json({
-        festivals: regionFestivals.map(f => ({
-          ...f,
-          matchPercentage: 0,
-          matchedArtists: 0,
-          totalUserArtists: 0,
-          artistsInCommon: [],
-          isFavorite: favoriteIds.has(f.id),
-        })),
-        message: 'Anade artistas a tu perfil para ver tu compatibilidad',
+      if (userArtists.length === 0) {
+        return res.json({
+          festivals: regionFestivals.map(f => ({
+            ...f,
+            matchPercentage: 0,
+            matchedArtists: 0,
+            totalUserArtists: 0,
+            artistsInCommon: [],
+            isFavorite: favoriteIds.has(f.id),
+          })),
+          message: 'Anade artistas a tu perfil para ver tu compatibilidad',
+        });
+      }
+
+      const festivalsWithMatch = regionFestivals.map(festival => {
+        const festivalArtists = festival.lineup.map(a => normalizeString(a));
+        const matches = userArtists.filter(artist => festivalArtists.includes(artist));
+        const matchPercentage = Math.round((matches.length / userArtists.length) * 100);
+
+        return {
+          ...festival,
+          matchPercentage,
+          matchedArtists: matches.length,
+          totalUserArtists: userArtists.length,
+          artistsInCommon: festival.lineup.filter(a =>
+            userArtists.includes(normalizeString(a))
+          ),
+          isFavorite: favoriteIds.has(festival.id),
+        };
       });
+
+      festivalsWithMatch.sort((a, b) => b.matchPercentage - a.matchPercentage);
+
+      res.json({ festivals: festivalsWithMatch });
+    } catch (err) {
+      console.error('Error calculando matches:', err.message);
+      res.status(500).json({ error: 'Error al calcular matches' });
     }
-
-    const festivalsWithMatch = regionFestivals.map(festival => {
-      const festivalArtists = festival.lineup.map(a => normalizeString(a));
-      const matches = userArtists.filter(artist => festivalArtists.includes(artist));
-      const matchPercentage = Math.round((matches.length / userArtists.length) * 100);
-
-      return {
-        ...festival,
-        matchPercentage,
-        matchedArtists: matches.length,
-        totalUserArtists: userArtists.length,
-        artistsInCommon: festival.lineup.filter(a =>
-          userArtists.includes(normalizeString(a))
-        ),
-        isFavorite: favoriteIds.has(festival.id),
-      };
-    });
-
-    festivalsWithMatch.sort((a, b) => b.matchPercentage - a.matchPercentage);
-
-    res.json({ festivals: festivalsWithMatch });
   });
 
   // ==========================================
@@ -1048,39 +1067,44 @@ function registerServer(app) {
     res.json({ artists: demoArtists, isDemo: true });
   });
 
-  app.get('/api/demo/festivals', (req, res) => {
-    const region = req.query.region || 'europe';
-    const regionConfig = REGIONS[region] || REGIONS.europe;
+  app.get('/api/demo/festivals', async (req, res) => {
+    try {
+      const region = req.query.region || 'europe';
+      const regionConfig = REGIONS[region] || REGIONS.europe;
 
-    // Filtrar festivales por región
-    const regionFestivals = getFestivals().filter(f =>
-      regionConfig.countryCodes.includes(f.country)
-    );
+      // Filtrar festivales por región
+      const regionFestivals = (await db.getFestivals()).filter(f =>
+        regionConfig.countryCodes.includes(f.country)
+      );
 
-    const userArtists = demoArtists.map(a => normalizeString(a.name));
+      const userArtists = demoArtists.map(a => normalizeString(a.name));
 
-    const festivalsWithMatch = regionFestivals.map(festival => {
-      const festivalArtists = festival.lineup.map(a => normalizeString(a));
-      const matches = userArtists.filter(artist => festivalArtists.includes(artist));
-      const matchPercentage = userArtists.length > 0
-        ? Math.round((matches.length / userArtists.length) * 100)
-        : 0;
+      const festivalsWithMatch = regionFestivals.map(festival => {
+        const festivalArtists = festival.lineup.map(a => normalizeString(a));
+        const matches = userArtists.filter(artist => festivalArtists.includes(artist));
+        const matchPercentage = userArtists.length > 0
+          ? Math.round((matches.length / userArtists.length) * 100)
+          : 0;
 
-      return {
-        ...festival,
-        matchPercentage,
-        matchedArtists: matches.length,
-        totalUserArtists: userArtists.length,
-        artistsInCommon: festival.lineup.filter(a =>
-          userArtists.includes(normalizeString(a))
-        ),
-        isFavorite: false, // Demo mode no tiene favoritos
-      };
-    });
+        return {
+          ...festival,
+          matchPercentage,
+          matchedArtists: matches.length,
+          totalUserArtists: userArtists.length,
+          artistsInCommon: festival.lineup.filter(a =>
+            userArtists.includes(normalizeString(a))
+          ),
+          isFavorite: false, // Demo mode no tiene favoritos
+        };
+      });
 
-    festivalsWithMatch.sort((a, b) => b.matchPercentage - a.matchPercentage);
+      festivalsWithMatch.sort((a, b) => b.matchPercentage - a.matchPercentage);
 
-    res.json({ festivals: festivalsWithMatch, isDemo: true });
+      res.json({ festivals: festivalsWithMatch, isDemo: true });
+    } catch (err) {
+      console.error('Error en modo demo:', err.message);
+      res.status(500).json({ error: 'Error al cargar el modo demo' });
+    }
   });
 
   // ==========================================
@@ -1187,7 +1211,7 @@ function registerServer(app) {
 
       const userArtists = artistsResponse.data.items.map(a => normalizeString(a.name));
 
-      const festivalsWithMatch = getFestivals().map(festival => {
+      const festivalsWithMatch = (await db.getFestivals()).map(festival => {
         const festivalArtists = festival.lineup.map(a => normalizeString(a));
         const matches = userArtists.filter(artist => festivalArtists.includes(artist));
         const matchPercentage = userArtists.length > 0

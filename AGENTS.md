@@ -5,72 +5,50 @@ Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje 
 
 ---
 
-## 🔴 RETOMAR ACÁ — 29/09/2026, sesión 2
+## 🔴 RETOMAR ACÁ — 29/09/2026, sesión 3
 
-**El paso 4 está COMPLETO: escrito, verificado y con el seed APLICADO en Supabase.**
-Lo único que falta es **commitear y deployar**. Si estás leyendo esto en una sesión nueva,
-esto es lo primero.
+**El paso 4 está CERRADO.** Seed aplicado, commiteado, pusheado, deployado, y el panel admin
+funcionando en producción (edit de lineup, borrado y aprobación de sugerencia probados a mano).
 
-**Estado del working tree** (4 modificados, 2 sin trackear, nada commiteado):
+**Estado del working tree:** limpio respecto del paso 4. Quedan sin commitear solo las
+actualizaciones de `AGENTS.md` de esta sesión (documentación).
 
-```
- M .env.example
- M AGENTS.md
- M package.json
- M server/db.js
- M server/server.js
-?? migrations/002_festivals.sql
-?? scripts/
-```
+**El paso 4 hizo esto:** `festivals.json` → tabla `festivals`. Los 4 endpoints del panel admin
+dejaron de hacer `fs.writeFileSync` (que en Vercel daba `EROFS` → 500). Se generó
+`002_festivals.sql` con un script, se escribieron 5 queries en `db.js`, y se migraron los 4
+callers del catálogo en `server.js`. **El matching no necesitó refactor**: `rowToFestival()`
+devuelve un objeto deep-equal al del JSON, verificado.
 
-**El paso 4 hizo todo esto** (detalle completo más abajo, en el checklist):
-`festivals.json` → tabla `festivals`. Los 4 endpoints del panel admin dejaron de hacer
-`fs.writeFileSync` (que en Vercel daba `EROFS` → 500). Se generó `002_festivals.sql` con
-un script, se escribieron 5 queries en `db.js`, y se migraron los 4 callers del catálogo
-en `server.js`. **El matching no necesitó refactor**: `rowToFestival()` devuelve un objeto
-deep-equal al del JSON, verificado.
+### Estado de producción (29/09/2026)
 
-### Seed APLICADO (29/09/2026)
+Un solo usuario (vos, `role = admin,dev`, cuenta de Google con `password_hash` NULL), 1
+artista, 1 sesión viva hasta el 03/10. Las 8 rutas de la suite de deploy en 200.
 
-```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/002_festivals.sql
-# BEGIN / NOTICE: relation "festivals" already exists, skipping
-# CREATE TABLE / INSERT 0 58 / COMMIT
-```
+### El keepalive (paso 8) YA ESTÁ CONFIGURADO
 
-Verificado contra producción — todos los números cuadran con lo documentado:
+El secret `DATABASE_URL` ya existe en GitHub (Settings → Secrets and variables → Actions) y
+el workflow corre bien: *"Base de datos activa y con escritura habilitada"*, verificado el
+29/09/2026. **No hay nada pendiente acá.** La base no se va a pausar.
 
-| | esperado | real |
-|---|---|---|
-| filas | 58 | 58 ✅ |
-| artistas en lineups | 648 | 648 ✅ |
-| `sort_order` 1..58 continuo | sí | sí ✅ |
-| `image` NULL | 3 | 3 ✅ |
-| `flyer` NULL | 55 | 55 ✅ |
-| `lineup_status = 'hiatus'` | 2 | 2 ✅ |
+Lo que sigue son tareas de higiene, ninguna urgente: **6** (borrar el código muerto de
+Spotify, ~20 min) y **9** (limpieza de GCP/Docker). Son puras borradas de archivos que ya
+no se usan: 3 Dockerfiles (`Dockerfile`, `server/Dockerfile`, `public/Dockerfile`) +
+`.github/workflows/docker-publish.yml`, y las 13 referencias a Spotify en
+`server/server.js`. Los README ya no mencionan ni Spotify ni Docker, así que no hay que
+tocarlos.
 
-Las 8 rutas de la suite de deploy siguen en 200 después de aplicar el seed (producción
-sigue corriendo el código viejo, que lee el JSON del bundle — por eso `/api/demo/festivals`
-devuelve 43 para `region=europe`, el subconjunto correcto de los 58).
+### 🔜 Si la próxima sesión es la del demo: arrancar por **4b**
 
-### Lo que falta ahora
+Nelson dejó el 4b para otra sesión. El brief completo está en el checklist, en
+"**4b. Usuario demo read-only en la DB**": cómo funciona hoy el demo línea por línea, qué
+falta en el schema (`user_artists` sin columna `image`, géneros en otra tabla), por qué se
+descartó el reset por sesión, y las 3 decisiones que hay que preguntarle antes de escribir
+código (login del usuario demo, qué hacer con los favoritos, y si el demo expone endpoints
+de escritura).
 
-1. **Commitear** (lo hace Nelson) y **deployar**.
-2. **Probar el panel admin a mano** — editar un lineup, borrar, aprobar una sugerencia.
-   Los 3 casos que fallaban en producción (`EROFS` → 500) no se pueden probar sin sesión
-   de admin, así que hasta que se haga, el paso 4 está **verificado pero no probado en vivo**.
-
-**Cuidado con el `ON CONFLICT` del seed**: sobrescribe todas las columnas, incluido
-`lineup`. Re-aplicar la migración **deshace los cambios hechos desde el panel admin**. Ya no
-es urgente (la tabla se acaba de sembrar), pero desde que se empiece a editar el catálogo
-desde el admin, correr `002_festivals.sql` de nuevo es una pérdida de trabajo.
-
-**Trampa vigente**: `app.js:23` hace `dotenv.config()`, y el `.env` de la raíz apunta a la
-**Supabase de producción**. Correr `npm start` local **es** conectarse a producción, e
-`initDatabase()` (que corre dentro de `if (require.main === module)`) crea tablas ahí — fue
-justo así como la tabla `festivals` apareció vacía en producción. Para probar contra otra
-base hay que **exportar** `DATABASE_URL`, no hacer `env -u DATABASE_URL` (dotenv no pisa
-variables ya seteadas, pero sí llena las que faltan).
+Un detalle que conviene tener presente: hoy el demo son **20** artistas hardcodeados en
+`server/server.js:1043`, no 22 (este doc decía 22; corregido el 29/09/2026). Y
+`npm start` local sigue conectando a **producción**, así que sembrar el usuario demoTesting es una escritura real en Supabase: avisar antes.
 
 ---
 
@@ -120,7 +98,9 @@ scripts/              # generate-festivals-migration.js (genera 002_festivals.sq
 migrations/           # Schema, aplicado una vez con psql. 001_init.sql y
                       # 002_festivals.sql YA CORRIERON en Supabase (29/09/2026)
 .github/workflows/    # keepalive.yml (cron diario contra Supabase) + docker-publish.yml (muerto, step 9)
-festival_match_backup_20260505.dump  # Backup de Cloud SQL, ignorado por git. Datos viejos, opcional
+migrations/festival_match_backup_20260505.dump  # Backup de Cloud SQL (20260505). Ignorado por
+                      # git vía `*.dump`. Datos viejos de 2026, opcional. NO confundir con
+                      # los .sql de al lado: esos SÍ están versionados (ver Trampa 6)
 README.md             # Inglés (default en GitHub) — es el que se ve primero
 README_es.md          # Español, espejo de README.md
 ```
@@ -228,7 +208,7 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   Además `generateSessionId()` pasó de `Math.random()` a `crypto.randomBytes()`: los ids
   de sesión son credenciales bearer con 7 días de vida, no un string cualquiera.
 
-- [x] **4. `festivals.json` → tabla `festivals`** — **HECHO Y APLICADO 29/09/2026** (sin commitear)
+- [x] **4. `festivals.json` → tabla `festivals`** — **CERRADO 29/09/2026** (commiteado, pusheado, seed aplicado, admin probado a mano en producción)
   Arregla el bug: los 4 endpoints que tocaban el filesystem dejaron de hacerlo. En Vercel
   `fs.writeFileSync` daba `EROFS` → 500 "Error al guardar".
 
@@ -333,15 +313,56 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   **Resuelto: el seed ya está aplicado, el orden se respetó.** La lección, para que no se
   repita: **`initDatabase()` no es inocuo contra la base real.**
 
-- [ ] **4b. Usuario demo read-only en la DB** (decidido, no implementado)
-  Cuando se implemente, tener en cuenta dos cosas ya investigadas:
-  - Hoy el demo son 22 artistas hardcodeados en `server/server.js` y `/api/demo/*` no pide
-    sesión. Nelson quiere que el demo sea un usuario real de la DB.
+- [ ] **4b. Usuario demo read-only en la DB** — **DECIDIDO, NO IMPLEMENTADO** (empezar 29/09 o después)
+  Goal: que `/api/demo/*` deje de servir un array hardcodeado y lea de un usuario real de la
+  DB, para que el demo no se desincronice del matching ni de los artistas reales.
+
+  **Investigado el 29/09/2026. Esto es lo que hay que saber antes de escribir una línea:**
+
+  **Cómo funciona hoy el demo (verificado en el código):**
+  - `server/server.js:1043` — `demoArtists`, un array de **20** artistas (no 22, como decía
+    antes este doc) con `{ name, image, genres }`. Las `image` son URLs de CDN de Spotify.
+  - `server/server.js:1066` — `/api/demo/artists` devuelve el array tal cual, sin tocar la DB.
+  - `server/server.js:1070` — `/api/demo/festivals` lee los festivales de la región desde
+    `db.getFestivals()`, calcula el match con `normalizeString()` sobre los nombres del array,
+    y devuelve `isFavorite: false` hardcodeado.
+  - `public/app.js:1316` — `startDemo()` setea `isDemo = true` y hace `fetch` de los dos
+    endpoints en paralelo. `renderUserArtists()` (línea 1811) muestra un badge "Modo Demo".
+    **Los endpoints devuelven `isDemo: true` y el frontend se apoya en eso para pintar el
+    badge y para decidir si manda `credentials: 'include'` (línea 1801).**
+  - O sea: el frontend ya está preparado para el modo demo. **No hace falta tocar `public/`**
+    salvo que se quiera cambiar el texto del badge.
+
+  **El bloqueo de diseño, ya resuelto por decisión:**
   - **Read-only, con reset por sesión DESCARTADO**: con N visitantes compartiendo un `user_id`,
-    el que entra borra los artistas del que está mirando. En un portfolio, dos personas a la
-    vez es el caso normal.
-  - `user_artists` **no tiene columna `image`** y el demo actual muestra fotos de Spotify:
-    hay que agregar `image TEXT` nullable. Decidido, no implementado.
+    el que entra borra los artistas del que está mirando. En un portfolio dos personas a la
+    vez es el caso normal. O sea que el usuario demo **se comparte y nunca se escribe**.
+
+  **El trabajo de schema que falta:**
+  - `user_artists` **no tiene columna `image`** (`migrations/001_init.sql:46`), y el demo
+    actual muestra fotos de Spotify. Hay que agregar `image TEXT` nullable → migración
+    `003_demo_user.sql`.
+  - `user_artists` tampoco tiene géneros: viven en `user_genres (user_id, genre)`. Si el demo
+    tiene que seguir mostrando los `genres` del array, hay que sembrarlos también.
+  - Los 20 artistas del array se siembran con un `INSERT` del `user_id` del demo, con
+    `image` y con sus géneros. **Comparar contra `server/festivals.json`**: ese archivo
+    ya es la fuente del seed y `scripts/generate-festivals-migration.js` es el patrón a
+    seguir para generar la migración en vez de escribir el SQL a mano.
+
+  **Decisiones que todavía hay que tomar (no inventarlas, preguntarle a Nelson):**
+  - ¿El usuario demo se puede loguear por `/auth/login`? Hoy no debería: conviene usar un
+    `email` que no exista en Google, y revisar que `findOrCreateUser()` no lo enganche a una
+    cuenta real.
+  - ¿Qué pasa con los favoritos? Hoy el demo fuerza `isFavorite: false`. Con un usuario real
+    de DB se podría leer de `user_festivals`, pero eso haría que los favoritos de un visitante
+    **modifiquen los del siguiente** (mismo problema que el reset). Decidir si se siguen
+    forzando en `false` o si se agrega `is_favorite` como estado del cliente.
+  - Si el demo pasa a ser read-only sobre un usuario de la DB, `user_festivals` y
+    `user_artists` quedan **compartidos**. Hay que decidir si el demo expone los endpoints
+    de escritura o queda solo en lectura.
+
+  **Verificación:** `npm run test:festivals` y la suite de deploy (abajo) tienen que seguir
+  dando lo mismo. Y probar el demo a mano, que es el único path que no usa sesión.
 
 - [x] **5. `initDatabase()` fuera del arranque** — **HECHO, pero por accidente y mejor así**
   No hubo que tocar nada: `initServices()` (y por lo tanto `initDatabase()`) solo corre
@@ -386,9 +407,10 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   acumulan todos los cron de GitHub y se retrasan). Falla con código ≠ 0 si la base no
   responde, y chequea `transaction_read_only` para distinguir "pausado" de "caído", así
   GitHub avisa por mail. Se probó a mano con *Run workflow* desde la pestaña Actions.
-  **Pendiente: crear el secret `DATABASE_URL` en GitHub** (Settings → Secrets and
-  variables → Actions). Sin eso el workflow no conecta. Ojo: es la misma string que en
-  Vercel, **terminada en `/postgres` y sin `?sslmode=require`**.
+  **Secret `DATABASE_URL` en GitHub: YA CREADO y verificado** (29/09/2026). Corriendo el
+  workflow a mano responde *"Base de datos activa y con escritura habilitada"*. Ojo si se
+  regenera alguna vez: tiene que ser la misma string que en Vercel, **terminada en `/postgres`
+  y sin `?sslmode=require`**.
   La alternativa con Vercel Cron quedó descartada: requiere el plan Pro ($25/mes).
 
 - [ ] **9. Limpieza GCP/Docker**
@@ -482,8 +504,13 @@ perdió esa línea, no que falte el paquete.
 
 ## Datos de la base vieja (opcional)
 
-Hay un backup en la raíz: **`festival_match_backup_20260505.dump`** (22k, `pg_dump` custom
-de Cloud SQL, 10/05/2026). Está en `.gitignore` (`*.dump`).
+Hay un backup en `migrations/`: **`festival_match_backup_20260505.dump`** (22k, `pg_dump`
+custom de Cloud SQL, 10/05/2026). Está en `.gitignore` (`*.dump`), **y sigue ignorado aunque
+esté dentro de `migrations/`**: la excepción `!migrations/*.sql` solo levanta los `.sql`, y el
+`*.dump` global gana igual. Verificado con `git check-ignore` después de moverlo (29/09/2026).
+
+Vive junto a los `.sql` a propósito: todo lo que habla de la base en un solo lugar. La
+diferencia es que los `.sql` están versionados y el `.dump` no.
 
 Contenido (contado desde los `setval` del propio dump):
 
@@ -588,21 +615,18 @@ ejecuta directo: exporta `registerServer` / `initServices` / `PORT` y no abre ni
 - **URL en producción:** https://festivalmatch.vercel.app/
 - Deploy desde el **dashboard de Vercel** importando el repo de GitHub. El usuario **no puede
   usar el CLI de Vercel** (escribe a ciegas), así que no intentar eso como sugerencia.
-- **Estado al 26/09/2026:** la app **está viva con base de datos**. `DATABASE_URL` está en
-  Vercel (pooler transaccional, sin `?sslmode=require`), Supabase tiene el schema aplicado,
-  y el login con Google funciona contra la base real. Verificado con la suite de abajo y
-  probando el flujo completo: registro, login, cookie de sesión, CRUD de artistas con el
-  UNIQUE (409 en duplicado), géneros, favoritos, sugerencia con FK a `users`, matching contra
-  lineups reales y búsqueda en MusicBrainz.
+- **Estado al 29/09/2026:** la app **está viva con base de datos**. `DATABASE_URL` está en
+  Vercel (pooler transaccional, sin `?sslmode=require`), Supabase tiene el schema aplicado
+  (001 + 002, 58 festivales verificados con `SELECT`), el login con Google funciona contra
+  la base real y **el panel admin anda**
+  (el `EROFS` → 500 está resuelto). Verificado con la suite de abajo y probando el flujo
+  completo: registro, login, cookie de sesión, CRUD de artistas con el UNIQUE (409 en
+  duplicado), géneros, favoritos, sugerencia con FK a `users`, matching contra lineups
+  reales, búsqueda en MusicBrainz y edición/borrado/aprobación desde el panel admin.
 - **Env vars en Vercel:** `DATABASE_URL`, `LASTFM_API_KEY`, `GOOGLE_CLIENT_ID`,
   `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` (las 3, en Production/Preview/Development).
-- **Pendiente de configurar:** el secret `DATABASE_URL` en GitHub para el keepalive.
-- **Próximo deploy (29/09/2026):** el paso 4 (`festivals.json` → tabla `festivals`). El
-  código está en el working tree **sin commitear ni pusheado**. El seed ya está aplicado
-  en Supabase (58 filas verificadas), así que el orden seed → deploy se respetó y se puede
-  deployar sin riesgo. **Después del deploy hay que probar el panel admin a mano**:
-  editar un lineup, borrar un festival, aprobar una sugerencia. Es lo único del paso 4 que
-  no se puede verificar sin una sesión de admin.
+- **🔜 Pendiente de configurar:** nada. El secret `DATABASE_URL` del keepalive ya está en
+  GitHub y verificado; las env vars de Vercel están completas.
 - Commits: `a13c62f` (keepalive + rol admin + READMEs) ← `c32d202` (migración Supabase,
   pool serverless, fixes de arranque) ← `e558f40` (READMEs) ← `c0d2699` (entrypoint).
 

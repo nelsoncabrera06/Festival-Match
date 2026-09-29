@@ -330,6 +330,10 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   - `/api/demo/artists` y `/api/demo/festivals` leen el perfil de DB. Los festivales marcan
     `isFavorite` desde `user_festivals`.
   - Las rutas de escritura existentes requieren sesión; las rutas demo son solo GET.
+  - `public/app.js` registra los listeners antes de esperar `/auth/me` y ahora muestra el
+    error que devuelve la API si la configuración DB del demo todavía falta.
+  - El menú superior también aparece en modo demo como “Demo user”; el logout del demo
+    vuelve a inicio sin llamar a `/auth/logout` ni afectar sesiones reales.
   - Falta aplicar la migración, cargar las imágenes/favoritos deseados y probar el demo.
 
   **Investigación previa del 29/09/2026:**

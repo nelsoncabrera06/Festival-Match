@@ -105,11 +105,12 @@ async function init() {
     return;
   }
 
-  // Verificar si hay usuario logueado
-  await checkAuth();
-
   // Event listeners
   setupEventListeners();
+
+  // Verificar si hay usuario logueado. Los botones quedan activos mientras
+  // responde /auth/me, incluso si esa consulta tarda o falla.
+  await checkAuth();
 
   // Escuchar cambios de idioma para re-renderizar contenido dinamico
   window.addEventListener('languageChanged', handleLanguageChange);
@@ -1036,8 +1037,10 @@ function showSection(section) {
   elements.error.style.display = section === 'error' ? 'flex' : 'none';
 
   // Mostrar/ocultar menu de usuario
-  const showUserUI = currentUser && (section === 'preferences' || section === 'results' || section === 'festival-detail');
+  const showUserUI = (currentUser || isDemo) && (section === 'preferences' || section === 'results' || section === 'festival-detail');
   elements.userMenu.style.display = showUserUI ? 'flex' : 'none';
+  const editPreferences = document.getElementById('dropdown-edit-preferences');
+  if (editPreferences) editPreferences.style.display = isDemo ? 'none' : '';
 
   // Ocultar selector de idioma suelto cuando el user-menu está visible (idioma está en el dropdown)
   const langSelector = document.getElementById('language-selector');
@@ -1284,13 +1287,15 @@ function loginWithGoogle() {
 }
 
 async function logout() {
-  try {
-    await fetch('/auth/logout', {
-      method: 'POST',
-      credentials: 'include',
-    });
-  } catch (err) {
-    console.error('Error logging out:', err);
+  if (currentUser) {
+    try {
+      await fetch('/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (err) {
+      console.error('Error logging out:', err);
+    }
   }
 
   currentUser = null;
@@ -1302,8 +1307,15 @@ async function logout() {
 }
 
 function updateUserUI() {
+  const avatar = elements.userAvatar;
+  if (isDemo) {
+    avatar.style.display = 'none';
+    elements.userName.textContent = 'Demo user';
+    return;
+  }
+  avatar.style.display = '';
   if (currentUser) {
-    elements.userAvatar.src = currentUser.picture || '';
+    avatar.src = currentUser.picture || '';
     elements.userName.textContent = currentUser.name || currentUser.email;
   }
 }
@@ -1314,6 +1326,7 @@ function updateUserUI() {
 
 async function startDemo() {
   isDemo = true;
+  updateUserUI();
   showSection('loading');
 
   try {
@@ -1322,15 +1335,26 @@ async function startDemo() {
       fetch(`/api/demo/festivals?region=${currentRegion}`),
     ]);
 
+    if (!artistsRes.ok || !festivalsRes.ok) {
+      const failedResponse = !artistsRes.ok ? artistsRes : festivalsRes;
+      const errorData = await failedResponse.json().catch(() => ({}));
+      throw new Error(errorData.error || `Error HTTP ${failedResponse.status}`);
+    }
+
     const artistsData = await artistsRes.json();
     const festivalsData = await festivalsRes.json();
+
+    if (!Array.isArray(artistsData.artists) || !Array.isArray(festivalsData.festivals)) {
+      throw new Error('La respuesta del demo no tiene el formato esperado');
+    }
 
     renderUserArtists(artistsData.artists, true);
     renderFestivals(festivalsData.festivals);
     navigateTo('/festivals');
   } catch (err) {
     console.error('Error loading demo:', err);
-    showError('Error al cargar el modo demo');
+    isDemo = false;
+    showError(err.message || 'Error al cargar el modo demo');
   }
 }
 

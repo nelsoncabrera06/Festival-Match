@@ -13,8 +13,11 @@ let searchTimeout = null;
 let searchTimeoutTab = null;
 let festivalSearchTimeout = null;
 let artistTourData = {}; // Cache de tour dates
-let calendarMonth = 5; // Junio (0-indexed)
-let calendarYear = 2026;
+const nextCalendarMonth = new Date();
+nextCalendarMonth.setDate(1);
+nextCalendarMonth.setMonth(nextCalendarMonth.getMonth() + 1);
+let calendarMonth = nextCalendarMonth.getMonth();
+let calendarYear = nextCalendarMonth.getFullYear();
 let festivalsData = []; // Cache de festivales para calendario
 let currentRegion = 'europe'; // Región actual (europe, usa, latam)
 let currentCountry = ''; // Filtro de país ('' = todos)

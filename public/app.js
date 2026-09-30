@@ -2418,6 +2418,24 @@ function parseFestivalDates(festivals) {
       return;
     }
 
+    // Caso: "24 Octubre 2026" (un solo día)
+    const singleDayMatch = dates.match(/^\s*(\d{1,2})\s+(\w+)\s+(\d{4})\s*$/i);
+    if (singleDayMatch) {
+      const day = parseInt(singleDayMatch[1]);
+      const month = monthMap[singleDayMatch[2].toLowerCase()];
+      const year = parseInt(singleDayMatch[3]);
+
+      if (month !== undefined) {
+        const eventDate = new Date(year, month, day);
+        events.push({
+          ...festival,
+          startDate: eventDate,
+          endDate: eventDate
+        });
+      }
+      return;
+    }
+
     // Caso: "27 Junio - 4 Julio 2026" (rango entre meses)
     const crossMonthMatch = dates.match(/(\d+)\s+(\w+)\s*-\s*(\d+)\s+(\w+)\s+(\d{4})/i);
     if (crossMonthMatch) {

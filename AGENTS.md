@@ -5,7 +5,7 @@ Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje 
 
 ---
 
-## 🔴 RETOMAR ACÁ — 29/09/2026, sesión 4
+## 🔴 RETOMAR ACÁ — 30/09/2026, sesión 5
 
 **El paso 4 está CERRADO.** Seed aplicado, commiteado, pusheado, deployado, y el panel admin
 funcionando en producción (edit de lineup, borrado y aprobación de sugerencia probados a mano).
@@ -29,6 +29,10 @@ El secret `DATABASE_URL` ya existe en GitHub (Settings → Secrets and variables
 el workflow corre bien: *"Base de datos activa y con escritura habilitada"*, verificado el
 29/09/2026. **No hay nada pendiente acá.** La base no se va a pausar.
 
+El refresh del catálogo a 2027 está aplicado en Supabase: no se borró ningún festival; los
+lineups 2026 se limpiaron para no mostrarlos como actuales, y los carteles/fechas 2027 se
+cargaron solo con anuncios oficiales confirmados. Ver paso 11.
+
 El demo user (4b) está terminado. El paso **6** (Spotify) queda en pausa: la integración
 está preparada en el código, pero Spotify no permite crear la app desde el Dashboard (error
 genérico incluso en otro navegador). Retomar cuando Spotify lo resuelva. El paso **9** (GCP/Docker) queda pospuesto: Docker forma parte del caso
@@ -37,6 +41,15 @@ práctico de Terraform en `Festival-Match-infra`. **No borrar Dockerfiles ni
 el inventario y acordar el alcance.
 
 ### Estado de tareas siguientes
+
+El 30/09/2026 se preparó el refresh del catálogo para la temporada 2027 (paso 11). El JSON
+local conserva los 58 festivales; las ediciones pasadas ahora figuran como 2027 con fecha por
+anunciar, salvo fechas confirmadas oficialmente. Se vaciaron los lineups de 2026 y se dejaron
+como `unannounced`; seis carteles tienen anuncios oficiales cargados como `partial`. Se
+regeneró `migrations/002_festivals.sql` (34 entradas de artistas) y se aplicó a Supabase el
+30/09/2026 (`INSERT 0 58`, `COMMIT`). Fuentes oficiales consultadas: [Primavera Sound](https://www.primaverasound.com/en/barcelona/tickets-barcelona), [Rock am Ring](https://www.rock-am-ring.com/en/info), [Rock im Park](https://www.rock-im-park.com/en/info), [Sziget](https://szigetfestival.com/en/festival-info), [Roskilde](https://www.roskilde-festival.dk/nyheder/tak-for-i-aar-vi-ses-i-2027), [Flow](https://www.flowfestival.com/en/program/music/), [Rock Werchter](https://www.rockwerchter.be/en/about-rock-werchter), [Tuska](https://tuska.fi/info/info/), [Provinssi](https://www.provinssi.fi/en/), [Ilosaarirock](https://ilosaarirock.fi/), [Lollapalooza Argentina](https://www.lollapaloozaar.com/informacion), [Lollapalooza Chile](https://sitiospublicos.bancochile.cl/bch-stage/cartelera/detalle/lollapalooza-chile-2027), [NOS Alive](https://nosalive.com/en/festival/tame-impala-2/), [EDC Las Vegas](https://www.edc.com/), [Ultra Worldwide](https://umfworldwide.com/ww/).
+
+`Cosquín Rock` se identificó como posible incorporación regional (6–7 febrero 2027, [FAQ oficial](https://cosquinrock.net/preguntas-frecuentes/)), pero no se agregó al catálogo porque esta actualización solo cubre festivales existentes.
 
 El demo user (4b) ya está en Supabase y probado por Nelson. La migración **004** para RLS y
 revocar permisos Data API se ejecutó correctamente en Supabase (29/09/2026); Security
@@ -119,7 +132,7 @@ a propósito (portfolio: el que llega a un recruiter es el inglés). Son cortos 
 ~75 líneas, escaneables de un pantallazo. No convertirlos en documentación técnica.
 
 Números que aparecen en los README y hay que mantener al día si cambian: **58**
-festivales, **648 artistas en lineups**, **3 regiones** (europe / usa / latam),
+festivales, **34 entradas de artistas anunciados para 2027** en lineups, **3 regiones** (europe / usa / latam),
 **3 idiomas** (es/en/fi), `npm start` en el **:8080**.
 
 ---
@@ -463,6 +476,16 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   con RLS activado y sin políticas, `anon`/`authenticated` no acceden; el backend usa la
   conexión PostgreSQL propia. No agregar políticas salvo que en el futuro se exponga una
   tabla deliberadamente por la Data API.
+
+- [x] **11. Refresh de temporadas y lineups 2027** — **HECHO** (30/09/2026)
+  Se conservaron las 58 entradas, se pasaron al ciclo 2027, y las ediciones sin fecha
+  confirmada quedaron como `2027 (fecha por anunciar)`. Los lineups de 2026 se quitaron para
+  que artistas de una edición pasada no contaminen el matching de 2027. Se cargaron carteles
+  parciales confirmados oficialmente para Rock am Ring, Rock im Park, Tuska, Provinssi,
+  Rock Werchter y NOS Alive; los demás figuran `unannounced`. Se regeneró el seed 002 (34
+  entradas de artistas) y se aplicó a Supabase con éxito (`INSERT 0 58`, `COMMIT`). El seed
+  actualiza todas las filas existentes mediante `ON CONFLICT ... DO UPDATE`. `Cosquín Rock`
+  quedó como posible agregado futuro y no se incorporó en este refresh.
 
 ### Lo que NO hay que tocar
 

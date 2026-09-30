@@ -12,7 +12,7 @@ about you".
 ## What it does
 
 - **Match score** — the share of your artists that appear in each lineup, ranked best first.
-- **58 festivals, 34 announced lineup entries** for 2027 across Europe, the USA and Latin America. Lineups are flagged
+- **58 festivals, 120 announced lineup entries** across the 2026 and 2027 seasons in Europe, the USA and Latin America. Lineups are flagged
   as *confirmed*, *partial* or *unannounced*, so you know how much to trust a score.
 - **Three ways to build your library** — search by hand, via [MusicBrainz](https://musicbrainz.org),
   or import your top artists from [Last.fm](https://last.fm).

@@ -64,12 +64,12 @@ async function updateCurrentYear() {
     currentYear = data.year;
 
     // Actualizar título de la página
-    document.title = `Festival Match ${currentYear} - Encuentra tu festival ideal`;
+    document.title = 'Festival Match';
 
     // Actualizar logo si existe
     const logoText = document.querySelector('.logo-text');
     if (logoText) {
-      logoText.textContent = `Festival Match ${currentYear}`;
+      logoText.textContent = 'Festival Match';
     }
   } catch (err) {
     console.log('No se pudo obtener el año del servidor, usando año local:', currentYear);

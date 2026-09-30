@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS festivals (
 -- Seed: los 58 festivales de festivals.json
 -- =============================================================================
 --
--- 58 festivales, 34 artistas en lineups, 6 con lineup publicado.
+-- 58 festivales, 120 artistas en lineups, 9 con lineup publicado.
 --
 -- ON CONFLICT (id) DO UPDATE: hace que re-correrla no duplique las 58 filas.
 --
@@ -382,14 +382,14 @@ INSERT INTO festivals (
     'Amsterdam',
     'Johan Cruijff Arena, Amsterdam, Países Bajos',
     'NL',
-    '2027 (fecha por anunciar)',
+    '24 Octubre 2026',
     'https://amf-festival.com',
     'https://images.unsplash.com/photo-1574391884720-bbc3740c59d1?w=800',
     NULL,
     '{}'::text[],
     'Cierre del Amsterdam Dance Event. Aquí se anuncia el DJ Mag Top 100',
-    'unannounced',
-    '{}'::text[],
+    'partial',
+    ARRAY['Afrojack', 'Amelie Lens', 'Armin van Buuren', 'ARTBAT', 'D-Block & S-te-Fan', 'David Guetta', 'Korolova', 'Marlon Hoffstadt']::text[],
     NULL,
     17
   ),
@@ -467,14 +467,14 @@ INSERT INTO festivals (
     'Austin',
     'Austin, Texas',
     'US',
-    '2027 (fecha por anunciar)',
+    '2-4 & 9-11 Octubre 2026',
     'https://www.aclfestival.com',
     'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800',
     NULL,
     '{}'::text[],
     NULL,
-    'unannounced',
-    '{}'::text[],
+    'partial',
+    ARRAY['Charli XCX', 'RÜFÜS DU SOL', 'Twenty One Pilots', 'Lorde', 'The xx', 'Skrillex', 'Kings of Leon']::text[],
     NULL,
     22
   ),
@@ -603,14 +603,14 @@ INSERT INTO festivals (
     'Ciudad de México',
     'Ciudad de México, México',
     'MX',
-    '2027 (fecha por anunciar)',
+    '20-22 Noviembre 2026',
     'https://www.coronacapital.com.mx',
     'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800',
     NULL,
     '{}'::text[],
     NULL,
-    'unannounced',
-    '{}'::text[],
+    'partial',
+    ARRAY['Gorillaz', 'Mumford & Sons', 'Daniel Caesar', 'James Blake', 'The Kooks', 'Absolutely', 'Anna Luna', 'Chezile', 'CHVRCHES', 'CMAT', 'Darianna Everett', 'Durand Jones & The Indications', 'Fcukers', 'Friko', 'Grace Ives', 'Hot Milk', 'JMSN', 'Model/Actriz', 'Olive Jones', 'RIP Magic', 'Thee Sinseers', 'Sofia Isella', 'Violet Grohl', 'Yung Lean', 'Twenty One Pilots', 'The Offspring', 'Pierce The Veil', 'Underworld', 'Mother Mother', 'Baby Queen', 'Balu Brigada', 'BØRNS', 'Dope Lemon', 'The Hellp', 'Jordana', 'Maisie Peters', 'Militarie Gun', 'MS*GLOOM', 'New Constellations', 'Peaches', 'Princess Chelsea', 'Quarters', 'Rikas', 'Sawyer Hill', 'Strawberry Guy', 'We Are Scientists', 'Stella', 'The Strokes', 'The xx', 'Lola Young', 'Lil Yachty', 'BUNT.', 'Angine de Poitrine', 'Bad Suns', 'The Black Crowes', 'Céline Dessberg', 'Ela Minus', 'Freak Slug', 'Good Kid', 'Johnny Marr', 'Loyle Carner', 'Manic Street Preachers', 'Moyka', 'Ninajirachi', 'Purity Ring', 'Ratboys', 'Rev Run', 'Roar', 'Santigold', 'Tipling Rock', 'Tricky']::text[],
     NULL,
     30
   ),

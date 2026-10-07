@@ -16,6 +16,7 @@ client_secret_*.json
 *.sqlite3
 server/*.db
 *.dump
+/migrations
 
 # Logs
 logs/

@@ -194,7 +194,6 @@ function registerServer(app) {
         id: req.user.id,
         email: req.user.email,
         name: req.user.name,
-        picture: req.user.picture,
       },
     });
   });
@@ -291,7 +290,6 @@ function registerServer(app) {
           id: result.user.id,
           email: result.user.email,
           name: result.user.name,
-          picture: result.user.picture,
         }
       });
     } catch (err) {
@@ -663,7 +661,7 @@ function registerServer(app) {
   app.get('/api/admin/users', auth.requireAuth, requireAdmin, async (req, res) => {
     try {
       const result = await db.pool.query(`
-      SELECT id, email, name, picture, lastfm_username, role, created_at
+      SELECT id, email, name, lastfm_username, role, created_at
       FROM users
       ORDER BY created_at DESC
     `);
@@ -727,7 +725,7 @@ function registerServer(app) {
       }
 
       values.push(userId);
-      const query = `UPDATE users SET ${updateFields.join(', ')} WHERE id = $${paramIndex} RETURNING id, email, name, picture, lastfm_username, role, created_at`;
+      const query = `UPDATE users SET ${updateFields.join(', ')} WHERE id = $${paramIndex} RETURNING id, email, name, lastfm_username, role, created_at`;
 
       const result = await db.pool.query(query, values);
       res.json({ success: true, user: result.rows[0] });
@@ -1447,7 +1445,15 @@ function registerServer(app) {
  */
 async function initServices() {
   try {
-    await db.initDatabase();
+    const usesSharedProductionDatabase =
+      process.env.VERCEL !== '1' && process.env.ALLOW_LOCAL_PRODUCTION_DB === 'true';
+
+    if (usesSharedProductionDatabase) {
+      console.log('Base Supabase compartida: se omite initDatabase() para no alterar el esquema de producción');
+      await db.pool.query('SELECT 1');
+    } else {
+      await db.initDatabase();
+    }
     const localIP = getLocalIP();
 
     console.log(`\nFestival Match ${currentYear} inicializado correctamente:`);

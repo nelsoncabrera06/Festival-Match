@@ -1,0 +1,21 @@
+-- Eliminar la foto de perfil del usuario.
+--
+-- Contexto: la app guardaba en public.users.picture el link de la foto que manda
+-- Google en el scope userinfo.profile, y la mostraba en la barra superior. Se
+-- dejo de hacer porque:
+--
+--   1. No se usa: la app no necesita la foto para nada.
+--   2. El link es de Google (lh3.googleusercontent.com), no nuestro. Se invalida
+--      solo cuando el usuario cambia su foto, y queda un <img> roto en pantalla.
+--      Es la clase de dato que uno no puede arreglar desde su lado.
+--
+-- El scope userinfo.profile se mantiene: es el unico que trae `name`, y Google no
+-- tiene un scope de "solo el nombre". Asi que se sigue pidiendo, pero de la foto no
+-- se guarda ni el link.
+--
+-- Nota: no hace falta un UPDATE previo para purgar los valores, porque dropear la
+-- columna ya los elimina.
+--
+-- Idempotente por el IF EXISTS: se puede correr mas de una vez sin romper nada.
+
+ALTER TABLE public.users DROP COLUMN IF EXISTS picture;

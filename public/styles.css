@@ -778,13 +778,6 @@ body {
   background: rgba(255, 255, 255, 0.08);
 }
 
-.user-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
 .user-name {
   font-size: 14px;
   font-weight: 500;
@@ -3698,4 +3691,8 @@ body {
     align-items: flex-start;
     gap: 4px;
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }

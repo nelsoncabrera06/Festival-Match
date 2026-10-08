@@ -6,6 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Festival Match</title>
   <link rel="stylesheet" href="/styles.css">
+  <!-- Capa de override del diseño v2. Va DESPUÉS de styles.css a propósito: el
+       orden de los <link> es lo que le da precedencia. Ver la cabecera de theme.css. -->
+  <link rel="stylesheet" href="/theme.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -21,14 +24,18 @@
     <!-- Header -->
     <header class="header">
       <a href="/festivals" class="logo" id="logo-home">
-        <span class="logo-icon">🎪</span>
+        <span class="logo-icon" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none">
+            <path d="M5 23V16M11 23V9M17 23V13M23 23V5M29 23V11" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+            <path d="M4 27H30" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".55" />
+          </svg>
+        </span>
         <span class="logo-text">Festival Match</span>
       </a>
       <nav class="nav">
         <!-- Language selector will be inserted by i18n.js here -->
         <div class="user-menu" id="user-menu" style="display: none;">
           <button class="user-menu-toggle" id="user-menu-toggle">
-            <img id="user-avatar" class="user-avatar" src="" alt="Avatar">
             <span id="user-name" class="user-name"></span>
             <span class="user-menu-arrow">&#9662;</span>
           </button>

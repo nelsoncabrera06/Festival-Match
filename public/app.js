@@ -140,7 +140,6 @@ function cacheElements() {
   elements.userMenu = document.getElementById('user-menu');
   elements.userMenuToggle = document.getElementById('user-menu-toggle');
   elements.userDropdown = document.getElementById('user-dropdown');
-  elements.userAvatar = document.getElementById('user-avatar');
   elements.userName = document.getElementById('user-name');
 
   elements.artistSearch = document.getElementById('artist-search');
@@ -1334,15 +1333,11 @@ async function logout() {
 }
 
 function updateUserUI() {
-  const avatar = elements.userAvatar;
   if (isDemo) {
-    avatar.style.display = 'none';
     elements.userName.textContent = 'Demo user';
     return;
   }
-  avatar.style.display = '';
   if (currentUser) {
-    avatar.src = currentUser.picture || '';
     elements.userName.textContent = currentUser.name || currentUser.email;
   }
 }

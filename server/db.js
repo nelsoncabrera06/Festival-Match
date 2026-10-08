@@ -4,9 +4,28 @@ const crypto = require('crypto');
 
 const SALT_ROUNDS = 10;
 
+const databaseUrl = process.env.DATABASE_URL;
+const isVercel = process.env.VERCEL === '1';
+let databaseHost = '';
+try {
+  databaseHost = new URL(databaseUrl).hostname;
+} catch {
+  // pg emitirá el error de URL habitual cuando intente conectarse.
+}
+
+// El .env historico puede apuntar a Supabase. Si se ejecuta desde localhost,
+// bloquear esa URL antes de que una ruta del admin pueda escribir en producción.
+if (!isVercel && process.env.ALLOW_LOCAL_PRODUCTION_DB !== 'true') {
+  if (databaseHost.endsWith('.pooler.supabase.com') || databaseHost.endsWith('.supabase.co')) {
+    throw new Error(
+      'La configuración local apunta a Supabase. Confirmá esta decisión con ALLOW_LOCAL_PRODUCTION_DB=true en .env.local; se canceló el arranque para proteger producción.'
+    );
+  }
+}
+
 // Configurar pool de conexiones PostgreSQL
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://localhost/festival_match',
+  connectionString: databaseUrl,
 
   // max: 1 porque esto corre en Vercel serverless. Cada instancia maneja requests
   // concurrentes, pero no necesita mas de una conexion: el pooler de Supabase
@@ -33,7 +52,10 @@ const pool = new Pool({
   // Verificado con las 4 combinaciones: con sslmode=require falla siempre
   // (con o sin este `ssl` explícito); sin sslmode funciona. Por eso la URL
   //ConnectionString no lleva el parametro y el TLS se configura acá.
-  ssl: { rejectUnauthorized: false }
+  // Supabase requiere TLS; PostgreSQL local normalmente no tiene SSL habilitado.
+  ssl: databaseHost.endsWith('.pooler.supabase.com') || databaseHost.endsWith('.supabase.co')
+    ? { rejectUnauthorized: false }
+    : false
 });
 
 // Sin este listener, un 'error' del pool es un throw no capturado que MATA la
@@ -64,7 +86,6 @@ async function initDatabase() {
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT,
       name TEXT,
-      picture TEXT,
       lastfm_username TEXT,
       role TEXT DEFAULT 'user',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -103,6 +124,9 @@ async function initDatabase() {
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     ALTER TABLE spotify_connections ENABLE ROW LEVEL SECURITY;
+    -- Mismo revoke que aplica migrations/005_spotify_connections.sql. Allá es
+    -- donde corre en produccion (initDatabase() no se ejecuta en Vercel); dejar
+    -- la linea tambien aca mantiene el schema local alineado con el de Supabase.
     REVOKE ALL PRIVILEGES ON TABLE spotify_connections FROM anon, authenticated;
 
     CREATE TABLE IF NOT EXISTS sessions (
@@ -191,8 +215,14 @@ async function initDatabase() {
 // Funciones de Usuario
 // ==========================================
 
+// La foto de perfil no se guarda. Google la manda en el scope userinfo.profile
+// (el mismo que trae `name`) y antes se almacenaba como texto en users.picture.
+// Se dejo de hacer por dos razones: la app no la muestra, y el link de
+// lh3.googleusercontent.com es de Google, no nuestro: se invalida solo cuando el
+// usuario cambia su foto y queda un <img> roto. La columna se elimino en
+// migrations/006_drop_user_picture.sql.
 async function findOrCreateUser(googleProfile) {
-  const { sub: googleId, email, name, picture } = googleProfile;
+  const { sub: googleId, email, name } = googleProfile;
 
   // Buscar usuario existente
   const result = await pool.query('SELECT * FROM users WHERE google_id = $1', [googleId]);
@@ -201,8 +231,8 @@ async function findOrCreateUser(googleProfile) {
   if (user) {
     // Actualizar datos si cambiaron
     await pool.query(
-      'UPDATE users SET email = $1, name = $2, picture = $3 WHERE id = $4',
-      [email, name, picture, user.id]
+      'UPDATE users SET email = $1, name = $2 WHERE id = $3',
+      [email, name, user.id]
     );
   } else {
     // Crear nuevo usuario.
@@ -215,8 +245,8 @@ async function findOrCreateUser(googleProfile) {
     // acordarse de correr un UPDATE a mano.
     const role = ADMIN_EMAILS.includes(email.toLowerCase().trim()) ? 'admin,dev' : 'user';
     const insertResult = await pool.query(
-      'INSERT INTO users (google_id, email, name, picture, role) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [googleId, email, name, picture, role]
+      'INSERT INTO users (google_id, email, name, role) VALUES ($1, $2, $3, $4) RETURNING *',
+      [googleId, email, name, role]
     );
     user = insertResult.rows[0];
   }
@@ -345,7 +375,7 @@ async function createSession(userId) {
 
 async function getSession(sessionId) {
   const result = await pool.query(`
-    SELECT s.*, u.id as user_id, u.email, u.name, u.picture
+    SELECT s.*, u.id as user_id, u.email, u.name
     FROM sessions s
     JOIN users u ON s.user_id = u.id
     WHERE s.id = $1 AND s.expires_at > NOW()

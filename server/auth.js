@@ -3,7 +3,7 @@ const { findOrCreateUser, createSession, getSession, deleteSession } = require('
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3002/auth/google/callback';
+const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:8080/auth/google/callback';
 
 const oauth2Client = new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, REDIRECT_URI);
 
@@ -62,7 +62,6 @@ async function requireAuth(req, res, next) {
     id: session.user_id,
     email: session.email,
     name: session.name,
-    picture: session.picture,
   };
   req.sessionId = sessionId;
 
@@ -80,7 +79,6 @@ async function optionalAuth(req, res, next) {
         id: session.user_id,
         email: session.email,
         name: session.name,
-        picture: session.picture,
       };
       req.sessionId = sessionId;
     }

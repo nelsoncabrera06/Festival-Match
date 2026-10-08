@@ -1,0 +1,430 @@
+/* ==========================================
+   Visual refresh — Festival Match
+   ==========================================
+   Capa de override del diseño v2: tema oscuro, acento lima y logo ecualizador.
+
+   Por qué vive en un archivo propio y no integrado dentro de styles.css: el orden
+   de carga de los <link> en index.html define la precedencia, así que este archivo
+   pisa a styles.css sin tocarlo. Eso deja dos ventajas concretas:
+
+     1. Volver al diseño anterior es borrar este <link> y este archivo. No hay que
+        reescribir las ~3700 líneas de styles.css, que funcionan.
+     2. El diff del commit queda legible: se ve el tema nuevo entero de un vistazo,
+        en lugar de un parche de 414 líneas pegado al final de otro archivo.
+
+   ORDEN: este archivo va DESPUÉS de styles.css en index.html. Si se invierte, deja
+   de pisar y el sitio vuelve al diseño anterior.
+
+   El bloque @media (prefers-reduced-motion: reduce) quedó en styles.css a
+   propósito: es una red de seguridad de accesibilidad y le sirve también al diseño
+   anterior. Sigue aplicando acá porque sus declaraciones son !important, que ganan
+   sobre cualquier declaración normal de este archivo sin importar el orden de
+   carga.
+   ========================================== */
+:root {
+  --bg-primary: #0c100f;
+  --bg-secondary: #131917;
+  --bg-elevated: #1d2622;
+  --bg-card: #151c19;
+  --text-primary: #f3f5ef;
+  --text-secondary: #a8b2aa;
+  --text-muted: #768178;
+  --accent: #d8f27a;
+  --spotify-green: #d8f27a;
+  --spotify-green-hover: #e5ff91;
+  --gradient-1: linear-gradient(120deg, #d8f27a 0%, #a3e4b8 52%, #83d8cf 100%);
+  --gradient-2: linear-gradient(135deg, #ff9b75 0%, #ef6e75 100%);
+  --shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+  --radius: 14px;
+  --radius-lg: 22px;
+}
+
+body {
+  background:
+    radial-gradient(ellipse at 78% 2%, rgba(116, 151, 102, 0.12), transparent 32rem),
+    radial-gradient(ellipse at 4% 36%, rgba(69, 132, 117, 0.08), transparent 30rem),
+    var(--bg-primary);
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.app {
+  max-width: 1440px;
+  padding: 0 clamp(18px, 4vw, 56px);
+}
+
+.header {
+  min-height: 82px;
+  padding: 16px 0;
+  border-bottom-color: rgba(220, 240, 220, 0.09);
+}
+
+.logo { gap: 11px; }
+
+.logo-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(216, 242, 122, 0.24);
+  border-radius: 13px;
+  background: linear-gradient(145deg, rgba(216, 242, 122, 0.17), rgba(131, 216, 207, 0.08));
+  color: var(--accent);
+  font-size: initial;
+}
+
+.logo-icon svg { width: 23px; height: 23px; }
+
+.logo-text {
+  background: none;
+  color: var(--text-primary);
+  -webkit-text-fill-color: currentColor;
+  font-size: 20px;
+  letter-spacing: -0.045em;
+}
+
+.landing {
+  position: relative;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr);
+  gap: clamp(30px, 7vw, 100px);
+  min-height: min(790px, calc(100vh - 82px));
+  padding: clamp(48px, 8vh, 92px) 0;
+}
+
+.landing-content {
+  max-width: 590px;
+  padding: clamp(26px, 4vw, 48px);
+  border: 1px solid rgba(223, 241, 222, 0.1);
+  border-radius: 28px;
+  background: linear-gradient(145deg, rgba(25, 34, 29, .92), rgba(17, 23, 20, .88));
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+}
+
+.landing-title {
+  max-width: 11ch;
+  margin-bottom: 18px;
+  font-size: clamp(42px, 5.1vw, 68px);
+  line-height: .99;
+  letter-spacing: -.065em;
+}
+
+.highlight {
+  background: none;
+  color: var(--accent);
+  -webkit-background-clip: initial;
+  -webkit-text-fill-color: var(--accent);
+  background-clip: initial;
+}
+
+.landing-subtitle {
+  max-width: 44ch;
+  margin-bottom: 28px;
+  color: #b4beb5;
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.auth-tabs {
+  width: 100%;
+  gap: 4px;
+  margin-bottom: 18px;
+  padding: 5px;
+  border: 1px solid rgba(220, 240, 220, .08);
+  border-radius: 13px;
+  background: rgba(4, 8, 6, .42);
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 9px;
+  color: #9ba79e;
+  font-size: 13px;
+}
+
+.auth-tab.active {
+  background: #27332b;
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(216, 242, 122, .13);
+}
+
+.btn-google,
+.btn-primary,
+.btn-demo,
+.btn-spotify,
+.btn-lastfm,
+.btn-suggest {
+  min-height: 48px;
+  border-radius: 12px;
+  font-weight: 650;
+  transition: transform .18s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.btn-google {
+  width: 100%;
+  justify-content: center;
+  border: 1px solid rgba(231, 240, 231, .17);
+  background: #f6f7f3;
+  color: #202620;
+}
+
+.btn-google:hover { background: #fff; transform: translateY(-1px); }
+
+.email-auth-form { max-width: none; }
+
+.email-auth-form .form-input,
+.search-input,
+.form-input,
+.form-select,
+.cascade-filter {
+  border: 1px solid rgba(223, 241, 222, .12);
+  border-radius: 12px;
+  background-color: #101613;
+  color: var(--text-primary);
+}
+
+.email-auth-form .form-input:focus,
+.search-input:focus,
+.form-input:focus,
+.form-select:focus,
+.cascade-filter:focus {
+  border-color: rgba(216, 242, 122, .66);
+  outline: 3px solid rgba(216, 242, 122, .1);
+}
+
+.divider { margin: 18px 0; }
+.divider::before, .divider::after { background: rgba(223, 241, 222, .12); }
+.divider span { color: #87938a; font-size: 11px; letter-spacing: .15em; }
+
+.btn-demo {
+  width: 100%;
+  justify-content: center;
+  border: 1px solid rgba(216, 242, 122, .32);
+  background: rgba(216, 242, 122, .1);
+  color: var(--accent);
+}
+
+.btn-demo:hover {
+  transform: translateY(-2px);
+  background: rgba(216, 242, 122, .16);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .2);
+}
+
+.landing-note { margin-top: 10px; color: #87938a; font-size: 12px; }
+
+.landing-visual {
+  min-height: 430px;
+  border: 1px solid rgba(223, 241, 222, .08);
+  border-radius: 32px;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(216, 242, 122, .1), transparent 14rem),
+    linear-gradient(145deg, rgba(25, 35, 29, .72), rgba(13, 20, 17, .38));
+  overflow: hidden;
+}
+
+.landing-visual::before,
+.landing-visual::after {
+  position: absolute;
+  content: '';
+  width: 280px;
+  height: 280px;
+  border: 1px solid rgba(216, 242, 122, .14);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.landing-visual::after { width: 390px; height: 390px; border-color: rgba(131, 216, 207, .09); }
+
+.floating-cards { z-index: 1; width: min(76%, 330px); height: 330px; }
+
+.floating-card {
+  width: 88px;
+  height: 88px;
+  border: 1px solid rgba(229, 244, 223, .15);
+  border-radius: 24px;
+  background: linear-gradient(145deg, #25332a, #17211c);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, .32);
+  font-size: 34px;
+}
+
+.card-1 { background: linear-gradient(145deg, #34412a, #1c281c); }
+.card-2 { background: linear-gradient(145deg, #3b2e32, #211a20); }
+.card-3 { background: linear-gradient(145deg, #25383a, #172223); }
+.card-4 { background: linear-gradient(145deg, #3b3529, #211f18); }
+
+.results { padding-top: 34px; }
+.results-header { display: flex; flex-direction: column; gap: 4px; margin-bottom: 22px; }
+.results-title { font-size: clamp(26px, 3vw, 36px); letter-spacing: -.045em; }
+.results-subtitle { color: #98a39a; font-size: 14px; }
+
+.user-artists,
+.preference-section,
+.calendar-container,
+.festivals-table-container,
+.admin-panel,
+.festival-detail-section .detail-content {
+  border: 1px solid rgba(223, 241, 222, .09);
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(24, 32, 27, .94), rgba(17, 23, 20, .94));
+  box-shadow: 0 14px 36px rgba(0, 0, 0, .16);
+}
+
+.section-title { color: #e5ebe3; letter-spacing: -.02em; }
+
+.global-filters {
+  gap: 10px;
+  margin: 20px 0 22px;
+  padding: 14px;
+  border: 1px solid rgba(223, 241, 222, .09);
+  border-radius: 18px;
+  background: rgba(18, 25, 21, .82);
+}
+
+.filter-label { color: #97a398; }
+
+.region-selector,
+.view-toggle {
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(223, 241, 222, .08);
+  border-radius: 12px;
+  background: #0e1411;
+}
+
+.region-btn,
+.view-btn {
+  border-radius: 9px;
+  color: #aab4ab;
+}
+
+.region-btn.active,
+.view-btn.active {
+  border-color: rgba(216, 242, 122, .16);
+  background: #27332b;
+  color: var(--accent);
+}
+
+.cascade-filter,
+.festival-catalog-search { min-height: 42px; }
+
+.tabs-container {
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom-color: rgba(223, 241, 222, .1);
+}
+
+.tab {
+  border-radius: 10px;
+  color: #96a197;
+}
+
+.tab.active {
+  background: rgba(216, 242, 122, .1);
+  color: var(--accent);
+}
+
+.festival-card {
+  border: 1px solid rgba(223, 241, 222, .09);
+  background: linear-gradient(160deg, #1a231e, #121815 58%);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .18);
+}
+
+.festival-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(216, 242, 122, .24);
+  box-shadow: 0 22px 46px rgba(0, 0, 0, .28);
+}
+
+.festival-image { background: #202a24; }
+.festival-content { padding: 22px; }
+.festival-name { letter-spacing: -.035em; }
+.festival-dates { border: 1px solid rgba(223, 241, 222, .08); background: #202a24; color: #c5cec4; }
+.match-percentage {
+  background: none;
+  color: var(--accent);
+  -webkit-background-clip: initial;
+  -webkit-text-fill-color: var(--accent);
+  background-clip: initial;
+}
+.match-badge {
+  background: none;
+  color: var(--accent);
+  -webkit-background-clip: initial;
+  -webkit-text-fill-color: var(--accent);
+  background-clip: initial;
+}
+.match-bar { background: #29342d; }
+.match-bar-fill { background: var(--gradient-1); }
+
+.lineup-status.confirmed,
+.lineup-status-badge.confirmed { background: rgba(216, 242, 122, .12); color: var(--accent); }
+
+.preferences { max-width: 920px; margin: 26px auto 70px; }
+.preferences-header { margin-bottom: 24px; }
+.preferences-title { letter-spacing: -.045em; }
+.preference-section { margin-bottom: 16px; padding: 22px; }
+.btn-primary { background: var(--accent); color: #172016; }
+.btn-primary:hover { background: #e5ff91; transform: translateY(-1px); }
+
+.user-menu-toggle,
+.btn-back,
+.calendar-nav,
+.collapsible-header {
+  border-color: rgba(223, 241, 222, .12);
+  background: rgba(22, 30, 25, .9);
+  color: var(--text-primary);
+}
+
+.user-dropdown,
+.lang-dropdown,
+.search-results,
+.modal-content {
+  border: 1px solid rgba(223, 241, 222, .12);
+  border-radius: 16px;
+  background: #17201b;
+  box-shadow: var(--shadow);
+}
+
+.modal-backdrop { background: rgba(3, 7, 5, .76); backdrop-filter: blur(5px); }
+
+button, input, select { font: inherit; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 3px solid rgba(216, 242, 122, .55);
+  outline-offset: 3px;
+}
+
+@media (max-width: 900px) {
+  .landing { grid-template-columns: minmax(0, 1fr); min-height: auto; }
+  .landing-content { max-width: none; }
+  .landing-title { max-width: 13ch; }
+  .landing-visual { min-height: 300px; }
+  .floating-cards { transform: scale(.82); }
+}
+
+@media (max-width: 600px) {
+  .app { padding: 0 16px; }
+  .header { min-height: 68px; }
+  .logo-text { font-size: 18px; }
+  .logo-icon { width: 34px; height: 34px; }
+  .landing { min-width: 0; grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 28px 0 40px; }
+  .landing-content { width: 100%; min-width: 0; overflow: hidden; padding: 24px 19px; border-radius: 22px; text-align: left; }
+  .landing-title { width: 100%; max-width: 100%; font-size: clamp(32px, 9vw, 40px); text-align: left; }
+  .landing-subtitle { font-size: 15px; }
+  .auth-tabs { min-width: 0; }
+  .auth-tab { min-width: 0; padding-inline: 6px; font-size: 12px; }
+  .landing-visual { min-height: 230px; border-radius: 22px; }
+  .floating-cards { transform: scale(.62); }
+  .results { padding: 24px 0 54px; }
+  .results-header { margin-bottom: 16px; }
+  .global-filters { align-items: stretch; padding: 12px; }
+  .region-selector { width: 100%; }
+  .region-btn { flex: 1; padding: 9px 6px; font-size: 12px; }
+  .festival-catalog-search { width: 100%; }
+  .tabs-container { align-items: stretch; }
+  .view-toggle { width: 100%; justify-content: center; }
+  .view-btn { flex: 1; justify-content: center; padding: 8px 5px; font-size: 11px; }
+  .festival-card { border-radius: 18px; }
+  .festival-content { padding: 17px; }
+  .preference-section { padding: 17px; }
+}

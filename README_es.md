@@ -55,18 +55,20 @@ en `server/db.js`, no en la URL.
 
 ## Correrlo local
 
+localhost usa el mismo `DATABASE_URL` que `.env`; en esta máquina es la base de Supabase de
+producción. **Los cambios escritos desde localhost también modifican producción.** La opción
+`ALLOW_LOCAL_PRODUCTION_DB=true` en `.env.local` confirma explícitamente que querés compartirla.
+
 ```bash
 npm install
-npm start          # http://localhost:8080
+cp .env.local.example .env.local
+npm run dev        # http://localhost:8080, reinicia al guardar cambios
 ```
 
-Sin `DATABASE_URL` la app igual levanta y sirve todo lo que no necesita base de datos —
-incluyendo el modo demo y la búsqueda de artistas. Para que funcionen las cuentas, apuntala
-a cualquier Postgres y aplicá el schema:
-
-```bash
-psql "$DATABASE_URL" -f migrations/001_init.sql
-```
+`.env.local` prevalece sobre `.env` y está ignorado por Git. No hay un servidor PostgreSQL local
+corriendo. `npm start` también sirve para localhost, pero `npm run dev` reinicia el backend al
+editarlo. Google OAuth local necesita que `http://localhost:8080/auth/google/callback` esté
+autorizado en las credenciales de `.env`.
 
 ## Estructura
 

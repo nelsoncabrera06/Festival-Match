@@ -57,18 +57,20 @@ certificate chain*. The TLS settings live in `server/db.js`, not in the URL.
 
 ## Run it locally
 
+Localhost uses the same `DATABASE_URL` as `.env`; on this machine it points to the production
+Supabase database. **Writes made from localhost also change production data.** The
+`ALLOW_LOCAL_PRODUCTION_DB=true` setting in `.env.local` explicitly confirms that choice.
+
 ```bash
 npm install
-npm start          # http://localhost:8080
+cp .env.local.example .env.local
+npm run dev        # http://localhost:8080, restarts after edits
 ```
 
-The app boots without `DATABASE_URL` and serves everything that does not need a database,
-including demo mode and artist search. To get accounts working, point it at any Postgres
-and apply the schema:
-
-```bash
-psql "$DATABASE_URL" -f migrations/001_init.sql
-```
+`.env.local` takes precedence over `.env` and is ignored by Git. No local PostgreSQL server is
+running. `npm start` also runs locally, while `npm run dev` restarts the backend after edits.
+Google login needs credentials in `.env` with `http://localhost:8080/auth/google/callback` in
+the authorized redirect list.
 
 ## Layout
 

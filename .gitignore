@@ -16,7 +16,9 @@ client_secret_*.json
 *.sqlite3
 server/*.db
 *.dump
-/migrations
+# NO ignorar /migrations: el schema está versionado a propósito. El backup de Cloud
+# SQL (.dump) ya queda afuera por la regla global de arriba. La regla /migrations
+# que había acá se oponía a eso y dejaba las migraciones nuevas sin trackear.
 
 # Logs
 logs/
@@ -40,6 +42,10 @@ build/
 # Local/desarrollo
 /dev_local
 /google_cloud 
+
+# Plan de trabajo local (plan.md + el HTML generado). Es de Nelson, no del repo:
+# la fuente de verdad del estado del proyecto es AGENTS.md.
+/agent-plan 
 
 # AI / Claude Code
 .claude/

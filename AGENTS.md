@@ -5,12 +5,94 @@ Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje 
 
 ---
 
-## 🔴 RETOMAR ACÁ — 30/09/2026, sesión 5
+## 🔴 RETOMAR ACÁ — 07/10/2026, sesión 6
 
 **El paso 4 está CERRADO.** Seed aplicado, commiteado, pusheado, deployado, y el panel admin
 funcionando en producción (edit de lineup, borrado y aprobación de sugerencia probados a mano).
 
-**Estado del working tree:** limpio al retomar esta sesión.
+**Estado del working tree:** hay cambios locales sin commit. No asumir que el árbol está limpio.
+
+### Desarrollo local y OAuth (07/10/2026)
+
+- Nelson decidió que localhost comparta la base de Supabase de producción. No mantener una DB
+  local: PostgreSQL 16 se detuvo, desinstaló y se borró el clúster creado durante la sesión.
+- `npm run dev` es el comando local; el watcher usa `--watch-path` para evitar `EMFILE` en
+  macOS. `app.js` carga `.env.local` antes de `.env`. El `.env.local` ignorado por Git tiene
+  `ALLOW_LOCAL_PRODUCTION_DB=true` y el redirect URI local; `DATABASE_URL` y credenciales
+  OAuth se heredan de `.env`. **No leer ni imprimir secretos.**
+- `server/db.js` exige el opt-in para que un proceso fuera de Vercel pueda usar hosts Supabase.
+  Con el opt-in, `initServices()` hace `SELECT 1` y omite `initDatabase()` para no ejecutar DDL
+  en producción. El resto de endpoints que escriben sí afecta la DB compartida.
+- El inicio y las rutas GET del demo se comprobaron contra Supabase; no se hicieron escrituras.
+- Google OAuth local usaba el redirect de Vercel porque `.env.local` no definía
+  `GOOGLE_REDIRECT_URI` y `.env` sí. Ya se agregó `http://localhost:8080/auth/google/callback`
+  a `.env.local` y `.env.local.example`; `server/auth.js` ahora usa ese puerto como fallback.
+  Se verificó que la URL generada hacia Google lleva el callback de localhost. **Pendiente:**
+  Nelson debe reiniciar si hace falta y probar el flujo completo en el navegador.
+- El tema visual quedó en `public/theme.css`, no en `styles.css`: es una capa de override
+  cargada después, y volver al diseño anterior es borrar el `<link>` de `index.html` y el
+  archivo. Ver "Tema visual" más abajo. Nelson ya confirmó que la web se ve igual que antes.
+- Se reemplazó la carpa del logo por un ecualizador SVG.
+
+### Tema visual: `public/theme.css` es una capa aparte
+
+`public/styles.css` (3706 líneas) tiene el diseño base. `public/theme.css` (431) lleva el
+**refresh visual** como capa de override, cargada **después** en `index.html`. El orden de los
+`<link>` es lo que le da precedencia; CSS no necesita build step para eso.
+
+Por qué están separados, y no integrado:
+
+1. **Volver atrás es barato:** borrar el `<link>` y el archivo. No hay que reescribir 3700
+   líneas que funcionan, ni generar un diff gigante.
+2. **El diff del commit se lee:** se ve el tema nuevo entero, en vez de un parche de 414
+   líneas pegado al final de otro archivo.
+
+Reglas para tocarlo:
+
+- **`theme.css` va SIEMPRE después de `styles.css` en `index.html`.** Invertirlo lo deja de
+  pisar y vuelve el diseño viejo, sin ningún error visible.
+- El bloque `@media (prefers-reduced-motion: reduce)` quedó en `styles.css` a propósito: es una
+  red de accesibilidad y le sirve también al diseño anterior. Sigue aplicando igual porque sus
+  declaraciones son `!important`, que ganan sobre cualquier declaración normal sin importar el
+  orden de carga.
+
+### Estado de la rama `diseno` (07/10/2026, sesión 7)
+
+Trabajo **sin commitear**, en la rama `main`. No pushear nada a `main`: primero va a una rama
+`diseno`, que Vercel despliega como preview sin tocar producción.
+
+Los cambios de diseño de Codex se aislaron en `public/theme.css` (407 líneas movidas tal cual,
+verificado con balance de llaves: las mismas 664 llaves antes y después del reparto). Nelson
+confirmó en localhost que la web se ve idéntica.
+
+**La foto de perfil del usuario se eliminó** (decisión de Nelson): no se muestra ni se guarda.
+Google manda la foto en el scope `userinfo.profile`, que se **mantiene** porque es el único que
+trae `name` y no hay scope de "solo nombre"; de la foto no se almacena ni el link, porque es de
+Google y se invalida solo (ya había roto dos veces). Migración `006_drop_user_picture.sql`.
+
+⚠️ **La 006 NO se puede correr hasta después del merge.** Ya se aplicó una vez y hubo que
+revertirla: el código viejo de producción leía `users.picture`, y sin la columna el login se
+caía (`/auth/me` con cookie pasó de 0.4s a 40s de timeout). Para revertir, en Supabase:
+`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS picture TEXT;`. Lo único que rompe es
+**código viejo + columna dropeada**; código nuevo + columna vieja es inofensivo.
+
+### Orden de despliegue (importante)
+
+1. Merge de la rama a `main` → producción se actualiza sola.
+2. Recién ahí, correr `006_drop_user_picture.sql` en Supabase.
+
+Al revés, el login queda caído. La lección: **cualquier migración que dropee una columna la lee
+el código que está en producción hoy.** Verificar siempre contra el código desplegado, no
+contra el del working tree.
+
+Al retomar: el diseño sigue sin mergear. Nelson tiene que revisar el resto de pantallas
+(`/login`, `/festivals`, calendario, modo demo) y decidir; después va el merge.
+
+### Estado de producción (07/10/2026, tras el incidente de la 006)
+
+Verificado: `/auth/me` con cookie en 0.41s, `/health` OK, demo en 200. La columna `picture`
+existe de nuevo (con los valores NULL: los dos links de Google no se pudieron recuperar, no
+estaban en ningún otro lado).
 
 **El paso 4 hizo esto:** `festivals.json` → tabla `festivals`. Los 4 endpoints del panel admin
 dejaron de hacer `fs.writeFileSync` (que en Vercel daba `EROFS` → 500). Se generó
@@ -33,9 +115,12 @@ El refresh del catálogo a 2027 está aplicado en Supabase: no se borró ningún
 lineups 2026 se limpiaron para no mostrarlos como actuales, y los carteles/fechas 2027 se
 cargaron solo con anuncios oficiales confirmados. Ver paso 11.
 
-El demo user (4b) está terminado. El paso **6** (Spotify) queda en pausa: la integración
-está preparada en el código, pero Spotify no permite crear la app desde el Dashboard (error
-genérico incluso en otro navegador). Retomar cuando Spotify lo resuelva. El paso **9** (GCP/Docker) queda pospuesto: Docker forma parte del caso
+El demo user (4b) está terminado. El paso **6** (Spotify) está **terminado y funcionando**
+(07/10/2026): Nelson creó la app en el Dashboard y tanto producción como local conectan la
+cuenta y traen top artists. El error genérico del Dashboard del 29/09 se resolvió solo; ver el
+paso 6. Lo único pendiente ahí es no duplicar `SPOTIFY_TOKEN_ENCRYPTION_KEY` en Preview.
+
+El paso **9** (GCP/Docker) queda pospuesto: Docker forma parte del caso
 práctico de Terraform en `Festival-Match-infra`. **No borrar Dockerfiles ni
 `.github/workflows/docker-publish.yml`.** Antes de tocar cualquier otro resto de GCP, mostrar
 el inventario y acordar el alcance.
@@ -55,11 +140,9 @@ en el mes siguiente al mes local del navegador, y admite fechas de un solo día 
 El demo user (4b) ya está en Supabase y probado por Nelson. La migración **004** para RLS y
 revocar permisos Data API se ejecutó correctamente en Supabase (29/09/2026); Security
 Advisor quedó en 0 errores y muestra 8 sugerencias informativas de “RLS enabled, no policy”,
-esperadas porque ninguna tabla de la app se expone por la Data API. La conexión directa con
-Spotify queda pausada por un fallo del Developer Dashboard; Last.fm ya está integrada y
+esperadas porque ninguna tabla de la app se expone por la Data API. Last.fm ya está integrada y
 probada. La migración **005** de conexiones Spotify también fue aplicada manualmente en
-Supabase, aunque la conexión no se puede completar hasta crear una app de Spotify. Docker
-se conserva.
+Supabase, y la conexión funciona: Nelson la probó con su cuenta. Docker se conserva.
 
 En esta sesión se agregó un buscador de festivales a `/festivals`, con filtros por nombre,
 ciudad, ubicación y país, compatible con grilla/lista/calendario e idiomas es/en/fi. Nelson
@@ -70,8 +153,9 @@ va más directo. Si se necesita probar localmente Google OAuth, agregar
 `GOOGLE_REDIRECT_URI` del `.env`.
 
 El perfil demo tiene **20 artistas en DB**. `public/app.js` también mantiene una lista de
-nombres para la sección de fechas de gira. `npm start` local sigue conectando a
-**producción**: toda operación de escritura desde local afecta Supabase.
+nombres para la sección de fechas de gira. Localhost comparte la Supabase de **producción**;
+las escrituras desde local afectan esos datos. Consultar el bloque de reanudación para el
+opt-in y la precaución de no tocar el esquema al iniciar.
 
 ---
 
@@ -116,10 +200,14 @@ server/db.js          # Pool pg serverless + schema init + todas las queries
 server/auth.js        # Google OAuth + middlewares requireAuth/optionalAuth
 server/festivals.json # 58 festivales, 36 con lineup. YA NO SE LEE EN RUNTIME: es la
                       # fuente editable del seed que genera scripts/ (step 4)
-public/               # app.js (3034 líneas), index.html, styles.css, i18n/
+public/               # app.js (3240 líneas), index.html, styles.css, theme.css, i18n/
+agent-plan/           # Plan de trabajo de Nelson (plan.md + el HTML generado). NO va al
+                      # repo: está en .gitignore. No confundir con la fuente de verdad
+                      # del estado del proyecto, que es este archivo
 scripts/              # generate-festivals-migration.js (genera 002_festivals.sql)
-migrations/           # Schema versionado. 001_init.sql, 002_festivals.sql y
+migrations/           # Schema versionado. 001_init.sql, 002_festivals.sql,
                       # 003_demo_user.sql, 004_secure_public_tables.sql y 005 aplicados.
+                      # 006 corre DESPUÉS del merge (ver "Orden de despliegue").
 .github/workflows/    # keepalive.yml (cron Supabase) + docker-publish.yml (GHCR para Terraform)
 migrations/festival_match_backup_20260505.dump  # Backup de Cloud SQL (20260505). Ignorado por
                       # git vía `*.dump`. Datos viejos de 2026, opcional. NO confundir con
@@ -145,9 +233,9 @@ sesiones, artistas, géneros, favoritos y el panel de admin funcionan contra Sup
 Verificado el 26/09/2026 con la suite de "Cómo verificar un deploy" (12 rutas en 200) y
 con el flujo de auth probado localmente contra la base real.
 
-Hechos: pasos 1, 2, 3, 4, 5, 7 y 8, y 4b (demo read-only). El paso 6 está parcialmente
-implementado y pausado por Spotify; el paso 9 queda pospuesto. El 10 (RLS) también está
-completo. El 4 está **completo y con el seed aplicado en Supabase**.
+Hechos: pasos 1, 2, 3, 4, 5, 6, 7, 8 y 10, y 4b (demo read-only). El paso 6 (Spotify) quedó
+completo el 07/10/2026. El paso 9 queda pospuesto. El 4 está **completo y con el seed aplicado
+en Supabase**.
 
 ### Por qué hay que hacerlo (contexto para sesiones futuras)
 
@@ -318,16 +406,18 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   esto. **No hace falta `brew install` ni Docker.** Docker no se usa para nada en este
   proyecto, y en una máquina de 8 GB es una carga que no vale la pena.
 
-  ### ⚠️ El `.env` local apunta a PRODUCCIÓN
+  ### ⚠️ Historial: el `.env` local apuntaba a PRODUCCIÓN
 
-  `app.js:23` hace `dotenv.config()`, así que **`npm start` local se conecta a la Supabase de
-  producción**, no a un Postgres local. Y como `initServices()` → `initDatabase()` corre
-  dentro de `if (require.main === module)`, al levantar el server local **se crean tablas en
-  producción** (el `CREATE TABLE IF NOT EXISTS` de `initDatabase()`). Fue exactamente así
-  como la tabla `festivals` apareció vacía en Supabase.
+  Hasta el 06/10/2026 `dotenv.config()` cargaba el `.env` local, que tenía la URL de Supabase;
+  por eso `npm start` podía crear tablas y escribir en producción. La protección actual carga
+  `.env.local` primero y `server/db.js` requiere `ALLOW_LOCAL_PRODUCTION_DB=true` para permitir
+  un host Supabase desde localhost. Nelson eligió compartir producción el 06/10/2026; su
+  `.env.local` ya contiene la confirmación. Toda escritura local afecta producción.
 
-  Para probar contra otra base hay que **exportar** `DATABASE_URL`, no hacer
-  `env -u DATABASE_URL` (dotenv no pisa variables ya seteadas, pero sí llena las que faltan).
+  El incidente original ocurrió cuando `initServices()` → `initDatabase()` creó la tabla
+  `festivals` vacía en Supabase. El seed se aplicó antes del deploy; `/api/demo/festivals`
+  devuelve 200 aunque el catálogo esté vacío, así que no confiar solo en el status HTTP.
+  `initDatabase()` no debe tratarse como inocuo ante una URL de producción.
 
   El orden del deploy fue obligatorio y por un motivo concreto: con la tabla vacía,
   `/api/demo/festivals` devuelve **200 con lista vacía**, no un error. Si se hubiera
@@ -410,21 +500,27 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   resuelve en el INSERT contra `ADMIN_EMAILS`, así no depende de acordarse de un UPDATE.
   `ADMIN_EMAILS` también pasó a ser env var, con el valor original como fallback.
 
-- [ ] **6. APIs externas** — **Spotify pausado; Last.fm funciona** (29/09/2026)
+- [x] **6. APIs externas** — **Spotify FUNCIONA; Last.fm funciona** (actualizado 07/10/2026)
   - **worldtimeapi.org: HECHO** (`c32d202`). `fetchCurrentYear()` borrado; `currentYear`
     quedó como `new Date().getFullYear()` a nivel de módulo.
   - **Bandsintown está muerta:** `rest.bandsintown.com` devuelve **403** (partner-only desde 2025).
     `/api/artist-events` siempre cae al fallback de búsqueda. La UI ya lo maneja, no rompe.
-  - **Spotify:** OAuth y UI reescritos para Vercel. La nueva tabla de tokens es
-    `spotify_connections` (migración 005); los refresh tokens se cifran con AES-256-GCM.
-    Usa `SPOTIFY_REDIRECT_URI` y `SPOTIFY_TOKEN_ENCRYPTION_KEY`; ver `.env.example`.
-    Rutas bajo `/auth/spotify/*` y `/api/spotify/*`, protegidas por la sesión de Festival
-    Match. Nelson ya aplicó `005_spotify_connections.sql` en Supabase. La app de Spotify no
-    se pudo crear: el Dashboard muestra errores genéricos al guardar y al cargar la página,
-    incluso desde otro navegador. Por eso siguen pendientes las credenciales, las env vars
-    de Vercel, la allowlist y la prueba end-to-end. No seguir investigando ahora; retomar
-    cuando el Dashboard permita crear la app. Last.fm ya está integrada y Nelson confirmó
-    que funciona. Spotify queda cerrado por ahora; no investigar hasta que Nelson lo retome.
+  - **Spotify: FUNCIONA en producción y también en local.** Nelson creó la app en el Dashboard
+    (el error genérico del 29/09 se resolvió solo) y el flujo de conectar la cuenta y elegir
+    top artists anda. La tabla de tokens es `spotify_connections` (migración 005); los refresh
+    tokens se cifran con AES-256-GCM. Rutas bajo `/auth/spotify/*` y `/api/spotify/*`,
+    protegidas por la sesión de Festival Match.
+  - **Redirect URIs registrados en el Dashboard de Spotify** (ambos, el match es exacto):
+    `https://festivalmatch.vercel.app/auth/spotify/callback` (producción) y
+    `http://127.0.0.1:8080/auth/spotify/callback` (local).
+  - ⚠️ **`SPOTIFY_TOKEN_ENCRYPTION_KEY` no se duplica nunca.** La tabla `spotify_connections`
+    es compartida entre producción y preview, así que una clave distinta en Preview deja la
+    conexión de producción sin poder descifrar su refresh token. Si alguna vez se prueba
+    Spotify en preview, se **copia** la misma clave.
+  - Local funciona porque `.env` tiene las cuatro variables y `.env.local` no pisa
+    `SPOTIFY_REDIRECT_URI`. Ojo: quedó en `127.0.0.1` mientras el de Google usa `localhost`;
+    es feo pero funciona, y cambiarlo rompe el login de Spotify local salvo que también se
+    registre el otro URI en el Dashboard.
 
 - [x] **7. Google OAuth** — **HECHO 26/09/2026**
   El proyecto de GCP viejo estaba **borrado** (lo eliminó para cortar costos), así que hubo
@@ -486,6 +582,18 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   Park, Tuska, Provinssi, Rock Werchter, NOS Alive, AMF, Austin City Limits y Corona Capital.
   `migrations/002_festivals.sql` se regeneró con 120 entradas y se aplicó a Supabase con éxito
   (`INSERT 0 58`, `COMMIT`). `Cosquín Rock` quedó como posible agregado futuro.
+
+- [x] **12. Desarrollo local conectado a Supabase** — **CONFIGURADO** (07/10/2026)
+  Nelson eligió compartir la base de producción para no mantener una DB local. `.env.local`
+  carga `ALLOW_LOCAL_PRODUCTION_DB=true`; `DATABASE_URL` viene de `.env`, sin copiar ni
+  imprimir el secreto. Cualquier escritura desde localhost afecta Supabase. El servidor y el
+  directorio del clúster PostgreSQL 16 instalados durante la sesión se detuvieron, eliminaron
+  y desinstalaron para no consumir recursos. Con el opt-in, localhost omite `initDatabase()`
+  para no alterar el esquema de producción, y valida la conexión con `SELECT 1`. Verificado
+  en localhost contra Supabase: `/`, `/api/demo/artists` y `/api/demo/festivals?region=latam`
+  respondieron 200. El watcher `npm run dev` usa watch-path para macOS. El callback de Google
+  se fija en `.env.local` como `http://localhost:8080/auth/google/callback`, por encima del URI
+  de producción que sigue en `.env`.
 
 ### Lo que NO hay que tocar
 
@@ -635,18 +743,24 @@ AGENTS.md no sirve para esto: es instrucción que el agente lee pero nada la imp
 
 ## Variables de entorno
 
-`.env.example` sigue incompleto: **le faltan `DATABASE_URL`, `LASTFM_API_KEY` y
-`ADMIN_EMAILS`**. Agregarlas al tocar esto.
+`.env.example` ya está completo (07/10/2026): están `DATABASE_URL`, `LASTFM_API_KEY` y
+`ADMIN_EMAILS`. La nota anterior de que faltaban, ya no aplica.
+
+**Solo hacen falta dos archivos, no tres.** `.env.example` documenta todo, y `.env.local` es
+el único extra: se carga antes que `.env` y solo necesita lo que difiere en tu máquina. No hace
+falta un `.env.local.example` — y el error de `db.js` al arrancar ya le dice a quien clone
+exactamente qué variable crear y en qué archivo.
 
 | Var | Notas |
 |---|---|
 | `DATABASE_URL` | Del **pooler transaccional, puerto 6543**, **sin `?sslmode=require`** (ver Trampa 1) |
 | `GOOGLE_CLIENT_ID` / `_SECRET` / `GOOGLE_REDIRECT_URI` | Redirect URI apunta al dominio de Vercel. El `_SECRET` es el mismo en `.env` local y en Vercel |
-| `LASTFM_API_KEY` | Falta en `.env.example`. Sin ella no funciona la importación desde Last.fm |
+| `LASTFM_API_KEY` | Sin ella no funciona la importación desde Last.fm |
 | `ADMIN_EMAILS` | Opcional, lista separada por comas. Sin la var, el fallback hardcodeado es `nelsoncabrera06@gmail.com` |
+| `ALLOW_LOCAL_PRODUCTION_DB` | **Solo en `.env.local`**, y solo si querés que localhost use la Supabase de producción. Sin ella, `db.js` cancela el arranque si detecta un host de Supabase fuera de Vercel |
 | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | Credenciales de la app Spotify; secretos solo en `.env`/Vercel |
-| `SPOTIFY_REDIRECT_URI` | Debe coincidir exactamente con el URI permitido en Spotify Dashboard |
-| `SPOTIFY_TOKEN_ENCRYPTION_KEY` | 32 bytes codificados en base64; `openssl rand -base64 32` |
+| `SPOTIFY_REDIRECT_URI` | Debe coincidir **exactamente** con el URI permitido en Spotify Dashboard. Ojo: en local quedó en `127.0.0.1` |
+| `SPOTIFY_TOKEN_ENCRYPTION_KEY` | 32 bytes en base64; `openssl rand -base64 32`. **No la cambies ni la dupliques en Preview** (ver paso 6) |
 
 Nunca commitear `.env`. Ya está en `.gitignore`. El repo es **público**: auditar el historial
 con `git log --all -p -S '<secreto>'` antes dedadeclarar que está limpio.
@@ -661,8 +775,9 @@ npm start       # node app.js
 vercel dev      # para replicar el entorno de Vercel antes de deployar
 ```
 
-**Ojo:** `npm start` local se conecta a la **Supabase de producción** (ver la trampa del
-`.env`). Para levantar contra otra base, exportar `DATABASE_URL` explícitamente.
+**Ojo:** `.env.local` se carga antes que `.env`. La configuración actual autoriza localhost a
+usar el `DATABASE_URL` de Supabase con `ALLOW_LOCAL_PRODUCTION_DB=true`; toda escritura local
+afecta producción. El servidor PostgreSQL local se eliminó.
 
 Para las migraciones, `psql` (ya está en el PATH, ver la nota del paso 4):
 

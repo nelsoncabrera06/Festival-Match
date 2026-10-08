@@ -20,6 +20,9 @@
  * En produccion Vercel sirve ademas el contenido de public/ como estatico por
  * CDN, y las rutas /api/*, /auth/* y /health llegan a esta funcion.
  */
+// La configuracion privada de desarrollo local tiene prioridad sobre .env.
+// Esto permite mantener .env para otros entornos sin apuntar localhost a prod.
+require('dotenv').config({ path: '.env.local' });
 require('dotenv').config();
 
 const express = require('express');

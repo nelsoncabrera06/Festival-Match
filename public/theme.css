@@ -386,10 +386,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .landing-visual { border-radius: 22px; }
   .results { padding: 24px 0 54px; }
   .results-header { margin-bottom: 16px; }
-  .global-filters { align-items: stretch; padding: 12px; }
+  .global-filters { align-items: stretch; flex-wrap: wrap; padding: 12px; }
   .region-selector { width: 100%; }
   .region-btn { flex: 1; padding: 9px 6px; font-size: 12px; }
-  .festival-catalog-search { width: 100%; }
+  .festival-catalog-search { flex: 1; min-width: 0; }
   .tabs-container { align-items: stretch; }
   .view-toggle { width: 100%; justify-content: center; }
   .view-btn { flex: 1; justify-content: center; padding: 8px 5px; font-size: 11px; }

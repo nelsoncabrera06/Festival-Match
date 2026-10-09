@@ -1473,9 +1473,15 @@ body {
   color: var(--text-primary);
 }
 
+/* Pedido de Nelson (09/10, paso 2): que ocupe todo el ancho restante de su
+   contenedor. Antes tenia 240px fijos y sobraba espacio vacio a la derecha.
+   flex:1 hace que el input sea el unico elemento que estira dentro del
+   .global-filters (region, pais y ciudad mantienen su ancho natural).
+   min-width: 0 es obligatorio: sin eso un flex item no puede encogerse por
+   debajo de su contenido y el ancho fijo sigue ahi de facto. */
 .festival-catalog-search {
-  width: 240px;
-  min-width: 180px;
+  flex: 1;
+  min-width: 0;
   padding: 8px 12px;
   border: 1px solid var(--border-color);
   border-radius: 8px;

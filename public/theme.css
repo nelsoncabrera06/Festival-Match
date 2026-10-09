@@ -253,9 +253,6 @@ body {
   background: rgba(18, 25, 21, .82);
 }
 
-.filter-label { color: #97a398; }
-
-.region-selector,
 .view-toggle {
   gap: 4px;
   padding: 4px;
@@ -264,13 +261,11 @@ body {
   background: #0e1411;
 }
 
-.region-btn,
 .view-btn {
   border-radius: 9px;
   color: #aab4ab;
 }
 
-.region-btn.active,
 .view-btn.active {
   border-color: rgba(216, 242, 122, .16);
   background: #27332b;
@@ -387,8 +382,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .results { padding: 24px 0 54px; }
   .results-header { margin-bottom: 16px; }
   .global-filters { align-items: stretch; flex-wrap: wrap; padding: 12px; }
-  .region-selector { width: 100%; }
-  .region-btn { flex: 1; padding: 9px 6px; font-size: 12px; }
   .festival-catalog-search { flex: 1; min-width: 0; }
   .tabs-container { align-items: stretch; }
   .view-toggle { width: 100%; justify-content: center; }

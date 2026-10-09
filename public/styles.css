@@ -1408,42 +1408,9 @@ body {
   border: 1px solid var(--border-color);
 }
 
-.filter-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.region-selector {
-  display: flex;
-  gap: 8px;
-}
-
-.region-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--bg-primary);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color);
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.region-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.region-btn.active {
-  background: var(--accent-color);
-  color: white;
-  border-color: var(--accent-color);
-}
+/* Las reglas .filter-label / .region-selector / .region-btn se fueron con el
+   paso 3: Región ahora es un <select> que usa .cascade-filter, el mismo estilo
+   que país y ciudad. */
 
 /* Cascade Filters (Country/City) */
 .cascade-filter {
@@ -1803,22 +1770,6 @@ body {
     flex-direction: column;
     gap: 8px;
     padding: 12px;
-  }
-
-  .filter-label {
-    display: none;
-  }
-
-  .region-selector {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .region-btn {
-    flex: 1;
-    justify-content: center;
-    padding: 8px 10px;
-    font-size: 12px;
   }
 
   .cascade-filter {

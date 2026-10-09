@@ -3,6 +3,11 @@
         "title": "Festival Match",
         "subtitle": "Encuentra tu festival ideal"
     },
+    "regions": {
+        "europe": "Europa",
+        "usa": "USA",
+        "latam": "Latinoamérica"
+    },
     "landing": {
         "title": "Descubre que festivales <span class=\"highlight\">matchean</span> con tu música",
         "titlePlain": "Descubre que festivales matchean con tu música",

@@ -236,18 +236,14 @@
 
       <!-- Global Region Filter -->
       <div class="global-filters">
-        <span class="filter-label">Región:</span>
-        <div class="region-selector">
-          <button class="region-btn active" data-region="europe">
-            🇪🇺 Europa
-          </button>
-          <button class="region-btn" data-region="usa">
-            🇺🇸 USA
-          </button>
-          <button class="region-btn" data-region="latam">
-            🌎 Latinoamérica
-          </button>
-        </div>
+        <!-- Pedido de Nelson (paso 3, 09/10): Región como desplegable, igual que
+             país y ciudad. Ocupa menos lugar y la fila queda consistente.
+             Antes eran 3 botones + el label "Región:". -->
+        <select id="region-filter" class="cascade-filter region-filter">
+          <option value="europe" data-i18n="regions.europe">Europa</option>
+          <option value="usa" data-i18n="regions.usa">USA</option>
+          <option value="latam" data-i18n="regions.latam">Latinoamérica</option>
+        </select>
 
         <!-- Filtros en cascada -->
         <select id="country-filter" class="cascade-filter">

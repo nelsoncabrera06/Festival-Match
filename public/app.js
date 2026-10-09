@@ -178,7 +178,8 @@ function cacheElements() {
   elements.nextMonth = document.getElementById('next-month');
 
   // Region selector
-  elements.regionBtns = document.querySelectorAll('.region-btn');
+  // Region selector
+  elements.regionFilter = document.getElementById('region-filter');
 
   // Cascade filters
   elements.countryFilter = document.getElementById('country-filter');
@@ -345,10 +346,8 @@ function setupEventListeners() {
   elements.prevMonth?.addEventListener('click', () => navigateCalendar(-1));
   elements.nextMonth?.addEventListener('click', () => navigateCalendar(1));
 
-  // Region selector
-  elements.regionBtns?.forEach(btn => {
-    btn.addEventListener('click', () => switchRegion(btn.dataset.region));
-  });
+  // Region selector (desplegable desde el paso 3)
+  elements.regionFilter?.addEventListener('change', (event) => switchRegion(event.target.value));
 
   // Cascade filters (Country/City)
   elements.countryFilter?.addEventListener('change', handleCountryChange);
@@ -2134,10 +2133,7 @@ function switchRegion(region) {
   if (elements.countryFilter) elements.countryFilter.value = '';
   if (elements.cityFilter) elements.cityFilter.value = '';
 
-  // Actualizar botones
-  elements.regionBtns.forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.region === region);
-  });
+  // No hay botones que actualizar: el desplegable ya muestra la region elegida
 
   // Recargar datos con la nueva región
   if (currentUser || isDemo) {

@@ -3,6 +3,11 @@
         "title": "Festival Match",
         "subtitle": "Find your ideal festival"
     },
+    "regions": {
+        "europe": "Europe",
+        "usa": "USA",
+        "latam": "Latin America"
+    },
     "landing": {
         "title": "Discover which festivals <span class=\"highlight\">match</span> your music",
         "titlePlain": "Discover which festivals match your music",

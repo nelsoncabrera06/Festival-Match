@@ -3,6 +3,12 @@
         "title": "Festival Match",
         "subtitle": "Löydä ihanteellinen festivaalisi"
     },
+    "regions": {
+        "europe": "Eurooppa",
+        "usa": "USA",
+        "latam": "Latinalainen Amerikka"
+    },
+
     "landing": {
         "title": "Löydä festivaalit, jotka <span class=\"highlight\">sopivat</span> musiikkimakuusi",
         "titlePlain": "Löydä festivaalit, jotka sopivat musiikkimakuusi",

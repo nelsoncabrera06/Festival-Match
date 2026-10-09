@@ -605,9 +605,10 @@ body {
   }
 
   .landing-visual {
-    /* En layout de una columna (tablet/celular) el stretch no estira al panel:
-       la foto necesita un alto propio para no colapsar */
-    height: 320px;
+    /* Pedido de Nelson (09/10): cuando el layout pasa a una columna, la foto
+       queda debajo del formulario, colgada y sola. En mobile el formulario se
+       basta: se oculta. Volver a mostrarla es borrar esta línea. */
+    display: none;
   }
 
   .festivals-grid {

@@ -76,7 +76,9 @@
         "allCities": "All cities",
         "topArtists": "Your Top Artists",
         "demoBadge": "Demo mode - example artists",
-        "searchFestival": "Search festivals..."
+        "searchFestival": "Search festivals...",
+        "filters": "Filters",
+        "favoritesOnly": "Favorites only"
     },
     "regions": {
         "europe": "Europe",

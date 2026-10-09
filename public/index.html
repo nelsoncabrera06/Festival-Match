@@ -229,34 +229,8 @@
 
     <!-- Results Section -->
     <section id="results" class="results" style="display: none;">
-      <div class="results-header">
-        <span class="results-title" data-i18n="results.title">Tus Resultados:</span>
-        <span class="results-subtitle" data-i18n="results.subtitle">Festivales y giras de tus artistas favoritos</span>
-      </div>
-
-      <!-- Global Region Filter -->
-      <div class="global-filters">
-        <!-- Pedido de Nelson (paso 3, 09/10): Región como desplegable, igual que
-             país y ciudad. Ocupa menos lugar y la fila queda consistente.
-             Antes eran 3 botones + el label "Región:". -->
-        <select id="region-filter" class="cascade-filter region-filter">
-          <option value="europe" data-i18n="regions.europe">Europa</option>
-          <option value="usa" data-i18n="regions.usa">USA</option>
-          <option value="latam" data-i18n="regions.latam">Latinoamérica</option>
-        </select>
-
-        <!-- Filtros en cascada -->
-        <select id="country-filter" class="cascade-filter">
-          <option value="">Todos los países</option>
-        </select>
-
-        <select id="city-filter" class="cascade-filter">
-          <option value="">Todas las ciudades</option>
-        </select>
-
-        <input type="search" id="festival-catalog-search" class="search-input festival-catalog-search"
-          data-i18n-placeholder="results.searchFestival" placeholder="Buscar festival..." autocomplete="off">
-      </div>
+      <!-- Pedido de Nelson (09/10): las pestanas van arriba de los filtros, en la
+           misma fila que el selector de vista (Grid/Lista/Calendario). -->
 
       <!-- Tabs + View Toggle en la misma fila -->
       <div class="tabs-container">
@@ -265,6 +239,30 @@
           <button class="tab" data-tab="artists" data-i18n="tabs.artists">Mis Artistas</button>
           <button class="tab tab-admin" data-tab="admin" style="display: none;" data-i18n="tabs.admin">Admin</button>
         </div>
+        <!-- Pedido de Nelson (09/10): en mobile los filtros colapsan detras de este
+             boton. Vive dentro de tabs-container para que en mobile comparta
+             linea con "Solo favoritos". En desktop no se muestra (theme.css). -->
+        <button id="filters-toggle" class="filters-toggle" aria-expanded="false">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="4" y1="6" x2="20" y2="6"></line>
+            <circle cx="9" cy="6" r="2.2" fill="var(--bg-card, #151c19)"></circle>
+            <line x1="4" y1="12" x2="20" y2="12"></line>
+            <circle cx="15" cy="12" r="2.2" fill="var(--bg-card, #151c19)"></circle>
+            <line x1="4" y1="18" x2="20" y2="18"></line>
+            <circle cx="7" cy="18" r="2.2" fill="var(--bg-card, #151c19)"></circle>
+          </svg>
+          <span data-i18n="results.filters">Filtros</span>
+          <svg class="filters-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+        <!-- Pedido de Nelson (paso 6, 09/10): filtro "solo favoritos", delicado,
+             a la derecha de las pestanas. El margin-left:auto lo empuja junto
+             al view-toggle (el contenedor es space-between). -->
+        <label class="favorites-only">
+          <input type="checkbox" id="favorites-only-checkbox">
+          <span data-i18n="results.favoritesOnly">Solo favoritos</span>
+        </label>
         <div class="view-toggle" id="view-toggle">
           <button class="view-btn active" data-view="grid">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -298,15 +296,41 @@
         </div>
       </div>
 
+      <!-- Global Region Filter -->
+      <div class="global-filters">
+        <!-- Pedido de Nelson (paso 3, 09/10): Región como desplegable, igual que
+             país y ciudad. Ocupa menos lugar y la fila queda consistente.
+             Antes eran 3 botones + el label "Región:". -->
+        <select id="region-filter" class="cascade-filter region-filter">
+          <option value="europe" data-i18n="regions.europe">Europa</option>
+          <option value="usa" data-i18n="regions.usa">USA</option>
+          <option value="latam" data-i18n="regions.latam">Latinoamérica</option>
+        </select>
+
+        <!-- Filtros en cascada -->
+        <select id="country-filter" class="cascade-filter">
+          <option value="">Todos los países</option>
+        </select>
+
+        <select id="city-filter" class="cascade-filter">
+          <option value="">Todas las ciudades</option>
+        </select>
+
+        <input type="search" id="festival-catalog-search" class="search-input festival-catalog-search"
+          data-i18n-placeholder="results.searchFestival" placeholder="Buscar festival..." autocomplete="off">
+      </div>
+
       <!-- Tab: Festivales -->
       <div id="tab-festivals" class="tab-content active">
 
         <!-- Vista Lista -->
         <div id="festivals-list-view" class="festivals-view active">
-          <!-- User Artists Preview -->
-          <div id="user-artists" class="user-artists">
-            <h3 class="section-title" data-i18n="results.topArtists">Tus Top Artistas</h3>
-            <div id="artists-list" class="artists-list"></div>
+          <!-- Pedido de Nelson (paso 5, 09/10): se fue "Tus Top Artistas" (esa info
+               ya esta en Editar preferencias) y el header "Tus Resultados" bajo
+               aca, al lugar que ocupaba ese bloque, justo arriba de la grilla. -->
+          <div class="results-header">
+            <span class="results-title" data-i18n="results.title">Tus Resultados:</span>
+            <span class="results-subtitle" data-i18n="results.subtitle">Festivales y giras de tus artistas favoritos</span>
           </div>
 
           <!-- Festivals Grid -->

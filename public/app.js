@@ -23,6 +23,7 @@ let currentRegion = 'europe'; // Región actual (europe, usa, latam)
 let currentCountry = ''; // Filtro de país ('' = todos)
 let currentCity = ''; // Filtro de ciudad ('' = todas)
 let currentFestivalSearch = '';
+let showFavoritesOnly = false; // Paso 6 (09/10): filtro "solo favoritos"
 let currentYear = new Date().getFullYear(); // Año actual (se actualiza desde el servidor)
 let userRole = 'user'; // Rol del usuario
 let isUserAdmin = false; // Es admin?
@@ -348,6 +349,26 @@ function setupEventListeners() {
 
   // Region selector (desplegable desde el paso 3)
   elements.regionFilter?.addEventListener('change', (event) => switchRegion(event.target.value));
+
+  // Colapsable de filtros en mobile (09/10): muestra/oculta .global-filters
+  elements.filtersToggle = document.getElementById('filters-toggle');
+  elements.filtersToggle?.addEventListener('click', () => {
+    const panel = document.querySelector('.global-filters');
+    const open = panel?.classList.toggle('open');
+    elements.filtersToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+
+  // Paso 6 (09/10): checkbox "solo favoritos". applyFiltersAndRender cubre
+  // grilla y calendario pero no la tabla (solo se renderiza al cambiar de
+  // vista): si estamos ahi, actualizarla tambien.
+  elements.favoritesOnlyCheckbox = document.getElementById('favorites-only-checkbox');
+  elements.favoritesOnlyCheckbox?.addEventListener('change', (event) => {
+    showFavoritesOnly = event.target.checked;
+    applyFiltersAndRender();
+    if (elements.festivalsTableView?.classList.contains('active')) {
+      renderFestivalsTable(filterFestivals(festivalsData));
+    }
+  });
 
   // Cascade filters (Country/City)
   elements.countryFilter?.addEventListener('change', handleCountryChange);
@@ -1857,6 +1878,11 @@ async function loadFestivals() {
 }
 
 function renderUserArtists(artists, isDemoMode) {
+  // Paso 5 (09/10): el bloque "Tus Top Artistas" salio del home, asi que
+  // #artists-list ya no existe. La funcion queda como no-op para no tocar a
+  // sus 2 callers (demo y loadUserFestivals siguen pasando por aca).
+  if (!elements.artistsList) return;
+
   const demoNotice = isDemoMode
     ? `<div class="demo-badge">${t('results.demoBadge')}</div>`
     : '';
@@ -2228,6 +2254,7 @@ function handleCityChange() {
 
 function filterFestivals(festivals) {
   return festivals.filter(f => {
+    if (showFavoritesOnly && !myFavoriteFestivals.includes(f.id)) return false;
     if (currentCountry && f.country !== currentCountry) return false;
     if (currentCity && f.city !== currentCity) return false;
     if (currentFestivalSearch) {

@@ -283,42 +283,17 @@ body {
 }
 
 /* User Artists */
-.user-artists {
-  margin-bottom: 48px;
-  background: var(--bg-secondary);
-  padding: 24px;
-  border-radius: var(--radius-lg);
-}
+/* Las reglas .user-artists / .artists-list / .artist-tag se fueron con el paso 5
+   (09/10): el bloque "Tus Top Artistas" salio del home. .section-title queda,
+   se usa en preferencias y en otras secciones. */
 
 .section-title {
+
+/* Festivals Grid */
   font-size: 18px;
   font-weight: 600;
   margin-bottom: 16px;
   color: var(--text-secondary);
-}
-
-.artists-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.artist-tag {
-  background: var(--bg-elevated);
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 14px;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.artist-tag img {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  object-fit: cover;
 }
 
 /* Festivals Grid */

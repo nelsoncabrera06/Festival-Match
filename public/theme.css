@@ -225,12 +225,14 @@ body {
 
 .stage-photo { z-index: 1; filter: saturate(.9) brightness(.95); }
 
+/* Pedido de Nelson (paso 4, 09/10): el encabezado es un eyebrow sutil y en una
+   sola linea, no un titanon de 36px en columna propia. El tema base ya lo dejo
+   en fila (flex, align baseline); aca solo achico el tamano y corto aire. */
 .results { padding-top: 34px; }
-.results-header { display: flex; flex-direction: column; gap: 4px; margin-bottom: 22px; }
-.results-title { font-size: clamp(26px, 3vw, 36px); letter-spacing: -.045em; }
+.results-header { display: flex; flex-direction: row; align-items: baseline; gap: 8px; margin-bottom: 14px; }
+.results-title { font-size: 20px; letter-spacing: -.03em; }
 .results-subtitle { color: #98a39a; font-size: 14px; }
 
-.user-artists,
 .preference-section,
 .calendar-container,
 .festivals-table-container,
@@ -275,14 +277,29 @@ body {
 .cascade-filter,
 .festival-catalog-search { min-height: 42px; }
 
+/* Pedido de Nelson (09/10): en mobile los filtros van colapsados detras de un
+   boton "Filtros". En desktop el boton no se muestra y la fila queda igual. */
+.filters-toggle { display: none; }
+
 .tabs-container {
   gap: 16px;
+  margin-bottom: 14px;
   padding-bottom: 12px;
   border-bottom-color: rgba(223, 241, 222, .1);
 }
 
+/* Pedido de Nelson (09/10): pestanas mas delicadas. Mismo estilo, mas chico:
+   menos padding, letra 13px y contenedor mas fino. El view-toggle (Grid/Lista/
+   Calendario) achica parejo para que la fila no quede despareja. */
+.tabs-left {
+  gap: 2px;
+  padding: 3px;
+}
+
 .tab {
-  border-radius: 10px;
+  border-radius: 8px;
+  padding: 7px 13px;
+  font-size: 13px;
   color: #96a197;
 }
 
@@ -290,6 +307,37 @@ body {
   background: rgba(216, 242, 122, .1);
   color: var(--accent);
 }
+
+.view-btn {
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 13px;
+}
+
+/* Pedido de Nelson (paso 6, 09/10): checkbox "solo favoritos". Delicado: texto
+   chico en muted, sin caja ni fondo. El margin-left:auto lo lleva a la derecha,
+   junto al view-toggle (el contenedor es space-between y el gap separa). */
+.favorites-only {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  font-size: 13px;
+  color: #96a197;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.favorites-only input {
+  accent-color: var(--accent);
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.favorites-only:has(input:checked) { color: var(--accent); }
 
 .festival-card {
   border: 1px solid rgba(223, 241, 222, .09);
@@ -380,10 +428,31 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .auth-tab { min-width: 0; padding-inline: 6px; font-size: 12px; }
   .landing-visual { border-radius: 22px; }
   .results { padding: 24px 0 54px; }
-  .results-header { margin-bottom: 16px; }
+  .results-header { flex-wrap: wrap; gap: 2px 8px; margin-bottom: 12px; }
   .global-filters { align-items: stretch; flex-wrap: wrap; padding: 12px; }
+  .global-filters:not(.open) { display: none; }
+  .filters-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    /* Sin margin-bottom: en mobile comparte linea con "Solo favoritos" dentro
+       del tabs-container con wrap; el aire vertical lo da el row-gap. */
+    margin-bottom: 0;
+    padding: 7px 13px;
+    border: 1px solid rgba(223, 241, 222, .12);
+    border-radius: 9px;
+    background: #0e1411;
+    color: #aab4ab;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .filters-toggle .filters-chevron { transition: transform .2s ease; }
+  .filters-toggle[aria-expanded="true"] .filters-chevron { transform: rotate(180deg); }
+  .filters-toggle[aria-expanded="true"] { color: var(--accent); border-color: rgba(216, 242, 122, .3); }
   .festival-catalog-search { flex: 1; min-width: 0; }
   .tabs-container { align-items: stretch; }
+  .tab { padding: 8px 10px; font-size: 12.5px; }
+  .favorites-only { margin-left: 0; }
   .view-toggle { width: 100%; justify-content: center; }
   .view-btn { flex: 1; justify-content: center; padding: 8px 5px; font-size: 11px; }
   .festival-card { border-radius: 18px; }

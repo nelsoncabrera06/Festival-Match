@@ -166,6 +166,15 @@ const I18N = {
       }
     });
 
+    // Elementos con data-i18n-alt (texto alternativo de imágenes)
+    document.querySelectorAll('[data-i18n-alt]').forEach(el => {
+      const key = el.getAttribute('data-i18n-alt');
+      const translation = this.t(key);
+      if (translation) {
+        el.alt = translation;
+      }
+    });
+
     // Actualizar titulo de la página
     const appTitle = this.t('app.title');
     const appSubtitle = this.t('app.subtitle');

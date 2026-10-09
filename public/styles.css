@@ -71,7 +71,9 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 60px;
-  align-items: center;
+  /* stretch y no center: así las dos columnas miden exactamente lo mismo y el
+     panel de la foto queda a la altura del panel de login/registro */
+  align-items: stretch;
   min-height: calc(100vh - 100px);
   padding: 40px 0;
 }
@@ -204,73 +206,28 @@ body {
   display: inline-block;
 }
 
-/* Floating Cards Animation */
+/* Foto del login: músico sobre el escenario */
+/* La foto es vertical y el panel es más ancho que alto, por eso object-fit: cover
+   recorta: se ve la franja central de la imagen (cabeza, torso y guitarra). El fade
+   de los bordes (mask-image) la funde con el fondo del panel para que no quede
+   como un rectángulo pegado. El panel necesita overflow hidden + radius: sin eso
+   el borde recto de la foto se ve en las esquinas. */
 .landing-visual {
   display: flex;
   justify-content: center;
   align-items: center;
   position: relative;
-  height: 400px;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
 }
 
-.floating-cards {
+.stage-photo {
   position: relative;
-  width: 300px;
-  height: 300px;
-}
-
-.floating-card {
-  position: absolute;
-  width: 80px;
-  height: 80px;
-  background: var(--bg-elevated);
-  border-radius: var(--radius);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 36px;
-  box-shadow: var(--shadow);
-  animation: float 6s ease-in-out infinite;
-}
-
-.card-1 {
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  animation-delay: 0s;
-}
-
-.card-2 {
-  top: 50%;
-  right: 0;
-  transform: translateY(-50%);
-  animation-delay: 1.5s;
-}
-
-.card-3 {
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  animation-delay: 3s;
-}
-
-.card-4 {
-  top: 50%;
-  left: 0;
-  transform: translateY(-50%);
-  animation-delay: 4.5s;
-}
-
-@keyframes float {
-
-  0%,
-  100% {
-    transform: translateY(0) rotate(0deg);
-  }
-
-  50% {
-    transform: translateY(-20px) rotate(5deg);
-  }
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  mask-image: linear-gradient(to bottom, transparent 0, black 12%, black 86%, transparent 100%);
 }
 
 /* Loading Section */
@@ -648,18 +605,9 @@ body {
   }
 
   .landing-visual {
-    height: 250px;
-  }
-
-  .floating-cards {
-    width: 200px;
-    height: 200px;
-  }
-
-  .floating-card {
-    width: 60px;
-    height: 60px;
-    font-size: 28px;
+    /* En layout de una columna (tablet/celular) el stretch no estira al panel:
+       la foto necesita un alto propio para no colapsar */
+    height: 320px;
   }
 
   .festivals-grid {

@@ -5,7 +5,20 @@ Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje 
 
 ---
 
-## 🔴 RETOMAR ACÁ — 07/10/2026, sesión 6
+## 🔴 RETOMAR ACÁ — 09/10/2026, sesión 8 (fin del día)
+
+**Merge `diseno` → `main` HECHO** (confirmado por Nelson). La rama `diseno-azul`
+se probó y se descartó: ganó el lima "mil veces". `Mejorar diseño.txt` todo en
+DONE (login con foto, buscador ancho, región desplegable, header sutil, sin Top
+Artistas, solo-favoritos, colores).
+
+**Sin confirmar al cerrar:** commit/push del detalle admin (3 archivos en `main`
+sin commitear), verificación de producción, borrado de `diseno` + dominio preview.
+Ver `agent-plan/plan.md` (sección Estado y Paso 8) con el protocolo y los comandos listos.
+
+**Migración 006 APLICADA el 09/10** (confirmado por Nelson + verificado: `picture`
+no aparece en `information_schema`, `/health`, `/api/demo/artists` y `/auth/me`
+en 200 a ~0.5s — sin el timeout de 40s del incidente).
 
 **El paso 4 está CERRADO.** Seed aplicado, commiteado, pusheado, deployado, y el panel admin
 funcionando en producción (edit de lineup, borrado y aprobación de sugerencia probados a mano).

@@ -401,14 +401,14 @@
             <h3>Panel de Administracion</h3>
             <!-- Tabs internos del admin -->
             <div class="admin-tabs">
-              <button class="admin-tab-btn active" data-admin-tab="suggestions">Sugerencias</button>
+              <button class="admin-tab-btn active" data-admin-tab="users">Usuarios</button>
+              <button class="admin-tab-btn" data-admin-tab="suggestions">Sugerencias</button>
               <button class="admin-tab-btn" data-admin-tab="festivals">Festivales</button>
-              <button class="admin-tab-btn" data-admin-tab="users">Usuarios</button>
             </div>
           </div>
 
           <!-- Seccion: Sugerencias -->
-          <div id="admin-suggestions-section" class="admin-section active">
+          <div id="admin-suggestions-section" class="admin-section" style="display: none;">
             <div class="admin-filters">
               <button class="admin-filter-btn active" data-status="pending">Pendientes</button>
               <button class="admin-filter-btn" data-status="approved">Aprobadas</button>
@@ -444,7 +444,7 @@
           </div>
 
           <!-- Seccion: Usuarios -->
-          <div id="admin-users-section" class="admin-section" style="display: none;">
+          <div id="admin-users-section" class="admin-section active">
             <div class="admin-users-header">
               <span id="admin-users-count">0 usuarios</span>
             </div>

@@ -246,6 +246,10 @@ body {
 
 .section-title { color: #e5ebe3; letter-spacing: -.02em; }
 
+/* El .admin-panel trae padding 20px 0 (cero horizontal) y el titulo quedaba
+   pegado al borde. Mismo aire que las secciones de abajo (20px). */
+.admin-header { padding: 4px 20px 0; }
+
 .global-filters {
   gap: 10px;
   margin: 20px 0 22px;

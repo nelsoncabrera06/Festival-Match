@@ -47,6 +47,8 @@ const COUNTRY_INFO = {
   'HU': { name: 'Hungría', flag: '🇭🇺' },
   'HR': { name: 'Croacia', flag: '🇭🇷' },
   'GB': { name: 'Reino Unido', flag: '🇬🇧' },
+  'FR': { name: 'Francia', flag: '🇫🇷' },
+  'RS': { name: 'Serbia', flag: '🇷🇸' },
   // USA
   'US': { name: 'Estados Unidos', flag: '🇺🇸' },
   // Latam
@@ -1368,6 +1370,9 @@ function updateUserUI() {
 
 async function startDemo() {
   isDemo = true;
+  // Arrancar limpio: sin esto, favs de una sesion anterior contaminarian el demo
+  // (logout() resetea, pero entrar al demo no pasaba por ahi si no habia sesion).
+  myFavoriteFestivals = [];
   updateUserUI();
   showSection('loading');
 
@@ -1390,6 +1395,7 @@ async function startDemo() {
       throw new Error('La respuesta del demo no tiene el formato esperado');
     }
 
+    hydrateDemoFavorites(festivalsData.festivals);
     renderUserArtists(artistsData.artists, true);
     renderFestivals(festivalsData.festivals);
     navigateTo('/festivals');
@@ -1870,10 +1876,27 @@ async function loadFestivals() {
     const response = await fetch(endpoint, isDemo ? {} : { credentials: 'include' });
     const data = await response.json();
 
+    // En demo, cada cambio de region trae sus favs: mergearlos (ver helper)
+    if (isDemo) hydrateDemoFavorites(data.festivals);
+
     renderFestivals(data.festivals);
   } catch (err) {
     console.error('Error loading festivals:', err);
     elements.festivalsGrid.innerHTML = '<div class="error-state">Error al cargar los festivales</div>';
+  }
+}
+
+// El backend manda isFavorite en cada festival del demo (server.js), pero el
+// frontend nunca lo cargaba a myFavoriteFestivals: el usuario logueado lo hace
+// en loadUserPreferences via /api/user/favorite-festivals, y el demo no pasaba
+// por ahi. Sin esto, el filtro "solo favoritos" en demo filtraba todo.
+// Merge y no reemplazo: cada region trae solo sus festivales (startDemo carga
+// la actual, loadFestivals el resto al cambiar de region).
+function hydrateDemoFavorites(festivals) {
+  for (const f of festivals || []) {
+    if (f.isFavorite && !myFavoriteFestivals.includes(f.id)) {
+      myFavoriteFestivals.push(f.id);
+    }
   }
 }
 
@@ -2131,6 +2154,14 @@ function switchTab(tabName) {
   const viewToggle = document.getElementById('view-toggle');
   if (viewToggle) {
     viewToggle.style.display = tabName === 'festivals' ? 'flex' : 'none';
+  }
+
+  // Paso 6 (09/10): el filtro "solo favoritos" tambien solo tiene sentido en
+  // el tab festivales (en Mis Artistas todo ya son favoritos, y en admin no
+  // hay lista que filtrar). Mismo patron que el view-toggle.
+  const favoritesOnly = document.querySelector('.favorites-only');
+  if (favoritesOnly) {
+    favoritesOnly.style.display = tabName === 'festivals' ? 'inline-flex' : 'none';
   }
 
   // Si es tab de artistas, cargar tour dates
@@ -3103,6 +3134,8 @@ function getCountryFlag(countryCode) {
     'ES': '🇪🇸', 'BE': '🇧🇪', 'DE': '🇩🇪', 'GB': '🇬🇧',
     'HU': '🇭🇺', 'RS': '🇷🇸', 'DK': '🇩🇰', 'NL': '🇳🇱',
     'PT': '🇵🇹', 'FI': '🇫🇮', 'PL': '🇵🇱', 'HR': '🇭🇷',
+    'FR': '🇫🇷', 'US': '🇺🇸', 'AR': '🇦🇷', 'BR': '🇧🇷',
+    'CL': '🇨🇱', 'CO': '🇨🇴', 'MX': '🇲🇽',
   };
   return flags[countryCode] || '🌍';
 }

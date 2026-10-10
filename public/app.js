@@ -2219,6 +2219,19 @@ function getRegionDisplayName(region) {
 // Filtros en Cascada (País/Ciudad)
 // ==========================================
 
+// Nombres de pais localizados sin mantener 19 traducciones x 3 idiomas a mano:
+// Intl.DisplayNames los da desde el codigo ISO en el idioma activo (<html lang>,
+// que i18n.js mantiene al dia). COUNTRY_INFO queda como fuente de banderas
+// (y fallback si el codigo no existe).
+function getCountryName(code) {
+  try {
+    const lang = document.documentElement.lang || 'es';
+    const name = new Intl.DisplayNames([lang], { type: 'region' }).of(code);
+    if (name) return name;
+  } catch (err) { /* codigo desconocido: fallback abajo */ }
+  return (COUNTRY_INFO[code] && COUNTRY_INFO[code].name) || code;
+}
+
 function updateCountryOptions() {
   if (!elements.countryFilter || !festivalsData.length) return;
 
@@ -2231,15 +2244,19 @@ function updateCountryOptions() {
     countByCountry[f.country] = (countByCountry[f.country] || 0) + 1;
   });
 
-  // Generar opciones
-  let html = '<option value="">Todos los países</option>';
+  // Generar opciones (textos via i18n, nombres via Intl.DisplayNames)
+  let html = `<option value="">${t('results.allCountries')}</option>`;
   countries.forEach(code => {
-    const info = COUNTRY_INFO[code] || { name: code, flag: '🏳️' };
+    const info = COUNTRY_INFO[code] || { flag: '🏳️' };
     const count = countByCountry[code];
-    html += `<option value="${code}">${info.flag} ${info.name} (${count})</option>`;
+    html += `<option value="${code}">${info.flag} ${getCountryName(code)} (${count})</option>`;
   });
 
+  // Preservar la seleccion: el rebuild (carga inicial o cambio de idioma) la
+  // pisaba visualmente aunque el filtro logico (currentCountry) seguia aplicado
+  const selected = elements.countryFilter.value;
   elements.countryFilter.innerHTML = html;
+  elements.countryFilter.value = selected;
 }
 
 function updateCityOptions() {
@@ -2260,13 +2277,16 @@ function updateCityOptions() {
   });
 
   // Generar opciones
-  let html = '<option value="">Todas las ciudades</option>';
+  let html = `<option value="">${t('results.allCities')}</option>`;
   cities.forEach(city => {
     const count = countByCity[city];
     html += `<option value="${city}">${city} (${count})</option>`;
   });
 
+  // Preservar la seleccion (igual que en paises)
+  const selected = elements.cityFilter.value;
   elements.cityFilter.innerHTML = html;
+  elements.cityFilter.value = selected;
 }
 
 function handleCountryChange() {

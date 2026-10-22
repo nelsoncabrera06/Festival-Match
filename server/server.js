@@ -1335,6 +1335,28 @@ function registerServer(app) {
     res.json({ year: currentYear });
   });
 
+  // Vercel agrega el país inferido por IP en el request. Solo se usa para la
+  // primera visita: la preferencia manual queda en localStorage del navegador.
+  app.get('/api/region-default', (req, res) => {
+    const country = String(req.headers['x-vercel-ip-country'] || '').toUpperCase();
+    const europe = new Set([
+      'AD', 'AL', 'AT', 'BA', 'BE', 'BG', 'BY', 'CH', 'CY', 'CZ', 'DE', 'DK', 'EE',
+      'ES', 'FI', 'FR', 'GB', 'GR', 'HR', 'HU', 'IE', 'IS', 'IT', 'LI', 'LT', 'LU',
+      'LV', 'MC', 'MD', 'ME', 'MK', 'MT', 'NL', 'NO', 'PL', 'PT', 'RO', 'RS', 'RU',
+      'SE', 'SI', 'SK', 'SM', 'TR', 'UA', 'VA', 'XK'
+    ]);
+    const latam = new Set([
+      'AR', 'BO', 'BR', 'BZ', 'CL', 'CO', 'CR', 'CU', 'DO', 'EC', 'SV', 'GT', 'HN',
+      'HT', 'MX', 'NI', 'PA', 'PE', 'PY', 'UY', 'VE'
+    ]);
+
+    const region = latam.has(country) ? 'latam'
+      : europe.has(country) ? 'europe'
+        : country === 'US' ? 'usa'
+          : null;
+    res.json({ region, country: /^[A-Z]{2}$/.test(country) ? country : null });
+  });
+
   // ==========================================
   // LAST.FM API - Sugerencias de Artistas
   // ==========================================

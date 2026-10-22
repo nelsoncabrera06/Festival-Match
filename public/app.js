@@ -19,8 +19,10 @@ nextCalendarMonth.setMonth(nextCalendarMonth.getMonth() + 1);
 let calendarMonth = nextCalendarMonth.getMonth();
 let calendarYear = nextCalendarMonth.getFullYear();
 let festivalsData = []; // Cache de festivales para calendario
-let currentRegion = 'europe'; // Región actual (europe, usa, latam)
+let currentRegion = 'usa'; // Región actual; se ajusta en init con preferencia/IP/ubicación
 let currentCountry = ''; // Filtro de país ('' = todos)
+let detectedCountry = ''; // País inferido por IP para la primera selección
+let preferredCountry = ''; // País elegido manualmente en una visita anterior
 let currentCity = ''; // Filtro de ciudad ('' = todas)
 let currentFestivalSearch = '';
 let showFavoritesOnly = false; // Paso 6 (09/10): filtro "solo favoritos"
@@ -91,11 +93,14 @@ async function init() {
     await I18N.init();
   }
 
+  await initializeRegion();
+
   // Obtener año actual del servidor y actualizar título
   await updateCurrentYear();
 
   // Cachear elementos del DOM
   cacheElements();
+  if (elements.regionFilter) elements.regionFilter.value = currentRegion;
 
   // Verificar parametros de URL
   const urlParams = new URLSearchParams(window.location.search);
@@ -125,6 +130,43 @@ async function init() {
 
   // Escuchar cambios de idioma para re-renderizar contenido dinamico
   window.addEventListener('languageChanged', handleLanguageChange);
+}
+
+// Respeta la elección previa; en la primera visita usa el país que Vercel
+// detecta por IP. La zona horaria permite una inferencia local sin enviar la
+// IP a un proveedor externo. Si no hay señal reconocible, se muestra USA.
+async function initializeRegion() {
+  let savedRegion = '';
+  try {
+    savedRegion = localStorage.getItem('festivalMatchRegion') || '';
+    preferredCountry = localStorage.getItem('festivalMatchCountry') || '';
+    if (['europe', 'usa', 'latam'].includes(savedRegion)) {
+      currentRegion = savedRegion;
+    }
+  } catch (err) {
+    // El almacenamiento puede estar deshabilitado; continuar con detección.
+  }
+
+  try {
+    const response = await fetch('/api/region-default');
+    if (response.ok) {
+      const data = await response.json();
+      detectedCountry = /^[A-Z]{2}$/.test(data.country || '') ? data.country : '';
+      if (!savedRegion && ['europe', 'usa', 'latam'].includes(data.region)) {
+        currentRegion = data.region;
+        return;
+      }
+      if (savedRegion) return;
+    }
+  } catch (err) {
+    // En offline o en una versión vieja del backend, usar la zona horaria.
+  }
+
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+  const latamTimezone = /^(America\/(Argentina|Buenos_Aires|Santiago|Sao_Paulo|Bogota|Lima|Mexico_City|Montevideo|Asuncion|La_Paz|Caracas|Guayaquil|Panama|Costa_Rica|Guatemala|Tegucigalpa|Managua|El_Salvador|Santo_Domingo|Havana|Puerto_Rico))/.test(timezone);
+  if (!savedRegion) currentRegion = latamTimezone
+    ? 'latam'
+    : 'usa';
 }
 
 function cacheElements() {
@@ -1940,6 +1982,13 @@ function renderFestivals(festivals) {
 
   // Actualizar opciones de filtros
   updateCountryOptions();
+  if (!currentCountry) {
+    const countryCandidate = preferredCountry || detectedCountry;
+    if (countryCandidate && festivals.some(f => f.country === countryCandidate)) {
+      currentCountry = countryCandidate;
+    }
+  }
+  if (elements.countryFilter) elements.countryFilter.value = currentCountry;
   updateCityOptions();
 
   // Aplicar filtros y renderizar
@@ -2183,6 +2232,15 @@ function switchRegion(region) {
   if (region === currentRegion) return;
 
   currentRegion = region;
+  currentCountry = '';
+  currentCity = '';
+  preferredCountry = '';
+  try {
+    localStorage.setItem('festivalMatchRegion', region);
+    localStorage.removeItem('festivalMatchCountry');
+  } catch (err) {
+    // La selección sigue funcionando durante esta sesión.
+  }
 
   // Reset filtros en cascada
   currentCountry = '';
@@ -2291,6 +2349,13 @@ function updateCityOptions() {
 
 function handleCountryChange() {
   currentCountry = elements.countryFilter.value;
+  preferredCountry = currentCountry;
+  try {
+    if (currentCountry) localStorage.setItem('festivalMatchCountry', currentCountry);
+    else localStorage.removeItem('festivalMatchCountry');
+  } catch (err) {
+    // El filtro sigue funcionando durante esta sesión.
+  }
   currentCity = ''; // Reset ciudad al cambiar país
   if (elements.cityFilter) elements.cityFilter.value = '';
 

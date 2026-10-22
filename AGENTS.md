@@ -3,6 +3,18 @@
 Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje en este repo.
 **Actualizar el checklist de migración al avanzar.** Es la única fuente de verdad del estado del proyecto.
 
+### Mejora en curso (21/10/2026): región inicial por ubicación
+
+- [x] En la primera visita, elegir región con el país que Vercel infiere por IP: países
+  latinoamericanos → Latinoamérica; europeos → Europa; Estados Unidos → USA.
+- [x] Recordar la selección manual en `localStorage` para que prevalezca en visitas futuras.
+- [x] En la primera visita, preseleccionar también el país detectado por IP si hay festivales
+  de ese país en la región; recordar los cambios manuales de país junto con la región.
+- [x] Si no hay país reconocible (por ejemplo, localhost), inferir países latinoamericanos
+  comunes por zona horaria; si no, usar USA. No se consulta un servicio externo de geolocalización.
+- [ ] Revisar en localhost y producción, incluyendo cambiar de región y recargar. Localhost no
+  expone la IP pública al backend; ahí la detección usa la zona horaria del navegador.
+
 ---
 
 ## 🔴 RETOMAR ACÁ — 09/10/2026, sesión 8 (fin del día)

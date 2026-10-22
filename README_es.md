@@ -6,12 +6,12 @@ En vivo: https://festivalmatch.vercel.app/ · English: [README.md](README.md)
 
 Cargá los artistas que realmente escuchás. Festival Match compara tu lista contra el
 lineup de cada festival del catálogo y le pone un puntaje a cada uno — así, en lugar de
-"qué hay en Europa este verano" obtenés "cuáles de estos 58 festivals es realmente sobre vos".
+"qué hay en Europa este verano" obtenés "cuáles de estos 63 festivales realmente van con vos".
 
 ## Qué hace
 
 - **Puntaje de match** — qué porcentaje de tus artistas aparece en cada lineup, ordenado de mayor a menor.
-- **58 festivales, 120 artistas anunciados en lineups de 2026 y 2027** en Europa, USA y Latinoamérica. Los lineups están marcados
+- **63 festivales, 1.031 artistas anunciados en lineups de 2026 y 2027** en Europa, USA y Latinoamérica. Los lineups están marcados
   como *confirmado*, *parcial* o *sin anunciar*, así sabés cuánto confiar en cada puntaje.
 - **Tres formas de armar tu biblioteca** — buscando a mano, vía [MusicBrainz](https://musicbrainz.org),
   o importando tus artistas top de [Last.fm](https://last.fm).

@@ -4,7 +4,7 @@
 --
 -- QUE HACE ESTA MIGRACION
 --
--- Mueve el catalogo de 58 festivales de server/festivals.json a una tabla
+-- Mueve el catalogo de server/festivals.json a una tabla
 -- `festivals`. Es la ultima parte del catalogo en el repo, y la unica que
 -- estaba rota: el panel de admin escribia el catalogo con fs.writeFileSync
 -- sobre festivals.json, y en Vercel el filesystem es read-only, asi que
@@ -37,8 +37,8 @@
 -- no necesita refactor.
 --
 -- `country` NO tiene indice a proposito. El filtro por region (REGIONS en
--- server/server.js) es un `country = ANY($1)` con ~25 codigos sobre 58 filas:
--- un seq scan sobre 58 filas es mas rapido que un indice, y el indice solo
+-- server/server.js) es un `country = ANY($1)` sobre un catalogo pequeno:
+-- un seq scan es mas rapido que un indice, y el indice solo
 -- empezaria a justificar si el catalogo llegara a miles de filas.
 --
 -- `region` tampoco es columna: se deriva de `country` en cada request. Si fuera
@@ -80,10 +80,10 @@ CREATE TABLE IF NOT EXISTS festivals (
 );
 
 -- =============================================================================
--- Seed: los 58 festivales de festivals.json
+-- Seed: todos los festivales de festivals.json
 -- =============================================================================
 --
--- 58 festivales, 120 artistas en lineups, 9 con lineup publicado.
+-- 63 festivales, 1031 artistas en lineups, 24 con lineup publicado.
 --
 -- ON CONFLICT (id) DO UPDATE: hace que re-correrla no duplique las 58 filas.
 --
@@ -116,8 +116,8 @@ INSERT INTO festivals (
     '/images/primavera sound 2026.webp',
     ARRAY['/images/primavera-sound/primavera sound 2026.png']::text[],
     NULL,
-    'unannounced',
-    '{}'::text[],
+    'confirmed',
+    ARRAY['Doechii', 'Phoebe Bridgers', 'Fontaines D.C.', 'Hayley Williams', 'FKA twigs', 'Turnstile', 'Massive Attack', 'The Chemical Brothers', 'Robyn', 'Bad Gyal', 'Lola Young', 'Adéla', 'Caroline Polachek', 'Prospa', 'Skrillex', 'Ninajirachi', 'Pavement', 'King Gizzard & The Lizard Wizard', 'Tinashe', 'Underworld', 'EsDeeKid', 'Kim Petras', 'Bleachers', 'ANOHNI', 'Angine de Poitrine', 'Metronomy', 'Jr Arca', 'Isaiah Rashad', 'Wallows', 'Theodora', 'Snow Strippers', 'BICEP', 'Shygirl', 'Dinosaur Jr.', 'Hearts2Hearts', 'Underscores', 'CHVRCHES', 'MUNA', 'Brutalismus 3000', 'ISOxo', 'Metrika', 'Boy Harsher', 'Akriila', 'Pablopablo', 'Bonnie Prince Billy', 'Vashti Bunyan', 'Weyes Blood', 'Joy Orbison', 'Julien Baker', 'Converge', 'Atlas Sound', 'DIIV', 'Have A Nice Life', 'Mushka', 'Erin LeCount', 'Abhir', 'Santiago Motorizado', 'Greg Freeman', 'Juana Molina', 'Haute & Freddy', 'English Teacher', 'Sophia Stel', 'Westside Cowboy', 'Racing Mount Pleasant', 'Eartheater', 'Castle Rat', 'Friko', 'Lip Critic', 'Gilla Band', 'Alcalá Norte', '@', 'Jersey', 'Los Punsetes', 'Kelsy Lu', 'Alemeda', 'Viva Belgrado', 'John Talabot', 'Full of Hell', 'Mabe Fratti', 'Dame Area', 'Dove Ellis', 'Guillem Gisbert', 'Rebe', 'Mishima', 'Don Caballero', 'Jesu', 'Simian Mobile Disco', 'S.A.S.S.']::text[],
     NULL,
     1
   ),
@@ -151,7 +151,7 @@ INSERT INTO festivals (
     '{}'::text[],
     NULL,
     'partial',
-    ARRAY['Die Toten Hosen', 'Bring Me The Horizon', 'blink-182', 'Turnstile', 'Parkway Drive', 'Falling in Reverse', 'Faith No More', 'Evanescence', 'Billy Talent', 'The Prodigy']::text[],
+    ARRAY['Die Toten Hosen', 'Bring Me The Horizon', 'blink-182', 'Turnstile', 'Parkway Drive', 'Falling in Reverse', 'Faith No More', 'Evanescence', 'Billy Talent', 'The Prodigy', 'Motionless In White', 'Bullet For My Valentine', 'Lorna Shore', 'I Prevail', 'Nothing But Thieves', 'Amon Amarth', 'Arch Enemy', 'Imminence', 'Orbit Culture', 'Beartooth', 'Bad Religion', 'Simple Plan', 'Donots', 'Poppy', 'Trailerpark', 'Ski Aggu', 'Alexander Marcus', 'Betontod', 'Clutch', 'From Ashes to New', 'Highly Suspect', 'Holding Absence', 'Showing Teeth', 'Silverstein', 'TBS', 'The Pretty Wild', 'As December Falls', 'Cenobia', 'Jinjer', 'Novelists', 'SPEED', 'The Amity Affliction', 'The Devil Wears Prada', 'Pendulum', 'Currents', 'Guilt Trip', 'Haywire', 'Killswitch Engage', 'Mittel Alta', 'Sleeping With Sirens']::text[],
     NULL,
     3
   ),
@@ -218,8 +218,8 @@ INSERT INTO festivals (
     NULL,
     '{}'::text[],
     NULL,
-    'unannounced',
-    '{}'::text[],
+    'partial',
+    ARRAY['Tame Impala', 'Caroline Polachek', 'Kacey Musgraves', 'Emma Sehested Høeg', 'Ezra Collective', 'Karpe', 'Kundo', 'Lambrini Girls', 'Neurosis', 'Patti Smith Quartet', 'Suki Waterhouse', 'Underscores', '454', 'Drain', 'G Jones B2B Eprom', 'James K', 'Konvent', 'Nu Jazz']::text[],
     NULL,
     7
   ),
@@ -246,7 +246,7 @@ INSERT INTO festivals (
     'Biddinghuizen',
     'Biddinghuizen, Países Bajos',
     'NL',
-    '2027 (fecha por anunciar)',
+    '20-22 Agosto 2027',
     'https://lowlands.nl',
     'https://images.unsplash.com/photo-1563841930606-67e2bce48b78?w=800',
     NULL,
@@ -270,7 +270,7 @@ INSERT INTO festivals (
     ARRAY['/images/nos-alive/Nos alive 2026.jpg']::text[],
     NULL,
     'partial',
-    ARRAY['Tame Impala']::text[],
+    ARRAY['Tame Impala', 'sombr', 'Myles Smith']::text[],
     NULL,
     10
   ),
@@ -304,7 +304,7 @@ INSERT INTO festivals (
     '{}'::text[],
     NULL,
     'partial',
-    ARRAY['Tame Impala']::text[],
+    ARRAY['Tame Impala', 'SOMBR', 'Muse', 'Angèle', 'Sam Fender']::text[],
     NULL,
     12
   ),
@@ -314,14 +314,14 @@ INSERT INTO festivals (
     'Gdynia',
     'Gdynia, Polonia',
     'PL',
-    '2027 (fecha por anunciar)',
+    '30 Junio - 3 Julio 2027',
     'https://opener.pl',
     'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800',
     NULL,
     '{}'::text[],
     NULL,
-    'unannounced',
-    '{}'::text[],
+    'partial',
+    ARRAY['Tame Impala', 'sombr', 'The Chemical Brothers', 'The Neighbourhood', 'RAYE', '5 Seconds of Summer', 'Adéla', 'Ellie Goulding', 'Patti Smith Quartet', 'Underscores']::text[],
     NULL,
     13
   ),
@@ -355,7 +355,7 @@ INSERT INTO festivals (
     ARRAY['/images/tuska/TUSKA26.jpg']::text[],
     NULL,
     'partial',
-    ARRAY['Lorna Shore', 'Children Of Bodom']::text[],
+    ARRAY['Judas Priest', 'Lorna Shore', 'Children Of Bodom', 'Heaven Shall Burn', 'Kanonenfieber', 'The Devil Wears Prada', 'Guilt Trip', 'Stratovarius', 'Danko Jones', 'Smash Into Pieces', 'Green Lung', 'Fox Lake', 'Gaerea', 'Avralize', 'Sinizter']::text[],
     NULL,
     15
   ),
@@ -388,7 +388,7 @@ INSERT INTO festivals (
     NULL,
     '{}'::text[],
     'Cierre del Amsterdam Dance Event. Aquí se anuncia el DJ Mag Top 100',
-    'partial',
+    'confirmed',
     ARRAY['Afrojack', 'Amelie Lens', 'Armin van Buuren', 'ARTBAT', 'D-Block & S-te-Fan', 'David Guetta', 'Korolova', 'Marlon Hoffstadt']::text[],
     NULL,
     17
@@ -450,13 +450,13 @@ INSERT INTO festivals (
     'Manchester',
     'Manchester, Tennessee',
     'US',
-    '2027 (fecha por anunciar)',
+    '2027 (sin edición)',
     'https://www.bonnaroo.com',
     'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800',
     NULL,
     '{}'::text[],
     NULL,
-    'unannounced',
+    'hiatus',
     '{}'::text[],
     NULL,
     21
@@ -473,8 +473,8 @@ INSERT INTO festivals (
     NULL,
     '{}'::text[],
     NULL,
-    'partial',
-    ARRAY['Charli XCX', 'RÜFÜS DU SOL', 'Twenty One Pilots', 'Lorde', 'The xx', 'Skrillex', 'Kings of Leon']::text[],
+    'confirmed',
+    ARRAY['Aaron Rowe', 'Amyl And The Sniffers', 'Arcy Drive', 'Asleep At The Wheel', 'Audrey Hobert', 'BUNT.', 'Bad Nerves', 'Balu Brigada', 'Bella Kay', 'Bleachers', 'Blood Orange', 'Bo Staloch', 'Brandon Flowers', 'Brigitte Calls Me Baby', 'Cannons', 'Charli XCX', 'Charlotte Lawrence', 'Chloe Qisha', 'Claire Rosinkranz', 'CMAT', 'Common People', 'Don West', 'Elle Coves', 'Fakemink', 'Faouzia', 'Fcukers', 'Finn Wolfhard', 'Geese', 'Houndmouth', 'It''s Murph', 'Jesse Welles', 'Josh Conway', 'Kingfishr', 'Kings Of Leon', 'Labrinth', 'Laszewo', 'Lauren Sanderson', 'Leon Thomas', 'Levity', 'Lola Young', 'Lorde', 'LP', 'Lykke Li', 'Marlon Funaki', 'Max McNown', 'Molly Santana', 'Natasha Bedingfield', 'New Constellations', 'Night Tapes', 'Noga Erez', 'Palace', 'Parcels', 'Paris Paloma', 'Rebecca Black', 'Rio Kosta', 'Rochelle Jordan', 'Rodrigo Y Gabriela', 'Rubio', 'Rum Jungle', 'Rusowsky', 'Ryan Beatty', 'RÜFÜS DU SOL', 'S.G. Goodman', 'Saint Motel', 'Sasha Keable', 'Sienna Spiro', 'Skrillex', 'Skye Newman', 'Snow Strippers', 'Sofi Tukker', 'Stella Lefty', 'Steve Aoki', 'Suki Waterhouse', 'Sunday (1994)', 'Temper City', 'The Chainsmokers', 'The War On Drugs', 'The xx', 'Turnstile', 'Twenty One Pilots', 'Underscores', 'Villanelle', 'Young Miko', 'Yousuke Yukimatsu', 'Hunx and His Punx', 'Grocery Bag', 'Izzy Escobar', 'King Solomon Hicks', 'The 4411', 'Elijah Delgado', 'Cure For Paranoia', 'Nat Myers', 'Fai Laci', 'Emma Ogier', 'Coleman Jennings', 'FIGHTMASTER', 'Left Lucid', 'DJ Cassandra', 'Annie DiRusso', 'Fancy Hagood', 'Britton', 'Solya', 'The Moriah Sisters', 'Jess Williamson', 'Dexter and The Moonrocks', 'World Famous Pets', 'Cassandra Coleman', 'Dallas Wax', 'Joe Jordan', 'HAPPY LANDING', 'Girlfriend', 'Almost Heaven', 'Leon Knight', 'Radio Free Alice', 'Gabriel Jacoby', 'Dámaris Bójor', 'lluvii', 'Montclair', 'Presley Regier', 'Łaszewo', 'Macy Todd', 'Ethan Regan', 'Vwillz', 'Marzz', 'Thomas Day', 'Kevin Atwater', 'Chelsea Jordan', 'The Huston-Tillotson University Jazz Collective', 'Joshua Jensen', 'Grace Ives']::text[],
     NULL,
     22
   ),
@@ -496,6 +496,91 @@ INSERT INTO festivals (
     23
   ),
   (
+    'cosquin-rock',
+    'Cosquín Rock',
+    'Santa María de Punilla',
+    'Aeródromo Santa María de Punilla, Córdoba',
+    'AR',
+    '6-7 Febrero 2027',
+    'https://cosquinrock.net',
+    'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=800',
+    NULL,
+    '{}'::text[],
+    NULL,
+    'confirmed',
+    ARRAY['2 Minutos', 'A La Par', 'Abril Olivera', 'Ale Kurz', 'Autos Robados', 'Babasónicos', 'Bacanas', 'BB Asul', 'Blair', 'Blues Motel', 'Botafogo', 'Búfalos Sedientos', 'Cada Cual', 'Camionero', 'Capital Cities', 'Catupecu Machu', 'César Valdomir', 'Chapa & Castelo', 'Ciro y Los Persas', 'Cruzando el Charco', 'Cuatro al Hilo', 'Daniela Spalla', 'Delfina Campos', 'Dellacasa', 'Divididos', 'El Kuelgue', 'El Mató a un Policía Motorizado', 'El Plan de la Mariposa', 'El Zar', 'Escalopez', 'Florián', 'Franco Cinelli', 'Gauchito Club', 'Gente Negra', 'Guasones', 'Gustavo Cordera', 'Héctor Couto', 'Ilan Amores', 'Illya Kuryaki and the Valderramas', 'Jack Johnson', 'Jay de Lys', 'Jorge Drexler', 'Juan Ingaramo', 'Justi Riga', 'Kapanga', 'Kat Riggins', 'Koino Yokan', 'La Chancha Muda', 'La Cumparsita Rock', 'La Delio Valdez', 'La Forastería', 'La Grecia', 'La H No Murió', 'La Kermesse Redonda', 'La Mississippi', 'La Virgenxita', 'Las Pastillas del Abuelo', 'Las Pelotas', 'Lisandro Aristimuño', 'Locche', 'Los Besos', 'Los Cafres', 'Los Espíritus', 'Los Fabulosos Cadillacs', 'Los Gardelitos', 'Los Neuropibes', 'Los Pérez García', 'Lulú Matheu', 'Manu Desrets', 'Manu Martínez', 'Mar Monzon', 'Mariano Mellino', 'Marilina Bertoldi', 'Marino’s Band', 'Martín Huergo', 'Mateo Dufour', 'Memphis La Blusera', 'Mixo', 'MRTNA', 'Nacho Bolognani', 'Najles', 'Nick Curly', 'Nicola', 'No Te Va Gustar', 'Nonpalidece', 'Peces Raros', 'Perras on the Beach', 'Piti Fernández', 'Pizza', 'Q’ Lokura', 'Ramma', 'Ramita Puzzo', 'Ratones Paranoicos', 'Reybruja', 'Richie Hawtin', 'Ryan', 'Salas Velatorias', 'Sandra Vázquez', 'Siloé', 'Silvestre y La Naranja', 'Só', 'Sour District', 'Tan Biónica', 'The Ginger Hearts', 'The Rhythm Gamblers', 'Tiky Sironi & Agus Prieto', 'Un Poco de Ruido', 'Usted Señalemelo', 'Victoria Whynot', 'Viejo Motor', 'Wayra Iglesias', 'Winona Riders', 'Wos', 'Zaren', 'Zoe Gotusso']::text[],
+    NULL,
+    24
+  ),
+  (
+    'quilmes-rock',
+    'Quilmes Rock',
+    'Buenos Aires',
+    'Buenos Aires, Argentina (predio por anunciar)',
+    'AR',
+    '16-18 Abril 2027',
+    'https://www.quilmesrock.com.ar',
+    'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800',
+    NULL,
+    '{}'::text[],
+    NULL,
+    'unannounced',
+    '{}'::text[],
+    NULL,
+    25
+  ),
+  (
+    'primavera-sound-buenos-aires',
+    'Primavera Sound Buenos Aires',
+    'Buenos Aires',
+    'Club Ciudad de Buenos Aires',
+    'AR',
+    '28-29 Noviembre 2026',
+    'https://www.primaverasound.com/en/buenos-aires',
+    'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800',
+    NULL,
+    '{}'::text[],
+    NULL,
+    'confirmed',
+    ARRAY['Gorillaz', 'The Strokes', 'FKA twigs', 'Lily Allen', 'Yung Lean', 'CMAT', 'Courtney Barnett', 'underscores', 'Danny L Harle', 'Nation of Language', 'Juana Molina', 'Santiago Motorizado', 'Cara Delevingne', 'Smerz', 'Marilina Bertoldi', 'Ecco2K', 'Jaime Sin Tierra', 'John Talabot', 'Juana Aguirre', 'Juliana Gattas', 'Los Thuthanaka', 'Machine Girl', 'Mannequin Pussy', 'Metrika', 'Model/Actriz', 'Nick León', 'Sophia Stel', 'This Is Lorelei', 'Ambik', 'Babeblade', 'Candelabro', 'Chechi de Marcos', 'Fin del Mundo', 'Lisa Scha', 'Maria Wolff', 'El Nota', 'Pizza', 'Sunlid', 'Wiranda Johansen', 'Yeyo']::text[],
+    NULL,
+    26
+  ),
+  (
+    'creamfields-argentina',
+    'Creamfields Argentina',
+    'Buenos Aires',
+    'Parque de la Ciudad, Buenos Aires',
+    'AR',
+    '14 Noviembre 2026',
+    'https://www.creamfields.ar',
+    'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800',
+    NULL,
+    '{}'::text[],
+    NULL,
+    'confirmed',
+    ARRAY['Âme (Live)', 'Anfisa Letyago', 'The Blessed Madonna', 'Charlotte de Witte', 'Enrico Sangiuliano', 'Faithless Sound System', 'FISHER', 'HUGEL', 'Innellea', 'Kölsch', 'Kevin Di Serna', 'Loud Luxury', 'Nic Fanciulli', 'SOSA', 'Sven Väth', 'Ana Hagen', 'Carca (DJ Set)', 'DJs Pareja', 'Festa Bros', 'Guido Sartoris', 'Loïc', 'Lulú Matheou', 'Luis Nieva', 'Mabel', 'Manu Oubiña', 'Mar Monzon', 'Martin Huergo', 'Miguel Silver', 'Momo Trosman', 'Pabels']::text[],
+    NULL,
+    27
+  ),
+  (
+    'festival-bandera',
+    'Festival Bandera',
+    'Rosario',
+    'Parque Estación Central Córdoba, Rosario, Santa Fe',
+    'AR',
+    '24 Octubre 2026',
+    'https://www.instagram.com/festivalbanderaok/',
+    'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800',
+    NULL,
+    '{}'::text[],
+    NULL,
+    'confirmed',
+    ARRAY['Hana', 'BB Asul', 'Zoe Gotusso', 'Marilina Bertoldi', 'Dillom', 'Guasones', 'La Vela Puerca', 'Cosmic Kid', 'Ramma', 'Aterciopelados', 'El Mató a un Policía Motorizado', 'YSY A', 'Las Pastillas del Abuelo', 'Alejo', 'Un Muerto Más', 'Broke Carrey', 'La Franela', 'Lisandro Aristimuño', 'Carca', 'Autos Robados', 'Caliope Family', 'El Zar', 'Peces Raros', 'Pablikoman & TFT', 'Amira', 'Vandera', 'Nuestro Romance', 'Perras on the Beach', 'La Grecia', 'Javiera Mena', 'Mi Amigo Invencible', 'Bandalos Chinos']::text[],
+    NULL,
+    28
+  ),
+  (
     'lollapalooza-argentina',
     'Lollapalooza Argentina',
     'Buenos Aires',
@@ -507,10 +592,10 @@ INSERT INTO festivals (
     NULL,
     '{}'::text[],
     NULL,
-    'unannounced',
-    '{}'::text[],
+    'confirmed',
+    ARRAY['Travis Scott', 'Charli XCX', 'The Killers', 'TINI', 'David Guetta', 'Queens of the Stone Age', 'The Neighbourhood', 'Rawayana', 'Fontaines D.C.', 'Sombr', 'The Prodigy', 'Dillom', 'Malcolm Todd', 'Geese', 'Cage the Elephant', 'Dominic Fike', 'RAYE', 'Lola Young', 'Slayyyter', 'Adéla', 'Un Poco de Ruido', 'Marlon Hoffstadt', 'Four Tet', 'Angine de Poitrine', 'Tomora', 'K4OS', 'Leon Bridges', 'Usted Señalemelo', 'Boys Noize', 'Snow Strippers', 'Carlita', 'Sammy Virji', 'Ninajirachi', 'Julia Wolf', 'Die Spitz', 'Yorghaki', 'The Avalanches', 'Rivo', 'Boy Harsher', 'Mateo Dufour Live', 'Amaia', 'Midnight Generation', 'Mind Enterprises', 'Ayybo', 'Juan Hansen Live', 'Violet Grohl', 'Ela Taubert', 'Enzocerobulto', 'Juana Rozas', 'Francisca Valenzuela', 'Broke Carrey', 'Princesa Alba', 'Lolu Menayed', 'Folgar', 'Tiga', 'Santos Bravos', 'Daniela Spalla', 'Kchiporros', 'Natalia Lacunza', 'Zé Pequeña', 'Sofía Mora', 'Dandára', 'Joaco Burgos', 'Ara', 'Palo', 'Fabrizio', 'Mai Lawson', 'Hana Fox', 'Varese', 'Sol Porro', 'Hellolola', 'Molle', 'Pato Mallet', 'Las Sombras', 'La Ramona']::text[],
     NULL,
-    24
+    29
   ),
   (
     'lollapalooza-chile',
@@ -524,10 +609,10 @@ INSERT INTO festivals (
     NULL,
     '{}'::text[],
     NULL,
-    'unannounced',
-    '{}'::text[],
+    'confirmed',
+    ARRAY['Travis Scott', 'Charli XCX', 'The Killers', 'David Guetta', 'Queens of the Stone Age', 'The Neighbourhood', 'Rawayana', 'Fontaines D.C.', 'Sombr', 'The Prodigy', 'Malcolm Todd', 'Dominic Fike', 'Cage the Elephant', 'Geese', 'Raye', 'Slayyyter', 'Lola Young', 'Adéla', 'Marlon Hoffstadt', 'Four Tet', 'Tomora', 'Leon Bridges', 'Francisca Valenzuela', 'Gondwana & Quique Neira', 'Alex Anwandter', 'Angine de Poitrine', 'Santaferia', 'Javiera Mena', 'Ana Tijoux', 'Cuarteto de Nos', 'Snow Strippers', 'Julia Wolf', 'Sammy Virji', 'Carlita', 'Lucky Brown', 'Yorghaki', 'Ninajirachi', 'K4OS', 'Amaia', 'Pedro Capó', 'SFDK', 'Boys Noize', 'Ela Taubert', 'Leo Rey', 'Princesa Alba', 'Boy Harsher', 'Los Tetas', 'Midnight Generation', 'Congreso', 'Santos Bravos', 'Alain Johannes Trío', 'Saramalacara', 'Angela Torres', 'Tiga', 'Natalia Lacunza', 'Dinamarca', 'Die Spitz', 'Mind Enterprises', 'Violet Grohl', 'Hermanos Ilabaca', 'Catalina y las Bordonas de Oro', 'We Are The Grand', 'Kuina', 'DJ Raff', 'The Alive!', 'Lorna', 'Pascual Arroyo', 'Estoy Bien', 'Estéreo Fam', 'Javicrespo', 'Roce de Mente', 'Teodioteodio', 'Olivia García', 'Iza TKM', 'White MJ', 'Nando García', 'Valentino Merlo', 'Ryan', 'Rootz Hifi', 'Javiera Electra', 'Alicia y las Hormigas', 'La Ramona', 'Vibrational Echoes', 'Yellow Fever']::text[],
     NULL,
-    25
+    30
   ),
   (
     'lollapalooza-brasil',
@@ -535,16 +620,16 @@ INSERT INTO festivals (
     'São Paulo',
     'Autódromo de Interlagos, São Paulo',
     'BR',
-    '2027 (fecha por anunciar)',
+    '19-21 Marzo 2027',
     'https://www.lollapaloozabr.com',
     'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800',
     NULL,
     '{}'::text[],
     NULL,
-    'unannounced',
-    '{}'::text[],
+    'confirmed',
+    ARRAY['Travis Scott', 'Charli XCX', 'The Killers', 'David Guetta', 'Queens of the Stone Age', 'The Neighbourhood', 'Fontaines D.C.', 'The Prodigy', 'Sombr', 'Mochakk', 'Dominic Fike', 'Cage the Elephant', 'Adéla', 'Leon Bridges', 'Boys Noize', 'Snow Strippers', 'Criolo, Amaro e Dino', 'Nação Zumbi', 'The Avalanches', 'BRIME!!', 'Santos Bravos', 'Carola & Curol', 'Weird Baile', 'Make U Sweat', 'Acid Asian', 'Real No Ficcion', 'Mary Olivetti', 'Rakta', 'Clarissa', 'Malcolm Todd', 'Lola Young', 'Marlon Hoffstadt', 'Rodrigo Amarante', 'Angine de Poitrine', 'Julia Wolf', 'Die Spitz', 'Midnight Generation', 'Violet Grohl', 'Mind Enterprises', 'Clementaum', 'Fernanda Martins', 'Grag Queen', 'Zepelim e o Sopro do Cão', 'Seu Pereira e Coletivo 401', 'DJ Ramemes', 'El Efecto', 'Deafkids', 'Ciça Moreira', 'Raye', 'Slayyyter', 'Four Tet', 'Mike D 5D', 'Sammy Virji', 'NinaJirachi', 'Cat Dealers', 'Carlita', 'Boy Harsher', 'Fezzo', 'Rawayana', 'Budang', 'Luana Flores', 'Bebé', 'Gatiça', 'Marina Diniz', 'Psilosamples', 'Kenya20Hz', 'Paira', 'Núbia', 'Joaquim', 'DJ Tamy', 'Geese', 'Tomora', 'Maujs', 'Buhr']::text[],
     NULL,
-    26
+    31
   ),
   (
     'rock-in-rio',
@@ -552,16 +637,16 @@ INSERT INTO festivals (
     'Rio de Janeiro',
     'Rio de Janeiro, Brasil',
     'BR',
-    '2027 (fecha por anunciar)',
+    '2028 (fecha por anunciar)',
     'https://rockinrio.com',
     'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=800',
     NULL,
     '{}'::text[],
     NULL,
-    'unannounced',
+    'hiatus',
     '{}'::text[],
     NULL,
-    27
+    32
   ),
   (
     'vive-latino',
@@ -569,7 +654,7 @@ INSERT INTO festivals (
     'Ciudad de México',
     'Ciudad de México, México',
     'MX',
-    '2027 (fecha por anunciar)',
+    '13-14 Marzo 2027',
     'https://www.vivelatino.com.mx',
     'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=800',
     NULL,
@@ -578,7 +663,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    28
+    33
   ),
   (
     'estereo-picnic',
@@ -592,10 +677,10 @@ INSERT INTO festivals (
     NULL,
     '{}'::text[],
     NULL,
-    'unannounced',
-    '{}'::text[],
+    'partial',
+    ARRAY['Charli XCX', 'The Prodigy', 'Adéla', 'Arcángel', 'David Guetta', 'Rawayana', 'Cage the Elephant', 'Fontaines D.C.', 'Lola Young', 'Avenged Sevenfold', 'Amelie Lens', 'Amaia', 'Angine de Poitrine', 'Boy Harsher', 'Boys Noize', 'Die Spitz', 'Four Tet', 'Kasabian', 'Khruangbin', 'Leon Bridges', 'Lola Índigo', 'Malcolm Todd', 'Marlon Hoffstadt', 'Milo J', 'Mind Enterprises', 'Ninajirachi', 'RAYE', 'Slayyyter', 'Snow Strippers', 'sombr', 'The Avalanches', 'Top Boy', 'Leeds']::text[],
     NULL,
-    29
+    34
   ),
   (
     'corona-capital',
@@ -609,10 +694,10 @@ INSERT INTO festivals (
     NULL,
     '{}'::text[],
     NULL,
-    'partial',
+    'confirmed',
     ARRAY['Gorillaz', 'Mumford & Sons', 'Daniel Caesar', 'James Blake', 'The Kooks', 'Absolutely', 'Anna Luna', 'Chezile', 'CHVRCHES', 'CMAT', 'Darianna Everett', 'Durand Jones & The Indications', 'Fcukers', 'Friko', 'Grace Ives', 'Hot Milk', 'JMSN', 'Model/Actriz', 'Olive Jones', 'RIP Magic', 'Thee Sinseers', 'Sofia Isella', 'Violet Grohl', 'Yung Lean', 'Twenty One Pilots', 'The Offspring', 'Pierce The Veil', 'Underworld', 'Mother Mother', 'Baby Queen', 'Balu Brigada', 'BØRNS', 'Dope Lemon', 'The Hellp', 'Jordana', 'Maisie Peters', 'Militarie Gun', 'MS*GLOOM', 'New Constellations', 'Peaches', 'Princess Chelsea', 'Quarters', 'Rikas', 'Sawyer Hill', 'Strawberry Guy', 'We Are Scientists', 'Stella', 'The Strokes', 'The xx', 'Lola Young', 'Lil Yachty', 'BUNT.', 'Angine de Poitrine', 'Bad Suns', 'The Black Crowes', 'Céline Dessberg', 'Ela Minus', 'Freak Slug', 'Good Kid', 'Johnny Marr', 'Loyle Carner', 'Manic Street Preachers', 'Moyka', 'Ninajirachi', 'Purity Ring', 'Ratboys', 'Rev Run', 'Roar', 'Santigold', 'Tipling Rock', 'Tricky']::text[],
     NULL,
-    30
+    35
   ),
   (
     'ultra-miami',
@@ -626,10 +711,10 @@ INSERT INTO festivals (
     NULL,
     '{}'::text[],
     NULL,
-    'unannounced',
-    '{}'::text[],
+    'partial',
+    ARRAY['Adam Beyer', 'Afrojack', 'Alison Wonderland b2b Tiffany Day', 'Armin van Buuren', 'Boris Brejcha b2b Eric Prydz presents CirezD', 'Boys Noize', 'BUNT.', 'Calvin Harris', 'DJ Pee .Wee aka Anderson .Paak', 'Dom Dolla', 'Holy Priest', 'I Hate Models', 'Indira Paganotto', 'It''s Murph', 'Klangkuenstler', 'Liquid Stranger', 'Marshmello b2b Subtronics', 'Martin Garrix', 'Mau P', 'Michael Bibi', 'Miss Monique Presents Biorhythm', 'Nico Moreno b2b Novah', 'Sara Landry Divine Intervention', 'SOFI TUKKER Presents Animal Talk', 'Steve Aoki']::text[],
     NULL,
-    31
+    36
   ),
   (
     'ultra-buenos-aires',
@@ -646,7 +731,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    32
+    37
   ),
   (
     'ultra-europe',
@@ -663,7 +748,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    33
+    38
   ),
   (
     'weekend-festival',
@@ -680,7 +765,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    34
+    39
   ),
   (
     'festival-buena-vibra',
@@ -697,7 +782,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    35
+    40
   ),
   (
     'rock-im-park',
@@ -705,16 +790,16 @@ INSERT INTO festivals (
     'Nürnberg',
     'Zeppelinfeld, Nürnberg, Alemania',
     'DE',
-    '2027 (fecha por anunciar)',
+    '4-6 Junio 2027',
     'https://www.rock-im-park.com',
     'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800',
     NULL,
     '{}'::text[],
     'Festival hermano de Rock am Ring. Ambos comparten el mismo lineup - los artistas tocan un día en cada festival. Capacidad: ~60,000 personas.',
     'partial',
-    ARRAY['Die Toten Hosen', 'Bring Me The Horizon', 'blink-182', 'Turnstile', 'Parkway Drive', 'Falling in Reverse', 'Faith No More', 'Evanescence', 'Billy Talent', 'The Prodigy']::text[],
+    ARRAY['Die Toten Hosen', 'Bring Me The Horizon', 'blink-182', 'Turnstile', 'Parkway Drive', 'Falling in Reverse', 'Faith No More', 'Evanescence', 'Billy Talent', 'The Prodigy', 'Motionless In White', 'Bullet For My Valentine', 'Lorna Shore', 'I Prevail', 'Nothing But Thieves', 'Amon Amarth', 'Arch Enemy', 'Imminence', 'Orbit Culture', 'Beartooth', 'Bad Religion', 'Simple Plan', 'Donots', 'Poppy', 'Trailerpark', 'Ski Aggu', 'Alexander Marcus', 'Betontod', 'Clutch', 'From Ashes to New', 'Highly Suspect', 'Holding Absence', 'Showing Teeth', 'Silverstein', 'TBS', 'The Pretty Wild', 'As December Falls', 'Cenobia', 'Jinjer', 'Novelists', 'SPEED', 'The Amity Affliction', 'The Devil Wears Prada', 'Pendulum', 'Currents', 'Guilt Trip', 'Haywire', 'Killswitch Engage', 'Mittel Alta', 'Sleeping With Sirens']::text[],
     NULL,
-    36
+    41
   ),
   (
     'exit-festival',
@@ -731,7 +816,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    37
+    42
   ),
   (
     'reading-festival',
@@ -739,7 +824,7 @@ INSERT INTO festivals (
     'Reading',
     'Richfield Avenue, Reading, Inglaterra',
     'GB',
-    '2027 (fecha por anunciar)',
+    '26-29 Agosto 2027',
     'https://www.readingfestival.com',
     'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=800',
     NULL,
@@ -748,7 +833,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    38
+    43
   ),
   (
     'leeds-festival',
@@ -756,7 +841,7 @@ INSERT INTO festivals (
     'Leeds',
     'Bramham Park, Leeds, Inglaterra',
     'GB',
-    '2027 (fecha por anunciar)',
+    '26-29 Agosto 2027',
     'https://www.leedsfestival.com',
     'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=800',
     NULL,
@@ -765,7 +850,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    39
+    44
   ),
   (
     'pukkelpop',
@@ -773,7 +858,7 @@ INSERT INTO festivals (
     'Hasselt',
     'Kiewit, Hasselt, Bélgica',
     'BE',
-    '2027 (fecha por anunciar)',
+    '19-22 Agosto 2027',
     'https://www.pukkelpop.be',
     'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800',
     NULL,
@@ -782,7 +867,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    40
+    45
   ),
   (
     'hurricane-festival',
@@ -790,16 +875,16 @@ INSERT INTO festivals (
     'Scheeßel',
     'Eichenring, Scheeßel, Alemania',
     'DE',
-    '2027 (fecha por anunciar)',
+    '18-20 Junio 2027',
     'https://www.hurricane.de',
     'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=800',
     NULL,
     '{}'::text[],
     'Twin festival de Southside. Ambos comparten el mismo lineup.',
-    'unannounced',
-    '{}'::text[],
+    'partial',
+    ARRAY['Muse', 'Machine Gun Kelly', 'Phoebe Bridgers', 'Ikkimel', 'Pierce The Veil', 'I Prevail', 'Dropkick Murphys', 'Feine Sahne Fischfilet', 'Giant Rooks', 'Paula Hartmann', 'Simple Plan', 'Mehnersmoos', 'The Interrupters', 'Deine Cousine', 'Angine de Poitrine', 'Sofia Isella', 'Apsilon']::text[],
     NULL,
-    41
+    46
   ),
   (
     'southside-festival',
@@ -807,16 +892,16 @@ INSERT INTO festivals (
     'Neuhausen ob Eck',
     'Take-Off Park, Neuhausen ob Eck, Alemania',
     'DE',
-    '2027 (fecha por anunciar)',
+    '18-20 Junio 2027',
     'https://www.southside.de',
     'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=800',
     NULL,
     '{}'::text[],
     'Twin festival de Hurricane. Ambos comparten el mismo lineup.',
-    'unannounced',
-    '{}'::text[],
+    'partial',
+    ARRAY['Muse', 'Machine Gun Kelly', 'Phoebe Bridgers', 'Ikkimel', 'Pierce The Veil', 'I Prevail', 'Dropkick Murphys', 'Feine Sahne Fischfilet', 'Giant Rooks', 'Paula Hartmann', 'Simple Plan', 'Mehnersmoos', 'The Interrupters', 'Deine Cousine', 'Angine de Poitrine', 'Sofia Isella', 'Apsilon']::text[],
     NULL,
-    42
+    47
   ),
   (
     'nos-primavera-sound-porto',
@@ -833,7 +918,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    43
+    48
   ),
   (
     'awakenings-festival',
@@ -850,7 +935,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    44
+    49
   ),
   (
     'parookaville',
@@ -867,7 +952,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    45
+    50
   ),
   (
     'sonus-festival',
@@ -884,7 +969,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    46
+    51
   ),
   (
     'dekmantel-festival',
@@ -901,7 +986,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    47
+    52
   ),
   (
     'time-warp',
@@ -918,7 +1003,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    48
+    53
   ),
   (
     'boomtown-fair',
@@ -935,7 +1020,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    49
+    54
   ),
   (
     'ruisrock',
@@ -952,7 +1037,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    50
+    55
   ),
   (
     'provinssi',
@@ -967,9 +1052,9 @@ INSERT INTO festivals (
     '{}'::text[],
     NULL,
     'partial',
-    ARRAY['Bring Me The Horizon', 'Bad Omens', 'The Prodigy', 'Apulanta', 'Eppu Normaali', 'Wolf Alice', 'Gettomasa', 'IBE', 'Kuumaa', 'Lauri Haav']::text[],
+    ARRAY['Children Of Bodom']::text[],
     NULL,
-    51
+    56
   ),
   (
     'ilosaarirock',
@@ -986,7 +1071,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    52
+    57
   ),
   (
     'nummirock',
@@ -994,7 +1079,7 @@ INSERT INTO festivals (
     'Nummijärvi',
     'Nummijärvi, Kauhajoki, Finlandia',
     'FI',
-    '2027 (fecha por anunciar)',
+    '23-26 Junio 2027',
     'https://www.nummirock.fi',
     'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=800',
     NULL,
@@ -1003,7 +1088,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    53
+    58
   ),
   (
     'steelfest',
@@ -1011,16 +1096,16 @@ INSERT INTO festivals (
     'Hyvinkää',
     'Old Wool Factory, Hyvinkää, Finlandia',
     'FI',
-    '2027 (fecha por anunciar)',
+    '13-15 Mayo 2027',
     'https://www.steelfest.fi',
     'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=800',
     NULL,
     '{}'::text[],
     'Festival de black metal y extreme metal. K-18.',
-    'unannounced',
-    '{}'::text[],
+    'partial',
+    ARRAY['Abruptum', 'Dødheimsgard', 'Archgoat', 'Mystifier', 'Horna', 'Osculum Infame', 'Acherontas', 'Seth', 'Winterfylleth', 'Grave Miasma', 'Infernal War', 'Sargeist', 'Nordjevel', 'Kroda', 'Adorior', 'Ride For Revenge', 'Mortifera', 'Nyogthhaeblisz', 'Korgonthurus', 'Saor', 'Curse Upon Prayer', 'Urn', 'White Rune', 'Bythos', 'Moosegut', 'Maquahuitl', 'Cadaveric Incubator', 'Hierophany', 'Malakhim', 'Grieve', 'True Iron Will', 'Nexul', 'Beleths Trumpet', 'Kratti', 'Autumns Strife', 'Black Beast', 'Abyssion', 'Rietas', 'Hellgate Necrosodomy', 'Azazel']::text[],
     NULL,
-    54
+    59
   ),
   (
     'blockfest',
@@ -1037,7 +1122,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    55
+    60
   ),
   (
     'helsinki-city-festival',
@@ -1045,7 +1130,7 @@ INSERT INTO festivals (
     'Helsinki',
     'Helsingin Jäähalli, Helsinki, Finlandia',
     'FI',
-    '2027 (fecha por anunciar)',
+    '18-19 Junio 2027',
     'https://www.helsinkicityfestival.fi',
     'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800',
     NULL,
@@ -1054,7 +1139,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    56
+    61
   ),
   (
     'pori-jazz',
@@ -1062,7 +1147,7 @@ INSERT INTO festivals (
     'Pori',
     'Kirjurinluoto Concert Park, Pori, Finlandia',
     'FI',
-    '2027 (fecha por anunciar)',
+    '15-17 Julio 2027',
     'https://www.porijazz.fi/',
     'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=800',
     NULL,
@@ -1071,7 +1156,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    57
+    62
   ),
   (
     'rock-in-seine',
@@ -1088,7 +1173,7 @@ INSERT INTO festivals (
     'unannounced',
     '{}'::text[],
     NULL,
-    58
+    63
   )
 ON CONFLICT (id) DO UPDATE SET
   name          = EXCLUDED.name,

@@ -2,8 +2,8 @@
  * Genera migrations/002_festivals.sql a partir de server/festivals.json.
  *
  * Por que el seed es un archivo generado y no se aplica a mano:
- * el catalogo de 58 festivales y 648 artistas se edita en festivals.json, que es
- * comodo para corregir un lineup. Aplicar 58 INSERTs a mano cada vez que cambia un
+ * el catalogo de festivales se edita en festivals.json, que es comodo para
+ * corregir un lineup. Aplicar los INSERTs a mano cada vez que cambia un
  * artista seria una fuente de errores; generarlos deja el JSON como unica
  * fuente editable y el .sql commiteado como el registro exacto de lo que se
  * aplico a la base.
@@ -76,7 +76,7 @@ function generate(festivals) {
 --
 -- QUE HACE ESTA MIGRACION
 --
--- Mueve el catalogo de 58 festivales de server/festivals.json a una tabla
+-- Mueve el catalogo de server/festivals.json a una tabla
 -- \`festivals\`. Es la ultima parte del catalogo en el repo, y la unica que
 -- estaba rota: el panel de admin escribia el catalogo con fs.writeFileSync
 -- sobre festivals.json, y en Vercel el filesystem es read-only, asi que
@@ -109,8 +109,8 @@ function generate(festivals) {
 -- no necesita refactor.
 --
 -- \`country\` NO tiene indice a proposito. El filtro por region (REGIONS en
--- server/server.js) es un \`country = ANY($1)\` con ~25 codigos sobre 58 filas:
--- un seq scan sobre 58 filas es mas rapido que un indice, y el indice solo
+-- server/server.js) es un \`country = ANY($1)\` sobre un catalogo pequeno:
+-- un seq scan es mas rapido que un indice, y el indice solo
 -- empezaria a justificar si el catalogo llegara a miles de filas.
 --
 -- \`region\` tampoco es columna: se deriva de \`country\` en cada request. Si fuera
@@ -152,7 +152,7 @@ CREATE TABLE IF NOT EXISTS festivals (
 );
 
 -- =============================================================================
--- Seed: los 58 festivales de festivals.json
+-- Seed: todos los festivales de festivals.json
 -- =============================================================================
 --
 -- ${festivals.length} festivales, ${totalArtists} artistas en lineups, ${withLineup} con lineup publicado.

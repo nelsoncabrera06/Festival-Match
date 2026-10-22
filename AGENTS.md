@@ -15,6 +15,104 @@ Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje 
 - [ ] Revisar en localhost y producción, incluyendo cambiar de región y recargar. Localhost no
   expone la IP pública al backend; ahí la detección usa la zona horaria del navegador.
 
+### Catálogo argentino ampliado (21/10/2026)
+
+- [x] Se agregaron Cosquín Rock, Quilmes Rock, Primavera Sound Buenos Aires, Creamfields
+  Argentina y Festival Bandera a `server/festivals.json`: 63 festivales y 412 entradas de
+  artistas anunciados en lineups 2026/2027. Se regeneró `migrations/002_festivals.sql`.
+- [x] Aplicado en Supabase el 21/10/2026 con `migrations/007_argentine_festivals.sql`; consulta
+  de verificación confirmó los cinco registros y sus lineups. No re-aplicar
+  `002_festivals.sql`: su `ON CONFLICT` reemplaza los datos de los 58 festivales existentes y
+  puede borrar cambios hechos desde el panel admin. La migración incremental solo inserta los
+  cinco nuevos y acomoda el orden, preservando el contenido actual del resto.
+- Fuentes de fechas y grillas: [Cosquín Rock](https://cosquinrock.net/),
+  [Quilmes Rock](https://www.quilmesrock.com.ar/),
+  [Primavera Sound](https://www.primaverasound.com/en/news/gorillaz-y-the-strokes-encabezan-los-inconfundibles-carteles-del-esperado-regreso-de-primavera-sound-a-buenos-aires),
+  [Creamfields Argentina](https://www.creamfields.ar/) / [grilla 2026](https://tn.com.ar/musica/noticias/2026/08/19/creamfields-argentina-anuncio-su-line-up-completo-con-lo-mejor-de-la-musica-electronica-nacional-e-internacional/) y
+  [Festival Bandera](https://www.cadena3.com/noticia/sociedad/el-festival-bandera-confirmo-el-line-up-para-su-edicion-2026-en-rosario_570060).
+
+### Lineups argentinos revisados (22/10/2026)
+
+- [x] `confirmed`: Cosquín Rock (115 artistas), Primavera Sound Buenos Aires (40), Creamfields
+  Argentina (30), Festival Bandera (32) y Lollapalooza Argentina (75).
+- [x] Quilmes Rock, Ultra Buenos Aires y Festival Buena Vibra siguen `unannounced`: no se encontró
+  una grilla publicada para las ediciones del catálogo.
+- [x] `migrations/008_refresh_argentine_lineups.sql` aplicada en Supabase el 22/10/2026; lectura
+  posterior confirmó los conteos. Solo cambió `lineup` y `lineup_status` de estos cinco; no
+  reemplazó otros campos ni tocó los otros 58 festivales.
+- Fuentes: [Primavera Sound Buenos Aires](https://www.primaverasound.com/en/buenos-aires/lineup-buenos-aires),
+  [Lollapalooza Argentina](https://www.lollapaloozaar.com/),
+  [grilla completa de Lolla 2027](https://tn.com.ar/musica/noticias/2026/10/08/la-grilla-de-lollapalooza-2027-travis-scott-charli-xcx-the-killers-tini-david-guetta-y-queens-of-the-stone-age-entre-otros/),
+  [Cosquín Rock](https://cosquinrock.net/),
+  [Festival Bandera](https://www.redboing.com/festival-bandera-2026-confirmo-los-horarios-y-ya-se-sabe-cuando-toca-cada-artista/) y
+  [Creamfields Argentina](https://tn.com.ar/musica/noticias/2026/08/19/creamfields-argentina-anuncio-su-line-up-completo-con-lo-mejor-de-la-musica-electronica-nacional-e-internacional/).
+
+### Revisión de lineups de Latinoamérica (22/10/2026)
+
+- [x] `confirmed`: Lollapalooza Chile 2027 (84 artistas), Lollapalooza Brasil 2027 (74) y
+  Corona Capital 2026 (71). `Festival Estéreo Picnic` 2027 tiene 33 artistas publicados y queda
+  `partial` hasta que se confirme que el cartel está cerrado.
+- [x] `Vive Latino` 2027 tiene fechas oficiales (13-14 marzo), pero todavía no publicó artistas.
+  `Rock in Rio` no tiene edición en 2027; el sitio oficial ya anuncia septiembre de 2028, sin lineup.
+  Ultra Buenos Aires 2027 y los otros festivales argentinos pendientes siguen sin anuncio de lineup.
+- [x] `migrations/009_refresh_latam_lineups.sql` aplicada en Supabase el 22/10/2026. La lectura
+  posterior confirmó los seis registros y sus conteos. Actualizó lineups/estados y fechas de Lolla
+  Brasil, Vive Latino y Rock in Rio; no re-aplicar `002_festivals.sql` para desplegar estos cambios.
+- [x] Catálogo actualizado: 63 festivales y 603 entradas de artistas en lineups de 2026/2027.
+- Fuentes: [Lollapalooza Chile oficial](https://lollapaloozacl.com/), [cartel completo de Chile](https://codigopreventa.com/festival-lollapalooza-chile-2027/),
+  [Lollapalooza Brasil oficial](https://www.lollapaloozabr.com/), [grilla completa de Brasil](https://www.cnnbrasil.com.br/pop/musica/lollapalooza-brasil-2027-confira-o-line-up-completo-da-proxima-edicao/),
+  [Festival Estéreo Picnic oficial](https://www.festivalestereopicnic.com/artistas),
+  [Corona Capital oficial](https://www.coronacapital.com.mx/), [Vive Latino 2027](https://www.infobae.com/mexico/2026/09/10/vive-latino-confirma-fechas-y-sede-para-la-edicion-2027/) y
+  [Rock in Rio oficial](https://rockinrio.com/rio/pt-br/informacoes/).
+
+### Revisión de lineups de USA (22/10/2026)
+
+- [x] `confirmed`: Austin City Limits 2026 (130 artistas únicos, cartel completo). `Ultra Miami`
+  2027 tiene anunciada la primera fase (25 artistas) y queda `partial`.
+- [x] `Bonnaroo` no tendrá edición en 2027; queda `hiatus`. Coachella 2027, Lollapalooza Chicago
+  2027 y EDC Las Vegas 2027 siguen `unannounced`; no se encontraron anuncios oficiales de lineup.
+- [x] `migrations/010_refresh_usa_lineups.sql` aplicada en Supabase el 22/10/2026; la lectura
+  posterior confirmó los tres registros y sus conteos. Solo actualizó Bonnaroo, ACL y Ultra Miami.
+- Fuentes: [Bonnaroo oficial](https://support.bonnaroo.com/hc/en-us/articles/52741158558740-Bonnaroo-2027),
+  [ACL oficial](https://www.aclfestival.com/lineup) / [cartel por día](https://www.jambase.com/festival/austin-city-limits-2026),
+  [Ultra Miami oficial](https://ultramusicfestival.com/lineup), [Coachella oficial](https://coachella.com/2027-advance-sale),
+  [Lollapalooza oficial](https://www.lollapalooza.com/lineup) y [EDC Las Vegas oficial](https://lasvegas.edc.com/lineup/).
+- Catálogo actual: 63 festivales y 751 entradas de artistas en lineups de 2026/2027.
+
+### Revisión de lineups de Europa (22/10/2026)
+
+- [x] `Primavera Sound Barcelona` tiene el cartel anunciado: se cargaron los 88 nombres de la
+  lista publicada por LOS40 y el estado pasa a `confirmed`. La fuente informa 151 propuestas
+  incluyendo el programa ampliado; esta lista corresponde al cartel musical anunciado.
+- [x] `Rock am Ring` y `Rock im Park`: 50 nombres confirmados al sumar la primera ola y los
+  anuncios del 21/10; siguen `partial` porque anunciaron que habrá más artistas. Fechas de RiP
+  corregidas a 4-6 junio 2027.
+- [x] `Roskilde` (18), `NOS Alive` (3), `Rock Werchter` (5), `Tuska` (15), `Hurricane` y
+  `Southside` (17 cada uno), y `Provinssi` (Children Of Bodom) actualizados con artistas
+  publicados. Todos permanecen `partial` mientras los festivales anuncian más nombres. Provinssi
+  se corrigió además: los otros nueve artistas de su lineup local eran del 2026, no 2027.
+- [x] `Open'er` tiene 10 artistas anunciados y queda `partial`; `Steelfest` tiene sus primeros
+  40 nombres publicados y queda `partial`. También se corrigieron fechas oficiales de Open'er,
+  Lowlands, Pukkelpop, Reading, Leeds, Nummirock, Helsinki City Festival, Pori Jazz y Steelfest.
+- [x] `AMF 2026` pasa a `confirmed` con sus 8 artistas oficiales. Los demás festivales europeos
+  revisados permanecen `unannounced` o `hiatus` cuando no hay lineup de la edición del catálogo.
+- [x] `migrations/011_refresh_europe_lineups.sql` aplicada en Supabase el 22/10/2026. La lectura
+  confirmó los 20 registros europeos y el total global: 63 festivales, 1.031 entradas de lineup.
+  No re-aplicar `002_festivals.sql`.
+- Fuentes: [Primavera Sound A-Z](https://www.primaverasound.com/pt/es/lineup) / [lista del cartel](https://los40.com/2026/10/05/primavera-sound-2027-desvela-su-cartel-con-doechii-bad-gyal-o-lola-young-todos-los-artistas-que-actuaran-en-el-festival/),
+  [Rock am Ring](https://www.rock-am-ring.com/en/line-up) / [ola del 21/10](https://www.rock-am-ring.com/news/21-oct-26-zweite-line-up-welle-fuer-2027),
+  [Roskilde](https://new-prod-test.roskilde-festival.dk/en/news/rf27-first-18-acts-are-ready),
+  [NOS Alive](https://nosalive.com/en/festival/myles-smith/), [Rock Werchter](https://www.rockwerchter.be/en/news/sam-fender-closes-main-stage-on-saturday-3-july),
+  [Tuska](https://tuska.fi/en/tuska-2027-heavy-metal-icons-judas-priest-confirmed-as-headliner),
+  [Hurricane](https://hurricane.de/line-up/) / [Southside](https://southside.de/en/line-up/?view=all),
+  [Provinssi](https://www.provinssi.fi/en/program/), [Open'er](https://opener.pl/en/2026-line-up),
+  [Steelfest](https://steelfest.fi/pages/steelfest-2027), [AMF](https://amf-festival.com/),
+  [Reading](https://www.readingfestival.com/info), [Leeds](https://www.leedsfestival.com/info),
+  [Lowlands](https://lowlands.nl/updates/), [Pukkelpop](https://www.pukkelpop.be/en/),
+  [Nummirock](https://www.nummirock.fi/), [Helsinki City Festival](https://www.helsinkicityfestival.fi/info/) y
+  [Pori Jazz](https://porijazz.fi/).
+- Catálogo local: 63 festivales y 1.031 entradas de artistas en lineups de 2026/2027.
+
 ---
 
 ## 🔴 RETOMAR ACÁ — 09/10/2026, sesión 8 (fin del día)
@@ -223,7 +321,7 @@ vercel.json           # Rewrite SPA: todo lo que no sea /api, /auth o /health ->
 server/server.js      # Rutas API + auth + admin, dentro de registerServer(app)
 server/db.js          # Pool pg serverless + schema init + todas las queries
 server/auth.js        # Google OAuth + middlewares requireAuth/optionalAuth
-server/festivals.json # 58 festivales, 36 con lineup. YA NO SE LEE EN RUNTIME: es la
+server/festivals.json # 63 festivales. YA NO SE LEE EN RUNTIME: es la
                       # fuente editable del seed que genera scripts/ (step 4)
 public/               # app.js (3240 líneas), index.html, styles.css, theme.css, i18n/
 agent-plan/           # Plan de trabajo de Nelson (plan.md + el HTML generado). NO va al
@@ -245,8 +343,8 @@ README_es.md          # Español, espejo de README.md
 a propósito (portfolio: el que llega a un recruiter es el inglés). Son cortos a propósito —
 ~75 líneas, escaneables de un pantallazo. No convertirlos en documentación técnica.
 
-Números que aparecen en los README y hay que mantener al día si cambian: **58**
-festivales, **120 entradas de artistas anunciados en lineups 2026/2027**, **3 regiones** (europe / usa / latam),
+Números que aparecen en los README y hay que mantener al día si cambian: **63**
+festivales, **751 entradas de artistas anunciados en lineups 2026/2027**, **3 regiones** (europe / usa / latam),
 **3 idiomas** (es/en/fi), `npm start` en el **:8080**.
 
 ---

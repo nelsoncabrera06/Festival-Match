@@ -1050,6 +1050,23 @@ function registerServer(app) {
   // FESTIVALES - Usuario logueado
   // ==========================================
 
+  // Catálogo completo o por región para búsquedas y vistas
+  app.get('/api/festivals', async (req, res) => {
+    try {
+      const region = req.query.region;
+      let festivals = await db.getFestivals();
+
+      if (region && REGIONS[region]) {
+        festivals = festivals.filter(f => REGIONS[region].countryCodes.includes(f.country));
+      }
+
+      res.json({ festivals });
+    } catch (err) {
+      console.error('Error obteniendo catálogo de festivales:', err.message);
+      res.status(500).json({ error: 'Error al obtener festivales' });
+    }
+  });
+
   app.get('/api/user/festivals', auth.requireAuth, async (req, res) => {
     try {
       const region = req.query.region || 'europe';

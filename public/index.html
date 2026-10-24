@@ -157,6 +157,18 @@
           encontrar tu festival ideal</p>
       </div>
 
+      <!-- Spotify Top Artists -->
+      <div class="preference-section spotify-section">
+        <h3 class="section-title" data-i18n="preferences.spotify.title">Spotify</h3>
+        <p class="section-description" data-i18n="preferences.spotify.description">Importa tus artistas más escuchados de Spotify</p>
+        <div class="spotify-actions">
+          <button id="spotify-connect-btn" class="btn-spotify" data-i18n="preferences.spotify.connect">Conectar Spotify</button>
+          <button id="spotify-import-btn" class="btn-lastfm" style="display: none;" data-i18n="preferences.spotify.import">Cargar mis top artistas</button>
+          <button id="spotify-disconnect-btn" class="btn-lastfm" style="display: none;" data-i18n="preferences.spotify.disconnect">Desconectar</button>
+        </div>
+        <div id="spotify-suggestions" class="suggestions-container"></div>
+      </div>
+
       <!-- Artist Search -->
       <div class="preference-section">
         <h3 class="section-title" data-i18n="preferences.artists">Artistas Favoritos</h3>
@@ -184,19 +196,6 @@
         <h3 class="section-title" data-i18n="preferences.genres">Generos Favoritos</h3>
         <div id="genre-selector" class="genre-selector"></div>
         <div id="my-genres" class="tags-container"></div>
-      </div>
-
-      <!-- Spotify Top Artists -->
-      <div class="preference-section spotify-section">
-        <h3 class="section-title" data-i18n="preferences.spotify.title">Spotify</h3>
-        <p class="section-description" data-i18n="preferences.spotify.description">Importa tus artistas más escuchados de Spotify</p>
-        <p id="spotify-feedback" class="spotify-feedback" aria-live="polite"></p>
-        <div class="spotify-actions">
-          <button id="spotify-connect-btn" class="btn-spotify" data-i18n="preferences.spotify.connect">Conectar Spotify</button>
-          <button id="spotify-import-btn" class="btn-lastfm" style="display: none;" data-i18n="preferences.spotify.import">Cargar mis top artistas</button>
-          <button id="spotify-disconnect-btn" class="btn-lastfm" style="display: none;" data-i18n="preferences.spotify.disconnect">Desconectar</button>
-        </div>
-        <div id="spotify-suggestions" class="suggestions-container"></div>
       </div>
 
       <!-- Last.fm Suggestions (Collapsible) -->

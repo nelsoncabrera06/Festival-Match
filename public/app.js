@@ -1790,23 +1790,10 @@ async function loadAllFestivalsForSearch() {
   if (allFestivalsCache) return allFestivalsCache;
 
   try {
-    // Cargar festivales de todas las regiones
-    const [europeRes, usaRes, latamRes] = await Promise.all([
-      fetch('/api/festivals?region=europe'),
-      fetch('/api/festivals?region=usa'),
-      fetch('/api/festivals?region=latam'),
-    ]);
-
-    const europeData = await europeRes.json();
-    const usaData = await usaRes.json();
-    const latamData = await latamRes.json();
-
-    allFestivalsCache = [
-      ...(europeData.festivals || []),
-      ...(usaData.festivals || []),
-      ...(latamData.festivals || []),
-    ];
-
+    // Cargar catálogo completo de festivales
+    const res = await fetch('/api/festivals');
+    const data = await res.json();
+    allFestivalsCache = data.festivals || [];
     return allFestivalsCache;
   } catch (err) {
     console.error('Error loading festivals for search:', err);
@@ -1815,7 +1802,7 @@ async function loadAllFestivalsForSearch() {
 }
 
 async function handleFestivalSearch(e) {
-  const query = e.target.value.trim().toLowerCase();
+  const query = normalizeString(e.target.value);
 
   clearTimeout(festivalSearchTimeout);
 
@@ -1830,11 +1817,15 @@ async function handleFestivalSearch(e) {
   festivalSearchTimeout = setTimeout(async () => {
     const allFestivals = await loadAllFestivalsForSearch();
 
-    // Filtrar festivales por nombre
-    const results = allFestivals.filter(f =>
-      f.name.toLowerCase().includes(query) ||
-      f.location.toLowerCase().includes(query)
-    );
+    // Filtrar festivales por nombre, ubicación, ciudad o país
+    const results = allFestivals.filter(f => {
+      const countryName = getCountryName(f.country);
+      const searchable = [f.name, f.location, f.city, f.country, countryName]
+        .filter(Boolean)
+        .map(normalizeString)
+        .join(' ');
+      return searchable.includes(query);
+    });
 
     if (results.length === 0) {
       elements.festivalSearchResults.innerHTML = '<div class="search-empty">No se encontraron festivales</div>';

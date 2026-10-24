@@ -291,6 +291,11 @@ async function deleteSpotifyConnection(userId) {
   await pool.query('DELETE FROM spotify_connections WHERE user_id = $1', [userId]);
 }
 
+async function deleteUser(userId) {
+  const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id, email, name', [userId]);
+  return result.rows[0] || null;
+}
+
 async function getUserRole(userId) {
   const result = await pool.query('SELECT role FROM users WHERE id = $1', [userId]);
   return result.rows[0]?.role || 'user';
@@ -847,6 +852,7 @@ module.exports = {
   // Auth con email/password
   registerUser,
   loginUser,
+  deleteUser,
   // Roles
   getUserRole,
   isAdmin,

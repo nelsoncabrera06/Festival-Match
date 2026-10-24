@@ -378,6 +378,30 @@ function registerServer(app) {
   });
 
   // ==========================================
+  // CUENTA DE USUARIO
+  // ==========================================
+
+  // Eliminar la propia cuenta
+  app.delete('/api/user/account', auth.requireAuth, async (req, res) => {
+    try {
+      const sessionId = req.cookies?.session;
+      const userId = req.user.id;
+
+      if (sessionId) {
+        await auth.logout(sessionId);
+      }
+      res.clearCookie('session');
+
+      await db.deleteUser(userId);
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error eliminando cuenta propia:', err);
+      res.status(500).json({ error: 'Error al eliminar la cuenta' });
+    }
+  });
+
+  // ==========================================
   // FESTIVALES FAVORITOS
   // ==========================================
 
@@ -748,13 +772,13 @@ function registerServer(app) {
     }
 
     try {
-      const result = await db.pool.query('DELETE FROM users WHERE id = $1 RETURNING id, email, name', [userId]);
+      const deletedUser = await db.deleteUser(userId);
 
-      if (result.rows.length === 0) {
+      if (!deletedUser) {
         return res.status(404).json({ error: 'Usuario no encontrado' });
       }
 
-      res.json({ success: true, deleted: result.rows[0] });
+      res.json({ success: true, deleted: deletedUser });
     } catch (err) {
       console.error('Error eliminando usuario:', err);
       res.status(500).json({ error: 'Error al eliminar usuario' });

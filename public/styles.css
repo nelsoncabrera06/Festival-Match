@@ -1280,6 +1280,31 @@ body {
   margin-top: 32px;
 }
 
+.preferences-danger-zone {
+  text-align: center;
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px dashed rgba(255, 107, 107, 0.2);
+}
+
+.btn-delete-account {
+  background: transparent;
+  color: #ff6b6b;
+  border: 1px solid rgba(255, 107, 107, 0.4);
+  padding: 10px 24px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-delete-account:hover {
+  background: rgba(255, 107, 107, 0.1);
+  border-color: #ff6b6b;
+  color: #ff5252;
+}
+
 /* Primary Button */
 .btn-primary {
   display: inline-flex;

@@ -66,6 +66,14 @@
             "noArtists": "Spotify ei palauttanut artisteja tällä aikavälillä.",
             "addFailed": "Artistia ei voitu lisätä.",
             "disconnectFailed": "Spotify-yhteyttä ei voitu katkaista."
+        },
+        "deleteAccount": "Poista tili",
+        "deleteAccountModal": {
+            "title": "Poista tili",
+            "message": "Haluatko varmasti poistaa tilisi? Tätä toimintoa ei voi peruuttaa.",
+            "confirm": "Poista pysyvästi",
+            "cancel": "Peruuta",
+            "deleting": "Poistetaan..."
         }
     },
     "results": {

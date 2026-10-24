@@ -65,6 +65,14 @@
             "noArtists": "Spotify returned no artists for this time range.",
             "addFailed": "Could not add this artist.",
             "disconnectFailed": "Could not disconnect Spotify."
+        },
+        "deleteAccount": "Delete account",
+        "deleteAccountModal": {
+            "title": "Delete account",
+            "message": "Are you sure you want to delete your account? There is no going back from this.",
+            "confirm": "Permanently delete",
+            "cancel": "Cancel",
+            "deleting": "Deleting..."
         }
     },
     "results": {

@@ -225,6 +225,13 @@
           Guardar y ver festivales
         </button>
       </div>
+
+      <!-- Zona de peligro / Eliminar cuenta -->
+      <div class="preferences-danger-zone">
+        <button type="button" id="delete-my-account-btn" class="btn-delete-account" data-i18n="preferences.deleteAccount">
+          Eliminar cuenta
+        </button>
+      </div>
     </section>
 
     <!-- Results Section -->
@@ -702,7 +709,7 @@
     </div>
   </div>
 
-  <!-- Modal: Confirmar Eliminacion de Usuario -->
+  <!-- Modal: Confirmar Eliminacion de Usuario (Admin) -->
   <div id="delete-user-modal" class="modal" style="display: none;">
     <div class="modal-backdrop"></div>
     <div class="modal-content modal-small">
@@ -717,6 +724,25 @@
       <div class="modal-actions">
         <button type="button" class="btn-secondary" id="delete-user-cancel">Cancelar</button>
         <button type="button" class="btn-danger" id="delete-user-confirm">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Confirmar Eliminacion de Cuenta Propia -->
+  <div id="delete-my-account-modal" class="modal" style="display: none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <h3 data-i18n="preferences.deleteAccountModal.title">Eliminar cuenta</h3>
+        <button class="modal-close" id="delete-my-account-modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p data-i18n="preferences.deleteAccountModal.message">¿Realmente quieres eliminar tu cuenta? Esta acción no se puede deshacer.</p>
+        <p class="warning-text" id="delete-my-account-error" style="display: none;"></p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="delete-my-account-cancel" data-i18n="preferences.deleteAccountModal.cancel">Cancelar</button>
+        <button type="button" class="btn-danger" id="delete-my-account-confirm" data-i18n="preferences.deleteAccountModal.confirm">Eliminar definitivamente</button>
       </div>
     </div>
   </div>

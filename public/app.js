@@ -301,6 +301,14 @@ function cacheElements() {
   elements.deleteUserConfirm = document.getElementById('delete-user-confirm');
   elements.deleteUserEmail = document.getElementById('delete-user-email');
 
+  // Delete My Account (Preferences)
+  elements.deleteMyAccountBtn = document.getElementById('delete-my-account-btn');
+  elements.deleteMyAccountModal = document.getElementById('delete-my-account-modal');
+  elements.deleteMyAccountModalClose = document.getElementById('delete-my-account-modal-close');
+  elements.deleteMyAccountCancel = document.getElementById('delete-my-account-cancel');
+  elements.deleteMyAccountConfirm = document.getElementById('delete-my-account-confirm');
+  elements.deleteMyAccountError = document.getElementById('delete-my-account-error');
+
   // Detail view
   elements.festivalDetail = document.getElementById('festival-detail');
   elements.festivalDetailContent = document.getElementById('festival-detail-content');
@@ -493,6 +501,13 @@ function setupEventListeners() {
   elements.deleteUserCancel?.addEventListener('click', closeDeleteUserModal);
   elements.deleteUserConfirm?.addEventListener('click', confirmDeleteUser);
   elements.deleteUserModal?.querySelector('.modal-backdrop')?.addEventListener('click', closeDeleteUserModal);
+
+  // Delete My Account (Preferences)
+  elements.deleteMyAccountBtn?.addEventListener('click', openDeleteMyAccountModal);
+  elements.deleteMyAccountModalClose?.addEventListener('click', closeDeleteMyAccountModal);
+  elements.deleteMyAccountCancel?.addEventListener('click', closeDeleteMyAccountModal);
+  elements.deleteMyAccountConfirm?.addEventListener('click', confirmDeleteMyAccount);
+  elements.deleteMyAccountModal?.querySelector('.modal-backdrop')?.addEventListener('click', closeDeleteMyAccountModal);
 
   // Edit preferences button
 }
@@ -1111,6 +1126,78 @@ async function confirmDeleteUser() {
   } catch (err) {
     console.error('Error deleting user:', err);
     alert('Error al eliminar el usuario');
+  }
+}
+
+// Modal: Eliminar cuenta propia (Preferencias)
+function openDeleteMyAccountModal() {
+  if (elements.deleteMyAccountError) {
+    elements.deleteMyAccountError.textContent = '';
+    elements.deleteMyAccountError.style.display = 'none';
+  }
+  if (elements.deleteMyAccountConfirm) {
+    elements.deleteMyAccountConfirm.disabled = false;
+    elements.deleteMyAccountConfirm.textContent = window.t
+      ? t('preferences.deleteAccountModal.confirm')
+      : 'Eliminar definitivamente';
+  }
+  elements.deleteMyAccountModal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDeleteMyAccountModal() {
+  elements.deleteMyAccountModal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+async function confirmDeleteMyAccount() {
+  if (elements.deleteMyAccountConfirm) {
+    elements.deleteMyAccountConfirm.disabled = true;
+    elements.deleteMyAccountConfirm.textContent = window.t
+      ? t('preferences.deleteAccountModal.deleting')
+      : 'Eliminando...';
+  }
+
+  try {
+    const response = await fetch('/api/user/account', {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (response.ok) {
+      closeDeleteMyAccountModal();
+      currentUser = null;
+      isDemo = false;
+      myArtists = [];
+      myGenres = [];
+      myFavoriteFestivals = [];
+      navigateTo('/', { replace: true });
+    } else {
+      if (elements.deleteMyAccountConfirm) {
+        elements.deleteMyAccountConfirm.disabled = false;
+        elements.deleteMyAccountConfirm.textContent = window.t
+          ? t('preferences.deleteAccountModal.confirm')
+          : 'Eliminar definitivamente';
+      }
+      if (elements.deleteMyAccountError) {
+        elements.deleteMyAccountError.textContent = data.error || 'Error al eliminar la cuenta';
+        elements.deleteMyAccountError.style.display = 'block';
+      }
+    }
+  } catch (err) {
+    console.error('Error deleting own account:', err);
+    if (elements.deleteMyAccountConfirm) {
+      elements.deleteMyAccountConfirm.disabled = false;
+      elements.deleteMyAccountConfirm.textContent = window.t
+        ? t('preferences.deleteAccountModal.confirm')
+        : 'Eliminar definitivamente';
+    }
+    if (elements.deleteMyAccountError) {
+      elements.deleteMyAccountError.textContent = 'Error de conexión al eliminar la cuenta';
+      elements.deleteMyAccountError.style.display = 'block';
+    }
   }
 }
 

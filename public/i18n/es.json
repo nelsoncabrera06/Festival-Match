@@ -65,6 +65,14 @@
             "noArtists": "Spotify no devolvió artistas para este período.",
             "addFailed": "No se pudo agregar el artista.",
             "disconnectFailed": "No se pudo desconectar Spotify."
+        },
+        "deleteAccount": "Eliminar cuenta",
+        "deleteAccountModal": {
+            "title": "Eliminar cuenta",
+            "message": "¿Realmente quieres eliminar tu cuenta? Esta acción no se puede deshacer.",
+            "confirm": "Eliminar definitivamente",
+            "cancel": "Cancelar",
+            "deleting": "Eliminando..."
         }
     },
     "results": {

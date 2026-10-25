@@ -413,6 +413,85 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   outline-offset: 3px;
 }
 
+/* ==========================================
+   Detalle de festival: lineup compacto
+   ==========================================
+   El lineup se veía como una nube de "botones" (fondo + padding + border-radius),
+   un artista por caja. En un cartel de 75-115 nombres eso empujaba el detalle a
+   dos o tres pantallas de scroll.
+
+   Acá la caja desaparece y los nombres se acomodan en columnas de periódico
+   (CSS multi-column): mucho más denso y se lee como un cartel. El hover pasa de
+   cambiar el fondo a subrayar el nombre con el acento. El subrayado existe siempre
+   con color transparente para que no haya salto de layout al pasar el mouse
+   (text-decoration: none -> underline sí lo produce).
+
+   Además el .detail-body pasa a una sola columna: el sidebar solo trae la ciudad
+   y le robaba un tercio del ancho justo a la sección que necesita aire horizontal.
+   La ciudad queda arriba del lineup como fila de metadatos (order: -1).
+   ========================================== */
+.detail-body {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  padding: 28px 32px 32px;
+}
+
+.festival-hero-simple { padding: 26px 32px; }
+
+.info-sidebar {
+  order: -1;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 28px;
+}
+
+.info-block h4 { margin-bottom: 4px; }
+
+.lineup-header { margin-bottom: 16px; padding-bottom: 12px; }
+
+.lineup-grid {
+  display: block;
+  columns: 140px 7;
+  column-gap: 28px;
+}
+
+.lineup-artist {
+  display: block;
+  width: 100%;
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 1px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  transition: color .15s ease, text-decoration-color .15s ease;
+}
+
+.lineup-artist:hover {
+  background: none;
+  color: var(--text-primary);
+  text-decoration-color: var(--accent);
+}
+
+.lineup-artist.matched {
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .festival-hero-simple { padding: 20px; }
+  .detail-body { padding: 20px; gap: 18px; }
+}
+
 @media (max-width: 900px) {
   .landing { grid-template-columns: minmax(0, 1fr); min-height: auto; }
   .landing-content { max-width: none; }

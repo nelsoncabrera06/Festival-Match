@@ -64,7 +64,9 @@
             "importFailed": "No se pudieron cargar tus artistas de Spotify.",
             "noArtists": "Spotify no devolvió artistas para este período.",
             "addFailed": "No se pudo agregar el artista.",
-            "disconnectFailed": "No se pudo desconectar Spotify."
+            "disconnectFailed": "No se pudo desconectar Spotify.",
+            "hideArtists": "Ocultar artistas",
+            "showArtists": "Mostrar artistas"
         },
         "deleteAccount": "Eliminar cuenta",
         "deleteAccountModal": {

@@ -244,6 +244,7 @@ function cacheElements() {
   elements.spotifyDisconnectBtn = document.getElementById('spotify-disconnect-btn');
   elements.spotifyFeedback = document.getElementById('spotify-feedback');
   elements.spotifySuggestions = document.getElementById('spotify-suggestions');
+  elements.spotifyToggleBtn = document.getElementById('spotify-toggle-suggestions');
 
   // Suggest Festival Modal
   elements.suggestFestivalBtn = document.getElementById('suggest-festival-btn');
@@ -453,6 +454,7 @@ function setupEventListeners() {
   });
   elements.spotifyImportBtn?.addEventListener('click', loadSpotifyTopArtists);
   elements.spotifyDisconnectBtn?.addEventListener('click', disconnectSpotify);
+  elements.spotifyToggleBtn?.addEventListener('click', toggleSpotifySuggestions);
 
   // Suggest Festival Modal
   elements.suggestFestivalBtn?.addEventListener('click', openSuggestFestivalModal);
@@ -3030,13 +3032,41 @@ function setSpotifyConnectionState(connected) {
   elements.spotifyConnectBtn.style.display = connected ? 'none' : '';
   elements.spotifyImportBtn.style.display = connected ? '' : 'none';
   elements.spotifyDisconnectBtn.style.display = connected ? '' : 'none';
+  // Sin conexión no hay sugerencias que mostrar, así que el toggle tampoco.
+  if (!connected) showSpotifySuggestionsToggle(false);
   showSpotifyFeedback(connected
     ? 'preferences.spotify.connected'
     : 'preferences.spotify.notConnected');
 }
 
+// El toggle solo aparece cuando hay artistas cargados: sin lista no hay nada que
+// contraer. El estado vive en data-expanded para que el cambio de idioma pueda
+// reescribir el texto sin preguntarle nada más al DOM.
+function setSpotifySuggestionsExpanded(expanded) {
+  const btn = elements.spotifyToggleBtn;
+  if (!btn) return;
+  btn.dataset.expanded = expanded ? 'true' : 'false';
+  btn.textContent = t(expanded ? 'preferences.spotify.hideArtists' : 'preferences.spotify.showArtists');
+  btn.setAttribute('aria-expanded', String(expanded));
+  if (elements.spotifySuggestions) elements.spotifySuggestions.style.display = expanded ? '' : 'none';
+}
+
+function showSpotifySuggestionsToggle(show) {
+  if (!elements.spotifyToggleBtn) return;
+  elements.spotifyToggleBtn.style.display = show ? '' : 'none';
+  // Al ocultar el toggle (loading, error, vacío o desconectado) la lista vuelve
+  // a mostrarse: si no, quedaría oculta sin forma de abrirla de nuevo.
+  if (!show && elements.spotifySuggestions) elements.spotifySuggestions.style.display = '';
+}
+
+function toggleSpotifySuggestions() {
+  const expanded = elements.spotifyToggleBtn?.dataset.expanded !== 'false';
+  setSpotifySuggestionsExpanded(!expanded);
+}
+
 async function loadSpotifyTopArtists() {
   elements.spotifyImportBtn.disabled = true;
+  showSpotifySuggestionsToggle(false);
   elements.spotifySuggestions.innerHTML = `
     <div class="lastfm-loading"><div class="mini-loader"></div><span>${escapeHtml(t('common.loading'))}</span></div>
   `;
@@ -3056,8 +3086,11 @@ async function loadSpotifyTopArtists() {
   } catch (err) {
     console.error('Error cargando artistas de Spotify:', err.message);
     elements.spotifySuggestions.innerHTML = '';
-    elements.spotifyFeedback.textContent = err.message;
-    delete elements.spotifyFeedback.dataset.translationKey;
+    showSpotifySuggestionsToggle(false);
+    if (elements.spotifyFeedback) {
+      elements.spotifyFeedback.textContent = err.message;
+      delete elements.spotifyFeedback.dataset.translationKey;
+    }
   } finally {
     elements.spotifyImportBtn.disabled = false;
   }
@@ -3066,6 +3099,7 @@ async function loadSpotifyTopArtists() {
 function renderSpotifySuggestions(artists) {
   if (artists.length === 0) {
     elements.spotifySuggestions.innerHTML = `<div class="lastfm-empty"><span>${escapeHtml(t('preferences.spotify.noArtists'))}</span></div>`;
+    showSpotifySuggestionsToggle(false);
     return;
   }
 
@@ -3088,6 +3122,9 @@ function renderSpotifySuggestions(artists) {
       if (event.key === 'Enter' || event.key === ' ') addSpotifySuggestionToFavorites(tag);
     });
   });
+
+  setSpotifySuggestionsExpanded(true);
+  showSpotifySuggestionsToggle(true);
 }
 
 async function addSpotifySuggestionToFavorites(tag) {
@@ -3112,8 +3149,10 @@ async function addSpotifySuggestionToFavorites(tag) {
     if (tag.firstChild?.nodeType === Node.TEXT_NODE) tag.firstChild.textContent = '✓';
   } catch (err) {
     console.error('Error agregando artista de Spotify:', err.message);
-    elements.spotifyFeedback.textContent = err.message;
-    delete elements.spotifyFeedback.dataset.translationKey;
+    if (elements.spotifyFeedback) {
+      elements.spotifyFeedback.textContent = err.message;
+      delete elements.spotifyFeedback.dataset.translationKey;
+    }
   }
 }
 
@@ -3125,10 +3164,13 @@ async function disconnectSpotify() {
     });
     if (!response.ok) throw new Error(t('preferences.spotify.disconnectFailed'));
     elements.spotifySuggestions.innerHTML = '';
+    showSpotifySuggestionsToggle(false);
     setSpotifyConnectionState(false);
   } catch (err) {
-    elements.spotifyFeedback.textContent = err.message;
-    delete elements.spotifyFeedback.dataset.translationKey;
+    if (elements.spotifyFeedback) {
+      elements.spotifyFeedback.textContent = err.message;
+      delete elements.spotifyFeedback.dataset.translationKey;
+    }
   }
 }
 
@@ -3318,6 +3360,12 @@ function handleLanguageChange(event) {
 
   const spotifyTranslationKey = elements.spotifyFeedback?.dataset.translationKey;
   if (spotifyTranslationKey) elements.spotifyFeedback.textContent = t(spotifyTranslationKey);
+
+  // El texto del toggle de Spotify es dinámico (Ocultar/Mostrar artistas).
+  if (elements.spotifyToggleBtn && elements.spotifyToggleBtn.style.display !== 'none') {
+    const expanded = elements.spotifyToggleBtn.dataset.expanded !== 'false';
+    elements.spotifyToggleBtn.textContent = t(expanded ? 'preferences.spotify.hideArtists' : 'preferences.spotify.showArtists');
+  }
 
   const demoBadge = document.querySelector('.demo-badge');
   if (demoBadge) demoBadge.textContent = t('results.demoBadge');

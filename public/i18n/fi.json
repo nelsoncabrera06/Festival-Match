@@ -65,7 +65,9 @@
             "importFailed": "Spotify-artistejasi ei voitu ladata.",
             "noArtists": "Spotify ei palauttanut artisteja tällä aikavälillä.",
             "addFailed": "Artistia ei voitu lisätä.",
-            "disconnectFailed": "Spotify-yhteyttä ei voitu katkaista."
+            "disconnectFailed": "Spotify-yhteyttä ei voitu katkaista.",
+            "hideArtists": "Piilota artistit",
+            "showArtists": "Näytä artistit"
         },
         "deleteAccount": "Poista tili",
         "deleteAccountModal": {

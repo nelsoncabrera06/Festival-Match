@@ -64,7 +64,9 @@
             "importFailed": "Could not load your Spotify artists.",
             "noArtists": "Spotify returned no artists for this time range.",
             "addFailed": "Could not add this artist.",
-            "disconnectFailed": "Could not disconnect Spotify."
+            "disconnectFailed": "Could not disconnect Spotify.",
+            "hideArtists": "Hide artists",
+            "showArtists": "Show artists"
         },
         "deleteAccount": "Delete account",
         "deleteAccountModal": {

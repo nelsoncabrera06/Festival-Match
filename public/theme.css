@@ -566,6 +566,31 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   #my-artists .tag-remove { opacity: .75; }
 }
 
+/* Toggle chico para contraer la lista de Top Artist de Spotify. Va pegado a la
+   derecha de .spotify-actions para no competir con los botones principales. */
+.spotify-toggle {
+  align-self: center;
+  margin-left: auto;
+  padding: 5px 11px;
+  border: 1px solid rgba(223, 241, 222, .14);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: color .15s ease, border-color .15s ease;
+}
+
+.spotify-toggle:hover {
+  color: var(--accent);
+  border-color: rgba(216, 242, 122, .35);
+}
+
+@media (max-width: 600px) {
+  .spotify-toggle { margin-left: 0; }
+}
+
 @media (max-width: 900px) {
   .landing { grid-template-columns: minmax(0, 1fr); min-height: auto; }
   .landing-content { max-width: none; }

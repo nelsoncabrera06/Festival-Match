@@ -2075,7 +2075,8 @@ body {
 
 /* Festival Appearances */
 .festival-appearances {
-  margin-top: 20px;
+  /*margin-top: 20px;*/
+  margin-top: 3px;
 }
 
 .festival-appearances.has-tours {

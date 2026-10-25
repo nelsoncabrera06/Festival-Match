@@ -567,6 +567,136 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 /* ==========================================
+   Mis Artistas: tarjetas de gira compactas
+   ==========================================
+   Antes cada card de "Mis Artistas" llevaba un 🎸 de 32px hardcodeado en el
+   template (app.js, .artist-tour-icon: no era fallback de imagen, iba siempre)
+   y el nombre en 20px bold. Con 20-30 artistas la sección era una pared de
+   cards enormes que obligaban a scrollear mucho.
+
+   El emoji se eliminó del template y acá se compacta lo que queda: nombre a
+   15px (fixed, sobrescribe también el 16px del @media móviles de styles.css
+   porque este archivo carga después), peso 600 en vez de 700, y menos aire
+   entre card y card y en el header. La × de eliminar queda accesible con el
+   padding de siempre.
+   ========================================== */
+.artists-tours {
+  gap: 12px;
+}
+
+.artist-tour-header {
+  padding: 12px 18px;
+}
+
+.artist-tour-content {
+  padding: 14px 18px;
+}
+
+.artist-tour-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.artist-tour-info {
+  gap: 4px;
+}
+
+@media (max-width: 768px) {
+  .artist-tour-header { padding: 12px 16px; }
+  .artist-tour-content { padding: 14px 16px; }
+}
+
+/* ==========================================
+   Mis Artistas: grupos "On tour" / "Sin fechas"
+   ==========================================
+   La lista de artistas plana mezclaba a los que tienen fechas con los que no:
+   para encontrar a alguien había que mirar card por card. Ahora el render
+   separa en dos grupos (app.js renderArtistsTours): los que la búsqueda
+   encontró son cards normales, y los que no bajan a una lista densa de solo
+   nombres. El nombre ahí es un <a> a la búsqueda de Google con el tooltip
+   "Buscar tour", y la × de eliminar sigue disponible.
+   ========================================== */
+.artists-group-title {
+  margin: 14px 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.artists-no-dates-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 2px 22px;
+}
+
+.no-dates-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.no-dates-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+  text-decoration: none;
+  /* Subrayado transparente: no hay salto de layout al pasar el mouse */
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  transition: color .15s ease, text-decoration-color .15s ease;
+}
+
+.no-dates-name:hover {
+  color: var(--text-primary);
+  text-decoration-color: var(--accent);
+}
+
+/* Triangulo expandir/contraer en las cards On tour. Por default las fechas
+   estan visibles: el icono apunta para abajo (rotado 90 contra su glifo
+   base ▶). Al contraer vuelve a apuntar a la derecha y el contenido se
+   oculta; el estado (artistTourCollapsed) sobrevive a re-renders. */
+.artist-tour-toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  transition: color .15s ease;
+}
+
+.artist-tour-toggle:hover {
+  color: var(--text-primary);
+}
+
+.artist-tour-toggle-icon {
+  display: inline-block;
+  transform: rotate(90deg);
+  transition: transform .15s ease;
+}
+
+.artist-tour-card.is-collapsed .artist-tour-toggle-icon {
+  transform: rotate(0);
+}
+
+.artist-tour-card.is-collapsed .artist-tour-content {
+  display: none;
+}
+
+/* ==========================================
    Preferencias: géneros favoritos compactos
    ==========================================
    Los 36 géneros disponibles eran botones-burbuja de ~36px: 6-7 filas de chips.

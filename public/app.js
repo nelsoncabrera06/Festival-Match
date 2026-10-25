@@ -13,6 +13,9 @@ let searchTimeout = null;
 let searchTimeoutTab = null;
 let festivalSearchTimeout = null;
 let artistTourData = {}; // Cache de tour dates
+const artistTourCollapsed = {}; // Cards de gira contraidas, por artista (estado de sesión)
+let toursLoadEpoch = 0; // Numero de carga: invalida respuestas de una region ya abandonada
+let artistsToursPending = 0; // Cuantos artistas faltan llegar durante la carga
 const nextCalendarMonth = new Date();
 nextCalendarMonth.setDate(1);
 nextCalendarMonth.setMonth(nextCalendarMonth.getMonth() + 1);
@@ -2337,6 +2340,7 @@ function switchRegion(region) {
 
     // Limpiar cache de tours y recargar si estamos en tab de artistas
     artistTourData = {};
+    artistsToursPending = 0;
     if (elements.tabArtists.classList.contains('active')) {
       loadArtistsTours();
     }
@@ -2838,146 +2842,270 @@ async function loadArtistsTours() {
     return;
   }
 
-  // Renderizar cards con loading state
-  elements.artistsTours.innerHTML = artists.map(artistName => `
-    <div class="artist-tour-card" data-artist="${escapeHtml(artistName)}">
-      <div class="artist-tour-header">
-        <div class="artist-tour-info">
-          <span class="artist-tour-icon">🎸</span>
-          <span class="artist-tour-name">${escapeHtml(artistName)}</span>
-        </div>
-        ${!isDemo ? `<button class="artist-tour-remove" data-name="${escapeHtml(artistName)}" title="Eliminar artista">&times;</button>` : ''}
-      </div>
-      <div class="artist-tour-content">
-        <div class="tour-dates-loading">
-          <div class="mini-loader"></div>
-          <span>Buscando conciertos en ${getRegionDisplayName(currentRegion)}...</span>
-        </div>
-      </div>
+  // Loading global mientras se procesan todos. Antes cada card tenia su loader
+  // y los fetch iban uno por uno (la latencia se sumaba); ahora salen todos
+  // juntos y se muestra la lista de una vez, ya agrupada.
+  elements.artistsTours.innerHTML = `
+    <div class="tour-dates-loading">
+      <div class="mini-loader"></div>
+      <span>Buscando fechas de gira en ${getRegionDisplayName(currentRegion)}...</span>
     </div>
-  `).join('');
+  `;
 
-  // Agregar event listeners para eliminar
-  if (!isDemo) {
-    elements.artistsTours.querySelectorAll('.artist-tour-remove').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const artistName = btn.dataset.name;
-        const artist = myArtists.find(a => a.artist_name === artistName);
-        if (artist) {
-          await removeArtist(artist.id);
-          loadArtistsTours();
-        }
-      });
-    });
-  }
+  // Fetches en paralelo con render PROGRESIVO: cada respuesta que llega se
+  // muestra enseguida re-renderizando la lista, sin esperar al mas lento.
+  // Con Promise.all a secas la seccion quedaba en "Buscando..." hasta el
+  // peor caso, aunque el total fuera mas corto que el loop secuencial viejo.
+  // Cada fetch captura su propio error para que un fallo de red no pierda el
+  // resto; artistTourData[artista] en null significa fetch fallido (ojo: el
+  // endpoint devuelve 200 con apiError:true cuando se cae la API externa,
+  // asi que null solo corresponde a red caida).
+  // El epoch invalida respuestas de una carga vieja: si se cambia de region
+  // mientras hay fetchs en vuelo, lo que llegue tarde no toca datos frescos.
+  const epoch = ++toursLoadEpoch;
+  artistsToursPending = artists.length;
 
-  // Cargar tour dates para cada artista
-  for (const artistName of artists) {
-    await loadArtistTourDates(artistName);
-  }
+  await Promise.all(artists.map(async artistName => {
+    try {
+      const response = await fetch(`/api/artist-events/${encodeURIComponent(artistName)}?region=${currentRegion}`);
+      const data = await response.json();
+      if (epoch !== toursLoadEpoch) return;
+      artistTourData[artistName] = data;
+    } catch (err) {
+      console.error(`Error loading tour dates for ${artistName}:`, err);
+      if (epoch !== toursLoadEpoch) return;
+      artistTourData[artistName] = null;
+    }
+
+    artistsToursPending--;
+    renderArtistsTours();
+  }));
 }
 
-async function loadArtistTourDates(artistName) {
-  // Buscar la card comparando directamente (evita problemas con & y otros caracteres especiales)
-  const cards = elements.artistsTours.querySelectorAll('.artist-tour-card');
-  const card = Array.from(cards).find(c => c.dataset.artist === artistName);
-  if (!card) return;
+// Un artista va al grupo On tour si la busqueda encontro algo suyo: fechas en
+// la region, festivales del catalogo, o gira en otras regiones. El resto baja
+// a "Sin fechas encontradas".
+function hasTourContent(data) {
+  return Boolean(
+    data &&
+    ((data.events && data.events.length > 0) ||
+     (data.festivalAppearances && data.festivalAppearances.length > 0) ||
+     (data.otherRegionsWithEvents && data.otherRegionsWithEvents.length > 0))
+  );
+}
 
-  const contentDiv = card.querySelector('.artist-tour-content');
-  const regionName = getRegionDisplayName(currentRegion);
+// Aplica el filtro de pais activo a los datos de un artista antes de agrupar
+// y renderizar. Sin esto, en Latam con pais "Argentina" se mostraban fechas
+// de toda la region: los festivalAppearances traen el codigo ISO (igual que
+// festivals.country), mientras que los events traen el nombre del venue
+// formato Bandsintown, asi que se compara contra todas las formas conocidas.
+function applyCountryFilter(data) {
+  if (!currentCountry || !data) return data;
 
-  try {
-    const response = await fetch(`/api/artist-events/${encodeURIComponent(artistName)}?region=${currentRegion}`);
-    const data = await response.json();
+  const wanted = [currentCountry, getCountryName(currentCountry), (COUNTRY_INFO[currentCountry] || {}).name]
+    .filter(Boolean)
+    .map(s => s.toLowerCase());
+  const isKept = country => wanted.includes((country || '').toLowerCase());
 
-    artistTourData[artistName] = data;
+  return {
+    ...data,
+    events: (data.events || []).filter(e => isKept(e.country)),
+    festivalAppearances: (data.festivalAppearances || []).filter(f => isKept(f.country)),
+  };
+}
 
-    let html = '';
+function renderArtistsTours() {
+  const names = Object.keys(artistTourData);
+  if (names.length === 0) return;
 
-    // Mostrar tour dates si hay
-    if (data.events && data.events.length > 0) {
-      html += `
-        <p class="tour-dates-title">Próximos conciertos en ${regionName}</p>
-        <div class="tour-dates-list">
-          ${data.events.slice(0, 5).map(event => `
-            <div class="tour-date-item">
-              <span class="tour-date-date">${formatTourDate(event.date)}</span>
-              <div class="tour-date-venue">
-                <div class="tour-date-venue-name">${escapeHtml(event.venue)}</div>
-                <div class="tour-date-location">
-                  <span class="flag">${getCountryFlagByName(event.country)}</span>
-                  ${escapeHtml(event.city)}, ${escapeHtml(event.country)}
-                </div>
-              </div>
-              ${event.url ? `<a href="${event.url}" target="_blank" rel="noopener" class="tour-date-link">Tickets</a>` : ''}
-            </div>
-          `).join('')}
-        </div>
-        ${data.totalRegionEvents > 5 ? `
-          <a href="${data.bandsintownUrl || `https://www.bandsintown.com/a/${encodeURIComponent(artistName)}`}" target="_blank" rel="noopener" class="tour-dates-view-all">
-            Ver los ${data.totalRegionEvents} conciertos →
-          </a>
-        ` : ''}
-      `;
-    }
+  // Datos ya filtrados por el pais seleccionado: el grupo en el que cae
+  // el artista depende de si quedo algo despues del filtro, no del dato crudo.
+  const filteredData = {};
+  for (const name of names) {
+    filteredData[name] = applyCountryFilter(artistTourData[name]);
+  }
 
-    // Mostrar festivales si hay
-    if (data.festivalAppearances && data.festivalAppearances.length > 0) {
-      html += `
-        <div class="festival-appearances ${data.events?.length > 0 ? 'has-tours' : ''}">
-          <p class="tour-dates-title">🎪 En festivales ${currentYear}</p>
-          <div class="festival-appearances-list">
-            ${data.festivalAppearances.map(fest => `
-              <a href="${fest.website}" target="_blank" rel="noopener" class="festival-appearance-item">
-                <span class="festival-appearance-name">${escapeHtml(fest.name)}</span>
-                <span class="festival-appearance-info">${escapeHtml(fest.dates)} • ${escapeHtml(fest.location)}</span>
-              </a>
-            `).join('')}
-          </div>
-        </div>
-      `;
-    }
+  const alphabetical = (a, b) => a.toLowerCase().localeCompare(b.toLowerCase());
+  const onTour = names.filter(name => hasTourContent(filteredData[name])).sort(alphabetical);
+  const noDates = names.filter(name => !hasTourContent(filteredData[name])).sort(alphabetical);
 
-    // Si no hay nada en la región seleccionada
-    if (!html) {
-      // Ver si tiene tours en otras regiones
-      const otherRegionsHtml = data.otherRegionsWithEvents && data.otherRegionsWithEvents.length > 0
-        ? `<div class="other-regions-info">
-            🌍 En tour por: ${data.otherRegionsWithEvents.map(r => getRegionDisplayName(r)).join(', ')}
-           </div>`
-        : '';
+  // Todavia no llego ningun dato de verdad (pendientes con datos crudos
+  // filtrados a vacio o fetchs en vuelo): dejar el loader global como esta.
+  if (onTour.length === 0 && noDates.length === 0) return;
 
-      html = `
-        <div class="no-tour-dates">
-          <span class="no-tour-dates-icon">📅</span>
-          <div class="no-tour-dates-text">
-            <span>Sin fechas encontradas en ${regionName}</span>
-            ${otherRegionsHtml}
-            <a href="https://www.google.com/search?q=${encodeURIComponent(artistName + ' tour ' + currentYear)}" target="_blank" rel="noopener" class="search-tour-link">
-              Buscar tour →
+  let html = '';
+
+  if (onTour.length > 0) {
+    html += `<p class="artists-group-title">On tour</p>`;
+    html += onTour.map(artistName => buildTourCard(artistName, filteredData[artistName])).join('');
+  }
+
+  if (noDates.length > 0) {
+    html += `
+      <p class="artists-group-title">Sin fechas encontradas</p>
+      <div class="artists-no-dates-list">
+        ${noDates.map(artistName => `
+          <div class="no-dates-item" data-artist="${escapeHtml(artistName)}">
+            <a href="${googleTourUrl(artistName)}"
+               target="_blank" rel="noopener" class="no-dates-name" title="Buscar tour">
+              ${escapeHtml(artistName)}
             </a>
           </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  // Pie de carga: mientras hay fetchs en vuelo aviso cuantos artistas faltan,
+  // en vez de regresar al loader global que tapa lo que ya se ve.
+  if (artistsToursPending > 0) {
+    html += `
+      <div class="tour-dates-loading">
+        <div class="mini-loader"></div>
+        <span>Cargando ${artistsToursPending} artistas mas...</span>
+      </div>
+    `;
+  }
+
+  elements.artistsTours.innerHTML = html;
+
+  // Toggle expandir/contraer en las cards On tour. El estado queda por artista
+  // durante la sesion: sobrevive a re-renders por cambio de idioma.
+  elements.artistsTours.querySelectorAll('.artist-tour-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const card = btn.closest('.artist-tour-card');
+      if (!card) return;
+
+      const collapsed = !card.classList.contains('is-collapsed');
+      card.classList.toggle('is-collapsed', collapsed);
+      artistTourCollapsed[card.dataset.artist] = collapsed;
+      btn.setAttribute('aria-expanded', String(!collapsed));
+      btn.title = collapsed ? 'Expandir fechas' : 'Contraer fechas';
+    });
+  });
+}
+
+function buildTourCard(artistName, data) {
+  const collapsed = Boolean(artistTourCollapsed[artistName]);
+
+  return `
+    <div class="artist-tour-card ${collapsed ? 'is-collapsed' : ''}" data-artist="${escapeHtml(artistName)}">
+      <div class="artist-tour-header">
+        <div class="artist-tour-info">
+          <button class="artist-tour-toggle" aria-expanded="${String(!collapsed)}"
+                  title="${collapsed ? 'Expandir fechas' : 'Contraer fechas'}">
+            <span class="artist-tour-toggle-icon">&#9654;</span>
+          </button>
+          <span class="artist-tour-name">${escapeHtml(artistName)}</span>
         </div>
-      `;
-    }
+      </div>
+      <div class="artist-tour-content">
+        ${buildTourContent(artistName, data)}
+      </div>
+    </div>
+  `;
+}
 
-    contentDiv.innerHTML = html;
+// Contenido de una card a partir de los datos del endpoint. Antes montaba este
+// HTML dentro de loadArtistTourDates() card por card; se separa para que el
+// render de grupos (y su re-render al cambiar idioma/region) reutilice la
+// misma logica.
+function buildTourContent(artistName, data) {
+  const regionName = getRegionDisplayName(currentRegion);
 
-  } catch (err) {
-    console.error(`Error loading tour dates for ${artistName}:`, err);
-    contentDiv.innerHTML = `
+  // data null: el fetch de red fallo. El endpoint en si responde 200 con
+  // apiError:true cuando se cae la API externa, asi que null es solo red caida.
+  if (!data) {
+    return `
       <div class="no-tour-dates">
         <span class="no-tour-dates-icon">⚠️</span>
         <div class="no-tour-dates-text">
           <span>No se pudieron cargar las fechas</span>
-          <a href="https://www.google.com/search?q=${encodeURIComponent(artistName + ' tour 2026')}" target="_blank" rel="noopener" class="search-tour-link">
+          <a href="${googleTourUrl(artistName)}" target="_blank" rel="noopener" class="search-tour-link">
             Buscar tour →
           </a>
         </div>
       </div>
     `;
   }
+
+  let html = '';
+
+  // Mostrar tour dates si hay
+  if (data.events && data.events.length > 0) {
+    html += `
+      <p class="tour-dates-title">Próximos conciertos en ${regionName}</p>
+      <div class="tour-dates-list">
+        ${data.events.slice(0, 5).map(event => `
+          <div class="tour-date-item">
+            <span class="tour-date-date">${formatTourDate(event.date)}</span>
+            <div class="tour-date-venue">
+              <div class="tour-date-venue-name">${escapeHtml(event.venue)}</div>
+              <div class="tour-date-location">
+                <span class="flag">${getCountryFlagByName(event.country)}</span>
+                ${escapeHtml(event.city)}, ${escapeHtml(event.country)}
+              </div>
+            </div>
+            ${event.url ? `<a href="${event.url}" target="_blank" rel="noopener" class="tour-date-link">Tickets</a>` : ''}
+          </div>
+        `).join('')}
+      </div>
+      ${data.events.length > 5 ? `
+        <a href="${data.bandsintownUrl || `https://www.bandsintown.com/a/${encodeURIComponent(artistName)}`}" target="_blank" rel="noopener" class="tour-dates-view-all">
+          Ver los ${data.events.length} conciertos →
+        </a>
+      ` : ''}
+    `;
+  }
+
+  // Mostrar festivales si hay. Ya sin el anio: el catalogo mezcla
+  // ediciones de 2026 y 2027 y a fin de anio el "2026" fijo era enganoso.
+  if (data.festivalAppearances && data.festivalAppearances.length > 0) {
+    html += `
+      <div class="festival-appearances ${data.events?.length > 0 ? 'has-tours' : ''}">
+        <p class="tour-dates-title">🎪 En festivales</p>
+        <div class="festival-appearances-list">
+          ${data.festivalAppearances.map(fest => `
+            <a href="${fest.website}" target="_blank" rel="noopener" class="festival-appearance-item">
+              <span class="festival-appearance-name">${escapeHtml(fest.name)}</span>
+              <span class="festival-appearance-info">${escapeHtml(fest.dates)} • ${escapeHtml(fest.location)}</span>
+            </a>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  // Si no hay nada en la región seleccionada
+  if (!html) {
+    // Ver si tiene tours en otras regiones
+    const otherRegionsHtml = data.otherRegionsWithEvents && data.otherRegionsWithEvents.length > 0
+      ? `<div class="other-regions-info">
+          🌍 En tour por: ${data.otherRegionsWithEvents.map(r => getRegionDisplayName(r)).join(', ')}
+         </div>`
+      : '';
+
+    html = `
+      <div class="no-tour-dates">
+        <span class="no-tour-dates-icon">📅</span>
+        <div class="no-tour-dates-text">
+          <span>Sin fechas encontradas en ${regionName}</span>
+          ${otherRegionsHtml}
+          <a href="${googleTourUrl(artistName)}" target="_blank" rel="noopener" class="search-tour-link">
+            Buscar tour →
+          </a>
+        </div>
+      </div>
+    `;
+  }
+
+  return html;
+}
+
+// Busqueda de tour en Google, ya sin el anio: "Dua Lipa tour", no
+// "Dua Lipa tour 2026". Si hay fechas nuevas, la propia busqueda las muestra.
+function googleTourUrl(artistName) {
+  return `https://www.google.com/search?q=${encodeURIComponent(artistName + ' tour')}`;
 }
 
 // Lista de artistas demo para tour dates

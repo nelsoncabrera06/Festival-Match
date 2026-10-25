@@ -566,6 +566,80 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   #my-artists .tag-remove { opacity: .75; }
 }
 
+/* ==========================================
+   Preferencias: géneros favoritos compactos
+   ==========================================
+   Los 36 géneros disponibles eran botones-burbuja de ~36px: 6-7 filas de chips.
+   Acá usan el mismo tratamiento que el lineup (columnas + texto chico), con el
+   seleccionado en lima y un ✓ adelante para que se distinga sin fondo.
+
+   #my-genres (el resumen de los elegidos) repite el mismo lenguaje visual para
+   no dejar burbujas sueltas debajo de una lista compacta.
+   ========================================== */
+#genre-selector {
+  display: block;
+  columns: 140px 6;
+  column-gap: 22px;
+  margin-bottom: 10px;
+}
+
+#genre-selector .genre-option {
+  display: block;
+  width: 100%;
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 1px 0;
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  transition: color .15s ease, text-decoration-color .15s ease;
+}
+
+#genre-selector .genre-option:hover {
+  border: 0;
+  color: var(--text-primary);
+  text-decoration-color: var(--accent);
+}
+
+#genre-selector .genre-option.selected {
+  background: none;
+  border: 0;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+#genre-selector .genre-option.selected::before { content: '✓ '; }
+
+#my-genres {
+  display: block;
+  columns: 140px 6;
+  column-gap: 22px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(223, 241, 222, .12);
+}
+
+#my-genres .tag {
+  display: block;
+  width: 100%;
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  background: none;
+  border-radius: 0;
+  padding: 1px 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--accent);
+}
+
 /* Toggle chico para contraer la lista de Top Artist de Spotify. Va pegado a la
    derecha de .spotify-actions para no competir con los botones principales. */
 .spotify-toggle {

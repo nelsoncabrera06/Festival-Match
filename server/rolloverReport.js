@@ -123,21 +123,21 @@ function renderReport(data) {
   if (sinFecha.length === 0) {
     lines.push('- Todos los festivales tienen fecha parseable.');
   } else {
-    const grupos = agruparSinFecha(sinFecha).map(([texto, n]) => `${n} «${texto}»`);
-    lines.push(`- ${plural(sinFecha.length, 'festival', 'festivales')} sin fecha parseable: ${grupos.join(', ')}.`);
+    lines.push(`- ${plural(sinFecha.length, 'festival', 'festivales')} sin fecha parseable:`);
+    for (const [texto, n] of agruparSinFecha(sinFecha)) {
+      lines.push(`  - ${n} «${texto}»`);
+    }
     lines.push('  Informativo: el rollover los saltea y no se inventa ninguna fecha.');
   }
   lines.push('');
 
   lines.push('## Estado del catálogo');
-  lines.push(
-    `- ${plural(stats.total, 'festival', 'festivales')} · ` +
-    `${stats.conLineup} con lineup publicado · ` +
-    `${stats.unannounced} sin anunciar · ` +
-    `${stats.partial} parcial · ` +
-    `${stats.confirmed} confirmado · ` +
-    `${stats.hiatus} en hiatus`
-  );
+  lines.push(`- ${plural(stats.total, 'festival', 'festivales')}`);
+  lines.push(`- ${stats.conLineup} con lineup publicado`);
+  lines.push(`- ${stats.unannounced} sin anunciar`);
+  lines.push(`- ${stats.partial} parcial`);
+  lines.push(`- ${stats.confirmed} confirmado`);
+  lines.push(`- ${stats.hiatus} en hiatus`);
   lines.push('');
 
   return lines.join('\n');

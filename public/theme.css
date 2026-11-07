@@ -456,6 +456,16 @@ body {
 .rollover-report-list li.rollover-report-subtext::before {
   content: "";
 }
+.rollover-report-list li.rollover-report-nested {
+  padding-left: 32px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.rollover-report-list li.rollover-report-nested::before {
+  content: "–";
+  left: 18px;
+  color: var(--text-muted);
+}
 .rollover-preview-container code {
   background: rgba(255, 255, 255, .08);
   padding: 2px 5px;

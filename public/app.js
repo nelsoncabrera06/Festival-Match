@@ -1008,6 +1008,12 @@ function renderMarkdownReport(md) {
     } else if (trimmed.startsWith('## ')) {
       if (inList) { out.push('</ul>'); inList = false; }
       out.push(`<h5>${formatMarkdownInline(trimmed.slice(3))}</h5>`);
+    } else if (line.startsWith('  - ') || line.startsWith('   - ') || line.startsWith('    - ')) {
+      if (!inList) {
+        out.push('<ul class="rollover-report-list">');
+        inList = true;
+      }
+      out.push(`<li class="rollover-report-nested">${formatMarkdownInline(trimmed.slice(2))}</li>`);
     } else if (trimmed.startsWith('- ')) {
       if (!inList) {
         out.push('<ul class="rollover-report-list">');

@@ -716,6 +716,17 @@ async function deleteFestival(id) {
 // hora local y eso puede correrse un dia segun el TZ del proceso. El reporte
 // solo necesita el string ISO.
 
+function rowToReportItem(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    dates: row.dates,
+    endsOn: row.ends_on,
+    lineupStatus: row.lineup_status,
+    artistCount: row.artist_count,
+  };
+}
+
 async function getFestivalsEndedBefore(fecha) {
   const result = await pool.query(
     `SELECT id, name, dates, ends_on::text AS ends_on, lineup_status,
@@ -728,14 +739,21 @@ async function getFestivalsEndedBefore(fecha) {
     [fecha]
   );
 
-  return result.rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    dates: row.dates,
-    endsOn: row.ends_on,
-    lineupStatus: row.lineup_status,
-    artistCount: row.artist_count,
-  }));
+  return result.rows.map(rowToReportItem);
+}
+
+// Filas que necesita el reporte del radar. Trae TODO el catalogo (incluidos
+// hiatus y los que no tienen fecha) porque el reporte tiene que poder explicar
+// por que algo no se rota, no solo listar lo que si.
+async function getFestivalsReportRows() {
+  const result = await pool.query(
+    `SELECT id, name, dates, ends_on::text AS ends_on, lineup_status,
+            COALESCE(array_length(lineup, 1), 0) AS artist_count
+       FROM festivals
+      ORDER BY sort_order`
+  );
+
+  return result.rows.map(rowToReportItem);
 }
 
 // Rotar un festival a la edicion siguiente.
@@ -979,6 +997,7 @@ module.exports = {
   deleteFestival,
   // Rollover de ediciones (fechas derivadas + reset de la edicion siguiente)
   getFestivalsEndedBefore,
+  getFestivalsReportRows,
   rolloverFestival,
   // Campos que PUT /api/admin/festivals/:id puede escribir. Exportado para que
   // un test pueda verificar que el SET de la query sale de acá y de otro lugar.

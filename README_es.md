@@ -31,7 +31,7 @@ lineup de cada festival del catálogo y le pone un puntaje a cada uno — así, 
 | Auth | Google OAuth, bcrypt, sesiones en cookie |
 | Hosting | Vercel (serverless functions) + Supabase |
 
-## Architecture
+## Arquitectura
 
 ![arquitectura](public/img/arquitectura.png)
 

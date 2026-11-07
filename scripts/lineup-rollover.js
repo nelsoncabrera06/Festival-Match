@@ -127,6 +127,17 @@ async function main() {
     console.error(`Reporte guardado en ${destino}`);
   }
 
+  if (process.env.GITHUB_OUTPUT) {
+    try {
+      fs.appendFileSync(
+        process.env.GITHUB_OUTPUT,
+        `has_news=${resultado.hasNews}\ntoday=${resultado.today}\nrotados=${resultado.counts.rotados}\n`
+      );
+    } catch (err) {
+      console.error(`No se pudo escribir en GITHUB_OUTPUT: ${err.message}`);
+    }
+  }
+
   if (opciones.apply) {
     console.error(
       `Rotados: ${resultado.counts.rotados} de ${resultado.counts.candidatos} candidatos.`

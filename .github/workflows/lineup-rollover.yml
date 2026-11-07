@@ -1,0 +1,57 @@
+# ============================================================
+# Radar de lineups — Rollover semanal de festivales terminados
+#
+# Corre todos los lunes a las 11:17 UTC (08:17 ART).
+# Revisa el catálogo en Supabase, rota a la edición siguiente los
+# festivales cuya fecha de finalización ya pasó (ends_on < hoy),
+# limpia su lineup y publica un reporte vía GitHub Issue si hay novedades.
+# ============================================================
+name: Radar de lineups (rollover semanal)
+
+on:
+  schedule:
+    # Lunes a las 11:17 UTC (08:17 ART). Fuera de la hora en punto para
+    # no competir con los runners de GitHub Actions acumulados.
+    - cron: '17 11 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  rollover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci --omit=dev
+
+      - name: Ejecutar rollover y generar reporte
+        id: rollover
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ALLOW_LOCAL_PRODUCTION_DB: 'true'
+        run: |
+          node scripts/lineup-rollover.js --apply --report-out=radar.md
+          cat radar.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar issue con novedades
+        if: steps.rollover.outputs.has_news == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "Radar de lineups — ${{ steps.rollover.outputs.today }}" \
+            --body-file radar.md \
+            --assignee "nelsoncabrera06"

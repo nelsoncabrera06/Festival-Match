@@ -3,6 +3,22 @@
 Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje en este repo.
 **Actualizar el checklist de migración al avanzar.** Es la única fuente de verdad del estado del proyecto.
 
+### Radar de lineups (07/11/2026) — Fases 1 y 2 cerradas
+
+- [x] Fechas estructuradas (`starts_on` / `ends_on` DATE) agregadas a `festivals` con la migración
+  incremental `migrations/012_festival_dates.sql` (aplicada en Supabase el 07/11/2026).
+- [x] Parser de fechas en español `server/dateRange.js` con cobertura completa (37 formatos reales del catálogo + 12 casos borde). Testeado en `scripts/verify-date-range.js` (`npm run test:dates`).
+- [x] `db.createFestival()` y `db.updateFestival()` calculan automáticamente `starts_on`/`ends_on` cuando reciben `dates` en el body.
+- [x] **No expuestos en runtime**: las columnas nuevas NO se exponen en `rowToFestival()` para preservar el contrato con el frontend, no romper el test deep-equal del catálogo (`scripts/verify-festivals-roundtrip.js`), ni obligar al admin a tipear fechas normalizadas. `dates` (texto libre) sigue siendo la única fuente de verdad editable.
+- [x] **Rollover atómico e idempotente**: `db.rolloverFestival(id, nextYear)` conserva el `id` original (para no romper favoritos de usuarios en `user_festivals`), resetea `lineup = '{}'`, `lineup_status = 'unannounced'`, limpia `flyer = NULL` y `flyer_images = '{}'`, deja en `NULL` las fechas estructuradas y pasa `dates` a `'<año+1> (fecha por anunciar)'`.
+- [x] Generador de reportes en Markdown (`server/rolloverReport.js`) compartido entre CLI, admin panel y workflow.
+- [x] CLI `scripts/lineup-rollover.js` con soporte para `--dry` (default), `--apply`, `--festival=<id>`, `--today=YYYY-MM-DD` y `--report-out=<path>`. Exporta variables a `$GITHUB_OUTPUT`. Testeado en `scripts/verify-rollover-report.js` (`npm run test:rollover`).
+- [x] Endpoint admin `POST /api/admin/lineup-rollover` protegido con `requireAuth` + `requireAdmin` (`?dry=1` devuelve preview sin escribir; sin `dry`, ejecuta el rollover).
+- [x] Interfaz en panel admin: botón "Rotar festivales vencidos" en la sección de festivales y modal de previsualización con confirmación explícita y render semántico del reporte.
+- [x] Workflow semanal de GitHub Actions (`.github/workflows/lineup-rollover.yml`): corre los lunes a las 11:17 UTC (08:17 ART) y por `workflow_dispatch`. Publica un GitHub Issue asignado a `@nelsoncabrera06` **solo si hay novedades** (`has_news == 'true'`) y siempre escribe el reporte en `$GITHUB_STEP_SUMMARY`.
+- [x] **Regla crítica de migraciones**: `002_festivals.sql` NO debe re-aplicarse (su `ON CONFLICT` sobreescribiría las 63 filas borrando ediciones manuales y rotaciones). La migración 012 es incremental.
+- [x] **Dirección futura (Fases 3-4)**: Extractor de grillas con IA en GitHub Actions (API de LLM, cadencia individual con `next_check_at` y hash de cambios en webs oficiales). Las grillas propuestas se guardarán en una tabla de propuestas (`lineup_proposals`) y requerirán aprobación humana desde el panel admin antes de publicarse (mismo patrón que `festival_suggestions`).
+
 ### Mejora en curso (21/10/2026): región inicial por ubicación
 
 - [x] En la primera visita, elegir región con el país que Vercel infiere por IP: países
@@ -370,10 +386,9 @@ agent-plan/           # Plan de trabajo de Nelson (plan.md + el HTML generado). 
                       # repo: está en .gitignore. No confundir con la fuente de verdad
                       # del estado del proyecto, que es este archivo
 scripts/              # generate-festivals-migration.js (genera 002_festivals.sql)
-migrations/           # Schema versionado. 001_init.sql, 002_festivals.sql,
-                      # 003_demo_user.sql, 004_secure_public_tables.sql y 005 aplicados.
-                      # 006 corre DESPUÉS del merge (ver "Orden de despliegue").
-.github/workflows/    # keepalive.yml (cron Supabase) + docker-publish.yml (GHCR para Terraform)
+migrations/           # Schema versionado. 001_init.sql a 012_festival_dates.sql aplicados.
+                      # 002 NO se re-aplica (su ON CONFLICT pisa el catálogo). 007 a 012 son incrementales.
+.github/workflows/    # keepalive.yml (cron Supabase), lineup-rollover.yml (cron semanal radar) + docker-publish.yml
 migrations/festival_match_backup_20260505.dump  # Backup de Cloud SQL (20260505). Ignorado por
                       # git vía `*.dump`. Datos viejos de 2026, opcional. NO confundir con
                       # los .sql de al lado: esos SÍ están versionados (ver Trampa 6)

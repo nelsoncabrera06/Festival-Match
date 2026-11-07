@@ -32,6 +32,10 @@ about you".
 | Auth | Google OAuth, bcrypt, cookie sessions |
 | Hosting | Vercel (serverless functions) + Supabase |
 
+## Architecture
+
+![alt text](/public/img/arquitectura.png)
+
 ## Two decisions worth explaining
 
 **The frontend calls relative URLs.** Everything is `fetch('/api/...')`, with no domain

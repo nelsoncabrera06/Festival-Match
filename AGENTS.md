@@ -113,6 +113,48 @@ Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje 
   [Pori Jazz](https://porijazz.fi/).
 - Catálogo local: 63 festivales y 1.031 entradas de artistas en lineups de 2026/2027.
 
+### Mejora "Mis Artistas" (24/10/2026, sesión 9)
+
+- [x] Tab **Mis Artistas** rediseñado (item #4 de `dev_local/Cosas para mejorar.txt`). Solo
+  tocaron `public/app.js` y `public/theme.css`; `styles.css` intacto (capa base). Commiteado
+  en `dev` (`7724717 Mis Artistas: seccion mejorada...`). **Pendiente confirmar: merge
+  `dev` → `main`** (Nelson recibió los comandos; producción se actualiza al pushear main).
+- Qué cambió:
+  - El 🎸 hardcodeado de cada card (`artist-tour-icon`) se eliminó del template; no era un
+    fallback de imagen fallida, iba siempre a 32px.
+  - Dos grupos con orden alfabético, y el agrupado decide según si el lookup encontró algo:
+    **On tour** (fechas en la región, festivales del catálogo, o gira en otras regiones) y
+    **Sin fechas encontradas** (lista densa de solo nombres).
+  - En "Sin fechas" el nombre es un `<a>` a Google con tooltip "Buscar tour", y la query es
+    `"{artista} tour"`, **sin año** — lo mismo para el link interno de las cards y para el
+    título `🎪 En festivales` (ya no lleva `${currentYear}`).
+  - **La × de eliminar ya no existe en este tab**: la única vía es Editar Preferencias.
+  - Triángulo de expandir/contraer en las cards On tour (`▶`/`▼`), a la **izquierda** del
+    nombre (patrón disclosure, botón fijo 20×20). Default expandido; el estado vive en
+    `artistTourCollapsed` y sobrevive a re-renders por idioma.
+- **Filtro de país ahora aplica a las giras** (bug real): el backend de `/api/artist-events`
+  solo filtraba por región completa (todo Latam), ignorando el país activo. Ahora
+  `applyCountryFilter()` filtra antes de agrupar: `festivalAppearances` por código ISO y
+  `events` contra nombre localizado (`Intl.DisplayNames`) + `COUNTRY_INFO` + código. Si a un
+  artista no le queda nada tras el filtro, baja a "Sin fechas". El link "Ver los N conciertos"
+  usa el conteo filtrado, no `totalRegionEvents` crudo.
+- **Carga progresiva en paralelo** (reemplaza el `for...await` secuencial, que sumaba
+  latencias): `Promise.all` pero cada respuesta llegada dispara `renderArtistsTours()`.
+  `artistsToursPending` muestra un pie "Cargando N artistas más...". `toursLoadEpoch`
+  invalida respuestas tardías tras cambiar de región (evita datos de Europa en la lista de
+  Latam). El coste real: cada request de `/api/artist-events` relee el catálogo con
+  `db.getFestivals()` y el pool es `max: 1`, así que ~2-3N queries se encolan. **Optimización candidata a futuro, NO hecha**: cachear el catálogo en memoria en el endpoint.
+- Bug latente arreglado de paso: `handleLanguageChange` llamaba `renderArtistsTours()` que
+  **no existía** → cambiar de idioma con tours cargados tiraba `ReferenceError` y cortaba el
+  re-render a mitad (artistas y géneros nunca se re-renderizaban). Ahora la función existe
+  y ese path funciona.
+- Estilo: los overrides van en `theme.css` (bloques "Mis Artistas: tarjetas de gira
+  compactas" y "grupos On tour / Sin fechas"). Nombre a 15px/600 fijo — gana también sobre
+  el `@media` móvil de `styles.css` porque `theme.css` carga después por diseño. La regla
+  `.artist-tour-icon` quedó huérfana en `styles.css` a propósito (capa base no se toca).
+- Verificado con `node --check public/app.js` y balance de llaves de `theme.css`. Prueba a
+  mano en localhost pendiente al momento de mergear.
+
 ---
 
 ## 🔴 RETOMAR ACÁ — 09/10/2026, sesión 8 (fin del día)

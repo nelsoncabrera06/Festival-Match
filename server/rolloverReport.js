@@ -54,7 +54,7 @@ function agruparSinFecha(rows) {
 
 function renderReport(data) {
   const {
-    today, apply, candidatos, errores, proximos, atencion, sinFecha, stats,
+    today, apply, candidatos, errores, proximos, atencion, sinFecha, stats, festivalId,
   } = data;
 
   const lines = [];
@@ -62,14 +62,24 @@ function renderReport(data) {
   lines.push('');
 
   if (candidatos.length === 0 && errores.length === 0 && atencion.length === 0) {
-    lines.push('Sin novedades: ningún festival terminó, no hubo errores y no hay nada que revisar.');
+    lines.push(
+      festivalId
+        ? `Sin novedades para \`${festivalId}\`: no terminó su edición, no hubo errores y no hay nada que revisar.`
+        : 'Sin novedades: ningún festival terminó, no hubo errores y no hay nada que revisar.'
+    );
     lines.push('');
   }
 
   const tituloRotados = apply ? 'Rotados' : 'Candidatos a rotar';
   lines.push(`## ${tituloRotados} (${candidatos.length})`);
   if (candidatos.length === 0) {
-    lines.push('- Ninguno.');
+    // Con --festival=id el reporte se limita a uno. Si no aparece, hay que
+    // decirlo: "Ninguno" a secas se confunde con "no terminó ninguno".
+    if (festivalId) {
+      lines.push(`- Filtro \`--festival=${festivalId}\`: no está vencido, está en hiatus o ya fue rotado.`);
+    } else {
+      lines.push('- Ninguno.');
+    }
   } else {
     if (!apply) lines.push('- Dry run: no se aplicó nada. Para rotar: botón del panel o `--apply`.');
     for (const f of candidatos) {
@@ -141,11 +151,14 @@ function renderReport(data) {
 async function buildRolloverReport(options = {}) {
   const apply = options.apply === true;
   const today = options.today || hoyUtc();
+  const festivalId = options.festivalId || null;
   if (!DIAS_DE_HOY.test(today)) {
     throw new Error(`Fecha inválida: ${today}. Se espera YYYY-MM-DD.`);
   }
 
-  const candidatosDb = await db.getFestivalsEndedBefore(today);
+  const candidatosDb = festivalId
+    ? (await db.getFestivalsEndedBefore(today)).filter((f) => f.id === festivalId)
+    : await db.getFestivalsEndedBefore(today);
 
   const rotados = [];
   const errores = [];
@@ -214,7 +227,7 @@ async function buildRolloverReport(options = {}) {
   const hasNews = candidatos.length > 0 || errores.length > 0 || atencion.length > 0;
 
   const markdown = renderReport({
-    today, apply, candidatos, errores, proximos, atencion, sinFecha, stats,
+    today, apply, candidatos, errores, proximos, atencion, sinFecha, stats, festivalId,
   });
 
   return {
@@ -222,6 +235,7 @@ async function buildRolloverReport(options = {}) {
     hasNews,
     today,
     apply,
+    festivalId,
     counts: {
       candidatos: candidatos.length,
       rotados: rotados.length,

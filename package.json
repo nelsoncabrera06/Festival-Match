@@ -8,7 +8,9 @@
     "dev": "node --watch-path=app.js --watch-path=server --watch-path=public app.js",
     "seed:festivals": "node scripts/generate-festivals-migration.js",
     "seed:festivals:check": "node scripts/generate-festivals-migration.js --check",
-    "test:festivals": "node scripts/verify-festivals-roundtrip.js && node scripts/verify-festivals-queries.js",
+    "lineup:rollover": "node scripts/lineup-rollover.js",
+    "test:festivals": "node scripts/verify-festivals-roundtrip.js && node scripts/verify-festivals-queries.js && node scripts/verify-rollover-report.js",
+    "test:rollover": "node scripts/verify-rollover-report.js",
     "test:dates": "node scripts/verify-date-range.js"
   },
   "dependencies": {

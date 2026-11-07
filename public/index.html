@@ -431,6 +431,7 @@
           <div id="admin-festivals-section" class="admin-section" style="display: none;">
             <div class="admin-festivals-header">
               <span id="admin-festivals-count">0 festivales</span>
+              <button type="button" id="admin-lineup-rollover-btn" class="btn-secondary">Rotar festivales vencidos</button>
             </div>
             <div id="admin-festivals-table-container">
               <table class="admin-festivals-table">
@@ -664,6 +665,26 @@
           <button type="submit" class="btn-primary">Guardar cambios</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal: Rotar Festivales Vencidos (Admin) -->
+  <div id="lineup-rollover-modal" class="modal" style="display: none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-wide">
+      <div class="modal-header">
+        <h3>Rotar Festivales Vencidos</h3>
+        <button class="modal-close" id="lineup-rollover-modal-close">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <div id="lineup-rollover-preview" class="rollover-preview-container">
+          <!-- Vista previa dinamica -->
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="lineup-rollover-cancel">Cancelar</button>
+        <button type="button" class="btn-primary" id="lineup-rollover-confirm" style="display: none;">Confirmar y rotar</button>
+      </div>
     </div>
   </div>
 

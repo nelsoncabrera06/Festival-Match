@@ -71,6 +71,7 @@ function getLocalIP() {
 // Base de datos y autenticacion
 const db = require('./db');
 const auth = require('./auth');
+const { buildRolloverReport } = require('./rolloverReport');
 const bcrypt = require('bcryptjs');
 const SALT_ROUNDS = 10;
 
@@ -674,6 +675,25 @@ function registerServer(app) {
     } catch (err) {
       console.error('Error eliminando festival:', err.message);
       res.status(500).json({ error: 'Error al eliminar festival' });
+    }
+  });
+
+  // Rollover de festivales vencidos (admin)
+  //
+  // POST /api/admin/lineup-rollover?dry=1 -> devuelve { report, items } sin escribir
+  // POST /api/admin/lineup-rollover       -> rota en la DB y devuelve { report, items }
+  app.post('/api/admin/lineup-rollover', auth.requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const isDry = req.query.dry === '1' || req.query.dry === 'true';
+      const result = await buildRolloverReport({ apply: !isDry });
+      res.json({
+        report: result.markdown,
+        items: isDry ? result.candidatos : result.rotados,
+        ...result,
+      });
+    } catch (err) {
+      console.error('Error en lineup-rollover:', err.message);
+      res.status(500).json({ error: 'Error al procesar el rollover de festivales' });
     }
   });
 

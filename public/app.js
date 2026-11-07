@@ -286,6 +286,14 @@ function cacheElements() {
   elements.editFestivalWebsite = document.getElementById('edit-festival-website');
   elements.editFestivalStatus = document.getElementById('edit-festival-status');
 
+  // Lineup Rollover Modal (Admin)
+  elements.lineupRolloverBtn = document.getElementById('admin-lineup-rollover-btn');
+  elements.lineupRolloverModal = document.getElementById('lineup-rollover-modal');
+  elements.lineupRolloverModalClose = document.getElementById('lineup-rollover-modal-close');
+  elements.lineupRolloverCancel = document.getElementById('lineup-rollover-cancel');
+  elements.lineupRolloverConfirm = document.getElementById('lineup-rollover-confirm');
+  elements.lineupRolloverPreview = document.getElementById('lineup-rollover-preview');
+
   // Edit User Modal
   elements.editUserModal = document.getElementById('edit-user-modal');
   elements.editUserForm = document.getElementById('edit-user-form');
@@ -494,6 +502,13 @@ function setupEventListeners() {
   elements.editFestivalCancel?.addEventListener('click', closeEditFestivalModal);
   elements.editFestivalForm?.addEventListener('submit', saveEditFestival);
   elements.editFestivalModal?.querySelector('.modal-backdrop')?.addEventListener('click', closeEditFestivalModal);
+
+  // Lineup Rollover Modal (Admin)
+  elements.lineupRolloverBtn?.addEventListener('click', openLineupRolloverModal);
+  elements.lineupRolloverModalClose?.addEventListener('click', closeLineupRolloverModal);
+  elements.lineupRolloverCancel?.addEventListener('click', closeLineupRolloverModal);
+  elements.lineupRolloverConfirm?.addEventListener('click', confirmLineupRollover);
+  elements.lineupRolloverModal?.querySelector('.modal-backdrop')?.addEventListener('click', closeLineupRolloverModal);
 
   // Edit User Modal
   elements.editUserModalClose?.addEventListener('click', closeEditUserModal);
@@ -930,6 +945,179 @@ async function deleteFestival(festivalId) {
   } catch (err) {
     console.error('Error deleting festival:', err);
     alert('Error al eliminar el festival');
+  }
+}
+
+// ==========================================
+// Admin - Rollover de Festivales Vencidos
+// ==========================================
+
+function openLineupRolloverModal() {
+  if (!elements.lineupRolloverModal) return;
+
+  elements.lineupRolloverModal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+
+  if (elements.lineupRolloverConfirm) {
+    elements.lineupRolloverConfirm.style.display = 'none';
+    elements.lineupRolloverConfirm.disabled = false;
+    elements.lineupRolloverConfirm.textContent = 'Confirmar y rotar';
+  }
+  if (elements.lineupRolloverCancel) {
+    elements.lineupRolloverCancel.disabled = false;
+    elements.lineupRolloverCancel.textContent = 'Cancelar';
+  }
+
+  if (elements.lineupRolloverPreview) {
+    elements.lineupRolloverPreview.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: center; gap: 10px; padding: 30px 0; color: var(--text-muted);">
+        <div class="mini-loader"></div>
+        <span>Calculando festivales vencidos y preparando vista previa...</span>
+      </div>
+    `;
+  }
+
+  loadLineupRolloverPreview();
+}
+
+function closeLineupRolloverModal() {
+  if (!elements.lineupRolloverModal) return;
+  elements.lineupRolloverModal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function renderMarkdownReport(md) {
+  if (!md) return '';
+  const lines = md.split('\n');
+  const out = [];
+  let inList = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      if (inList) {
+        out.push('</ul>');
+        inList = false;
+      }
+      continue;
+    }
+
+    if (trimmed.startsWith('# ')) {
+      if (inList) { out.push('</ul>'); inList = false; }
+      out.push(`<h4>${formatMarkdownInline(trimmed.slice(2))}</h4>`);
+    } else if (trimmed.startsWith('## ')) {
+      if (inList) { out.push('</ul>'); inList = false; }
+      out.push(`<h5>${formatMarkdownInline(trimmed.slice(3))}</h5>`);
+    } else if (trimmed.startsWith('- ')) {
+      if (!inList) {
+        out.push('<ul class="rollover-report-list">');
+        inList = true;
+      }
+      out.push(`<li>${formatMarkdownInline(trimmed.slice(2))}</li>`);
+    } else {
+      if (inList) {
+        out.push(`<li class="rollover-report-subtext">${formatMarkdownInline(trimmed)}</li>`);
+      } else {
+        out.push(`<p>${formatMarkdownInline(trimmed)}</p>`);
+      }
+    }
+  }
+  if (inList) out.push('</ul>');
+  return out.join('\n');
+}
+
+function formatMarkdownInline(str) {
+  return escapeHtml(str)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+
+async function loadLineupRolloverPreview() {
+  try {
+    const response = await fetch('/api/admin/lineup-rollover?dry=1', {
+      method: 'POST',
+      credentials: 'include'
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al obtener vista previa');
+    }
+
+    if (elements.lineupRolloverPreview) {
+      elements.lineupRolloverPreview.innerHTML = renderMarkdownReport(data.report || data.markdown || '');
+    }
+
+    const cantCandidatos = data.counts?.candidatos ?? (data.items?.length || 0);
+    if (elements.lineupRolloverConfirm) {
+      if (cantCandidatos > 0) {
+        elements.lineupRolloverConfirm.style.display = 'inline-flex';
+        elements.lineupRolloverConfirm.textContent = `Confirmar y rotar (${cantCandidatos})`;
+      } else {
+        elements.lineupRolloverConfirm.style.display = 'none';
+        if (elements.lineupRolloverCancel) {
+          elements.lineupRolloverCancel.textContent = 'Cerrar';
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error cargando preview de rollover:', err);
+    if (elements.lineupRolloverPreview) {
+      elements.lineupRolloverPreview.innerHTML = `
+        <div class="admin-error-cell" style="padding: 20px; text-align: center;">
+          ${escapeHtml(err.message || 'Error al cargar vista previa')}
+        </div>
+      `;
+    }
+  }
+}
+
+async function confirmLineupRollover() {
+  if (!elements.lineupRolloverConfirm) return;
+
+  elements.lineupRolloverConfirm.disabled = true;
+  elements.lineupRolloverConfirm.textContent = 'Rotando...';
+  if (elements.lineupRolloverCancel) {
+    elements.lineupRolloverCancel.disabled = true;
+  }
+
+  try {
+    const response = await fetch('/api/admin/lineup-rollover', {
+      method: 'POST',
+      credentials: 'include'
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al rotar festivales');
+    }
+
+    const cantRotados = data.counts?.rotados ?? (data.items?.length || 0);
+    if (elements.lineupRolloverPreview) {
+      elements.lineupRolloverPreview.innerHTML = `
+        <div class="rollover-banner-success">
+          ✓ Se rotaron exitosamente ${cantRotados} ${cantRotados === 1 ? 'festival' : 'festivales'}.
+        </div>
+        ${renderMarkdownReport(data.report || data.markdown || '')}
+      `;
+    }
+
+    elements.lineupRolloverConfirm.style.display = 'none';
+    if (elements.lineupRolloverCancel) {
+      elements.lineupRolloverCancel.disabled = false;
+      elements.lineupRolloverCancel.textContent = 'Cerrar';
+    }
+
+    // Recargar tabla de festivales del admin para reflejar los cambios
+    await loadAdminFestivals();
+  } catch (err) {
+    console.error('Error aplicando rollover:', err);
+    alert(err.message || 'Error al rotar festivales');
+    elements.lineupRolloverConfirm.disabled = false;
+    elements.lineupRolloverConfirm.textContent = 'Confirmar y rotar';
+    if (elements.lineupRolloverCancel) {
+      elements.lineupRolloverCancel.disabled = false;
+    }
   }
 }
 

@@ -244,6 +244,7 @@ async function buildRolloverReport(options = {}) {
       atencion: atencion.length,
       sinFecha: sinFecha.length,
     },
+    candidatos,
     rotados,
     errores,
     atencion,

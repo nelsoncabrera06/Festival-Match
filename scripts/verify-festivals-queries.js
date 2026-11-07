@@ -62,7 +62,10 @@ const check = (cond, msg) => {
   });
 
   // 3. Update intentando escribir lo que NO se debe poder tocar
-  await db.updateFestival('x', { id: 'hacked-id', sort_order: 999, lineup_status: 'hacked' });
+  await db.updateFestival('x', {
+    id: 'hacked-id', sort_order: 999, lineup_status: 'hacked',
+    startsOn: '1999-01-01', endsOn: '1999-01-02',
+  });
 
   // 4. Create
   await db.createFestival({
@@ -91,10 +94,15 @@ const check = (cond, msg) => {
   // Whitelist: el mapa es camelCase -> columna, asi que lo que se valida contra
   // el SQL son los VALUES del mapa. updated_at lo agrega la funcion, no el body.
   const allowed = new Set(Object.values(db.UPDATABLE_FESTIVAL_FIELDS));
+  // starts_on/ends_on no son campos del body: son DERIVADAS de `dates` por
+  // server/dateRange.js. Viajan en el mismo UPDATE pero no en el whitelist.
+  const derived = new Set(['starts_on', 'ends_on']);
   const setPart = (queries[1].sql.replace(/\s+/g, ' ').match(/SET (.+?) WHERE/) || [])[1] || '';
   const used = setPart.split(',').map(s => s.trim().split('=')[0].trim());
-  check(used.filter(c => c !== 'updated_at').every(c => allowed.has(c)),
-    'columnas del SET dentro del whitelist: ' + used.join(','));
+  check(used.filter(c => c !== 'updated_at' && !derived.has(c)).every(c => allowed.has(c)),
+    'columnas del SET dentro del whitelist (o derivadas): ' + used.join(','));
+  check(used.includes('starts_on') && used.includes('ends_on'),
+    'si el body trae dates, el mismo UPDATE recalcula starts_on y ends_on');
   check(!used.includes('id') && !used.includes('sort_order'),
     'id y sort_order NO son escribibles desde el body');
   check(Array.isArray(queries[1].params.find(p => Array.isArray(p))),
@@ -110,6 +118,28 @@ const check = (cond, msg) => {
     'createFestival: sort_order = MAX(sort_order) + 1 (va al final)');
   check(queries[4].sql.includes('RETURNING'),
     'deleteFestival: RETURNING para poder devolver el festival borrado');
+
+  // Rollover: se llaman DESPUES de los indices fijos de arriba, para no
+  // correrlos. No tocan la base: el pool interceptado devuelve filas vacias.
+  await db.getFestivalsEndedBefore('2026-11-07');
+  await db.rolloverFestival('amf', 2027);
+  const ended = queries[5].sql.replace(/\s+/g, ' ');
+  const roll = queries[6].sql.replace(/\s+/g, ' ');
+
+  check(ended.includes('ends_on < $1::date') && ended.includes("lineup_status <> 'hiatus'"),
+    'getFestivalsEndedBefore: filtra por ends_on y saltea hiatus');
+  check(ended.includes('ends_on::text'),
+    'getFestivalsEndedBefore: ends_on sale como texto (sin corrimiento de TZ)');
+  check(roll.includes("lineup = '{}'") && roll.includes("lineup_status = 'unannounced'"),
+    'rollover: la edicion nueva queda sin lineup y sin anunciar');
+  check(roll.includes('flyer = NULL') && roll.includes("flyer_images = '{}'"),
+    'rollover: limpia los flyers de la edicion que termino');
+  check(roll.includes('dates = $2'),
+    'rollover: el texto de fechas va como parametro, no interpolado');
+  check(roll.includes('ends_on < CURRENT_DATE'),
+    'rollover: re-valida en el WHERE (doble click no rota dos veces)');
+  check(queries[6].params[1] === '2027 (fecha por anunciar)',
+    'rollover: arma "<año+1> (fecha por anunciar)"');
 
   console.log(fail ? `\n${fail} fallas` : '\nTodo OK');
   process.exit(fail ? 1 : 0);

@@ -1,6 +1,8 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+// Fechas estructuradas derivadas de `dates` (starts_on / ends_on).
+const { parseDateRange } = require('./dateRange');
 
 const SALT_ROUNDS = 10;
 
@@ -586,11 +588,18 @@ async function getFestivalById(id) {
 // desde el caller) obliga a que cada endpoint que cree un festival se acuerde de
 // calcularlo.
 async function createFestival(festival) {
+  // starts_on / ends_on son DERIVADAS de `dates` (ver server/dateRange.js).
+  // Se calculan aca y no en el caller para que cualquier alta, incluida la
+  // aprobacion de una sugerencia, quede con las fechas coherentes.
+  const rango = parseDateRange(festival.dates);
+
   const result = await pool.query(
     `INSERT INTO festivals
        (id, name, city, location, country, dates, website, image, flyer,
-        flyer_images, description, lineup_status, lineup, note, sort_order)
+        flyer_images, description, lineup_status, lineup, note,
+        starts_on, ends_on, sort_order)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+             $15, $16,
              (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM festivals))
      RETURNING ${FESTIVAL_COLUMNS}`,
     [
@@ -608,6 +617,8 @@ async function createFestival(festival) {
       festival.lineupStatus || 'unannounced',
       festival.lineup || [],
       festival.note || null,
+      rango.startsOn,
+      rango.endsOn,
     ]
   );
 
@@ -651,6 +662,22 @@ async function updateFestival(id, updates) {
     sets.push(`${column} = $${values.length}`);
   }
 
+  // Si el body trae `dates`, se recalculan las columnas derivadas en el MISMO
+  // UPDATE. Si no viene, se dejan como estan: el backfill de la 012 y el
+  // rollover ya las mantienen, y recalcularlas desde un `dates` viejo las
+  // pisaria con valores que no corresponden a la edicion actual.
+  //
+  // Esto es lo que evita el "festival congelado": si el admin corrige las
+  // fechas de texto, ends_on cambia con ellas y el rollover vuelve a saber
+  // cuando termina la edicion.
+  if (updates.dates !== undefined) {
+    const rango = parseDateRange(updates.dates);
+    values.push(rango.startsOn);
+    sets.push(`starts_on = $${values.length}`);
+    values.push(rango.endsOn);
+    sets.push(`ends_on = $${values.length}`);
+  }
+
   if (sets.length === 0) {
     // Nada que actualizar: se devuelve el estado actual en vez de un error, que
     // es lo que hacia el forEach sobre el JSON (escribia el archivo sin cambios).
@@ -675,6 +702,74 @@ async function deleteFestival(id) {
     [id]
   );
   return result.rows[0] ? rowToFestival(result.rows[0]) : null;
+}
+
+// ==========================================
+// Rollover de ediciones (radar de lineups)
+// ==========================================
+//
+// Cuando una edicion ya paso, la fila NO se borra: se resetea para la edicion
+// siguiente. Asi se conservan los favoritos (user_festivals.festival_id), la URL
+// y el id del festival, que es lo que referencia el resto del sistema.
+//
+// ends_on sale como ::text a proposito: node-postgres parsea DATE a un Date en
+// hora local y eso puede correrse un dia segun el TZ del proceso. El reporte
+// solo necesita el string ISO.
+
+async function getFestivalsEndedBefore(fecha) {
+  const result = await pool.query(
+    `SELECT id, name, dates, ends_on::text AS ends_on, lineup_status,
+            COALESCE(array_length(lineup, 1), 0) AS artist_count
+       FROM festivals
+      WHERE ends_on IS NOT NULL
+        AND ends_on < $1::date
+        AND lineup_status <> 'hiatus'
+      ORDER BY ends_on, sort_order`,
+    [fecha]
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    dates: row.dates,
+    endsOn: row.ends_on,
+    lineupStatus: row.lineup_status,
+    artistCount: row.artist_count,
+  }));
+}
+
+// Rotar un festival a la edicion siguiente.
+//
+// El WHERE repite las condiciones del dry run a proposito: si alguien aprieta
+// dos veces el boton, o si el cron corre mientras el admin aplica, la segunda
+// ejecucion no encuentra nada (ends_on ya es NULL) y devuelve null. Es
+// idempotente por construccion, no por confiar en el caller.
+async function rolloverFestival(id, nextYear) {
+  if (!Number.isInteger(nextYear)) {
+    throw new Error('rolloverFestival: nextYear debe ser un entero');
+  }
+
+  const result = await pool.query(
+    `UPDATE festivals
+        SET lineup        = '{}',
+            lineup_status = 'unannounced',
+            -- Los flyers son la portada de la edicion que termino. Si no se
+            -- limpian, el festival rolado sigue mostrando el poster viejo.
+            flyer         = NULL,
+            flyer_images  = '{}',
+            starts_on     = NULL,
+            ends_on       = NULL,
+            dates         = $2,
+            updated_at    = NOW()
+      WHERE id            = $1
+        AND ends_on       IS NOT NULL
+        AND ends_on       < CURRENT_DATE
+        AND lineup_status <> 'hiatus'
+      RETURNING id, name, dates`,
+    [id, `${nextYear} (fecha por anunciar)`]
+  );
+
+  return result.rows[0] || null;
 }
 
 // ==========================================
@@ -882,6 +977,9 @@ module.exports = {
   createFestival,
   updateFestival,
   deleteFestival,
+  // Rollover de ediciones (fechas derivadas + reset de la edicion siguiente)
+  getFestivalsEndedBefore,
+  rolloverFestival,
   // Campos que PUT /api/admin/festivals/:id puede escribir. Exportado para que
   // un test pueda verificar que el SET de la query sale de acá y de otro lugar.
   UPDATABLE_FESTIVAL_FIELDS,

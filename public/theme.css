@@ -477,6 +477,34 @@ body {
   font-weight: 500;
 }
 
+/* Botones de acción en modales (tamaño y alineación uniforme) */
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+#lineup-rollover-modal .modal-actions {
+  padding: 16px 20px 20px;
+  border-top: 1px solid rgba(223, 241, 222, .08);
+}
+
+.modal-actions .btn-primary,
+.modal-actions .btn-secondary,
+.modal-actions .btn-danger {
+  min-height: 38px;
+  height: 38px;
+  padding: 0 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  border-radius: 10px;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 button, input, select { font: inherit; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
   outline: 3px solid rgba(216, 242, 122, .55);

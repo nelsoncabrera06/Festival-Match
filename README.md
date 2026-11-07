@@ -34,7 +34,7 @@ about you".
 
 ## Architecture
 
-![alt text](/public/img/arquitectura.png)
+![arquitectura](public/img/arquitectura.png)
 
 ## Two decisions worth explaining
 

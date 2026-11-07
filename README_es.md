@@ -31,6 +31,10 @@ lineup de cada festival del catálogo y le pone un puntaje a cada uno — así, 
 | Auth | Google OAuth, bcrypt, sesiones en cookie |
 | Hosting | Vercel (serverless functions) + Supabase |
 
+## Architecture
+
+![arquitectura](public/img/arquitectura.png)
+
 ## Dos decisiones que vale la pena explicar
 
 **El frontend llama a URLs relativas.** Todo es `fetch('/api/...')`, sin ningún dominio

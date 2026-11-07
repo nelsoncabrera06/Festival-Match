@@ -208,6 +208,14 @@ async function initDatabase() {
     // Ignorar si ya existe
   }
 
+  // Fechas estructuradas del catalogo (migrations/012_festival_dates.sql).
+  // Son DERIVADAS de `dates` por server/dateRange.js: no se editan a mano ni se
+  // devuelven en rowToFestival(), porque verify-festivals-roundtrip.js hace
+  // deep-equal contra festivals.json y una clave nueva rompe ese contrato.
+  // Aca solo se crean para que el dev local tenga el mismo schema que Supabase.
+  await pool.query('ALTER TABLE festivals ADD COLUMN IF NOT EXISTS starts_on DATE');
+  await pool.query('ALTER TABLE festivals ADD COLUMN IF NOT EXISTS ends_on DATE');
+
   console.log('Base de datos PostgreSQL inicializada');
 }
 

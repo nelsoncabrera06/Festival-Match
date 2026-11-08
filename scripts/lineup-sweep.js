@@ -204,10 +204,17 @@ async function scanRows(rows, { concurrency = 2, now = new Date(), fetch = fetch
         const earliest = nextStartByHost.get(host) || 0;
         if (earliest > Date.now()) await new Promise((resolve) => setTimeout(resolve, earliest - Date.now()));
         nextStartByHost.set(host, Date.now() + 1500);
-        const fetched = await fetch(row.lineupSourceUrl, {
+        let fetched = await fetch(row.lineupSourceUrl, {
           etag: row.state?.etag || null,
           lastModified: row.state?.lastModified || null,
         });
+        // Si el servidor responde 304 pero el hash guardado es de otra versión,
+        // no podemos comparar: se pide una vez sin condicional para establecer
+        // la línea base. Sin esto, el primer cambio real de esa fuente se
+        // tomaría como línea base y se perdería la observación.
+        if (fetched.notModified && row.state?.hashVersion !== RELEVANT_HASH_VERSION) {
+          fetched = await fetch(row.lineupSourceUrl, {});
+        }
         let result;
         if (fetched.notModified) {
           result = {

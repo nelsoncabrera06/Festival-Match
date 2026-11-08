@@ -112,7 +112,7 @@ function main() {
     const rows = [{
       id: 'uno', name: 'Uno', lineupSourceUrl: 'https://source.example/lineup', lineup: [],
       startsOn: null, endsOn: null, lineupStatus: 'announced',
-      state: { consecutiveFailures: 2, etag: '"e"', lastModified: null, lastSeenHash: 'h' },
+      state: { consecutiveFailures: 2, etag: '"e"', lastModified: null, lastSeenHash: 'h', hashVersion: RELEVANT_HASH_VERSION },
     }];
     let conditional = null;
     const notModified = await scanRows(rows, {
@@ -130,6 +130,31 @@ function main() {
     assert.strictEqual(notModified[0].triage, 'not_modified');
     assert.strictEqual(notModified[0].consecutiveFailures, 0);
     assert.strictEqual(notModified[0].scheduleReason, 'off_season');
+
+    // 304 con hash de otra versión: se reintenta sin condicional para fijar
+    // línea base y no perder el primer cambio real.
+    let attempts = 0;
+    const rebaseline = await scanRows([{
+      ...rows[0],
+      state: { consecutiveFailures: 0, etag: '"e"', lastModified: null, lastSeenHash: 'viejo', hashVersion: 1 },
+    }], {
+      now, concurrency: 1,
+      fetch: async (url, options) => {
+        attempts += 1;
+        if (!options.etag) {
+          return {
+            status: 200, notModified: false, contentType: 'text/html', bytes: 30, hash: 'raw',
+            etag: '"e"', lastModified: null, finalUrl: url,
+            body: Buffer.from('<main><h1>Lineup</h1><p>Björk</p></main>'),
+          };
+        }
+        return { status: 304, notModified: true, body: Buffer.alloc(0), etag: '"e"', finalUrl: url };
+      },
+    });
+    assert.strictEqual(attempts, 2, 'un 304 con versión vieja debe reintentar sin condicional');
+    assert.strictEqual(rebaseline[0].notModified, undefined);
+    assert.strictEqual(rebaseline[0].status, 200);
+    assert.ok(rebaseline[0].relevantHash);
 
     const failed = await scanRows(rows, {
       now, concurrency: 1,

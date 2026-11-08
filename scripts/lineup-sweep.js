@@ -145,38 +145,71 @@ async function loadSources(client, options) {
 
 const escapeCell = (value) => String(value ?? '').replaceAll('|', '\\|').replace(/[\r\n]+/g, ' ');
 
+// Fechas para humanos: DD-MM-YYYY (y hora en UTC cuando hace falta). El
+// almacenamiento sigue en ISO/UTC; esto es solo presentación del reporte.
+function formatDate(value) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  return `${day}-${month}-${date.getUTCFullYear()}`;
+}
+
+function formatDateTime(value) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  const hours = String(date.getUTCHours()).padStart(2, '0');
+  const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+  return `${formatDate(date)} ${hours}:${minutes}:${seconds} UTC`;
+}
+
 function renderMarkdown(report) {
   const applied = report.mode !== 'dry-run';
   const modeLabel = report.mode === 'observe' ? 'observe' : applied ? 'apply-state' : 'dry run';
   const observations = report.mode === 'observe' ? report.summary.observations : null;
-  const observationSummary = observations ? ` · Observaciones nuevas: ${observations.inserted} · Línea base: ${observations.baseline}` : '';
   const lines = [
     `# Lineup source sweep (${modeLabel})`,
     '',
-    `Generado: ${report.generatedAt} · Fuentes: ${report.summary.total} · Revisadas: ${report.summary.checked} · Salteadas por cadencia: ${report.summary.skipped} · OK: ${report.summary.ok} · Sin cambios (304): ${report.summary.notModified} · Errores: ${report.summary.errors} · HTML candidato: ${report.summary.candidateHtml}${observationSummary}`,
+    `- **Generado:** ${formatDateTime(report.generatedAt)}`,
+    `- **Fuentes:** ${report.summary.total}`,
+    `- **Revisadas:** ${report.summary.checked}`,
+    `- **Salteadas por cadencia:** ${report.summary.skipped}`,
+    `- **OK:** ${report.summary.ok}`,
+    `- **Sin cambios (304):** ${report.summary.notModified}`,
+    `- **Errores:** ${report.summary.errors}`,
+    `- **HTML candidato:** ${report.summary.candidateHtml}`,
+  ];
+  if (observations) {
+    lines.push(`- **Observaciones nuevas:** ${observations.inserted}`);
+    lines.push(`- **Línea base:** ${observations.baseline}`);
+  }
+  lines.push(
     '',
     '| Festival | Triage | Artistas DB | HTTP | Título | Señales | Texto | Hash normalizado | Próximo chequeo | URL final / error |',
     '|---|---|---|---:|---|---|---:|---|---|---|',
-  ];
+  );
   for (const row of report.results) {
     const outcome = row.error ? 'error' : 'ok';
     const detail = row.error || (row.notModified ? '304 Not Modified' : row.finalUrl);
     const coverage = row.lineupArtistTotal
       ? `${row.lineupArtistMatched}/${row.lineupArtistTotal} (${Math.round(row.lineupHitRatio * 100)}%)`
       : '';
-    const next = row.nextCheckAt ? `${row.nextCheckAt.slice(0, 10)} (${row.scheduleReason}${row.cadenceDays ? `, ${row.cadenceDays}d` : ''})` : 'pausado';
+    const next = row.nextCheckAt ? `${formatDate(row.nextCheckAt)} (${row.scheduleReason}${row.cadenceDays ? `, ${row.cadenceDays}d` : ''})` : 'pausado';
     lines.push(`| ${escapeCell(row.name)} (${escapeCell(row.id)}) | ${row.triage || outcome} | ${coverage} | ${row.status ?? ''} | ${escapeCell(row.title || '')} | ${escapeCell((row.lineupSignals || []).join(', '))} | ${row.visibleTextLength ?? ''} | ${row.relevantHash || row.visibleTextHash || ''} | ${next} | ${escapeCell(detail)} |`);
   }
   if (report.observed && report.observed.length) {
     lines.push('', '## Observaciones nuevas', '', '| Festival | Hash anterior | Hash nuevo | Detectado |', '|---|---|---|---|');
     for (const row of report.observed) {
-      lines.push(`| ${escapeCell(row.name)} (${escapeCell(row.id)}) | ${(row.previousHash || '').slice(0, 12)} | ${(row.seenHash || '').slice(0, 12)} | ${row.detectedAt.slice(0, 19)}Z |`);
+      lines.push(`| ${escapeCell(row.name)} (${escapeCell(row.id)}) | ${(row.previousHash || '').slice(0, 12)} | ${(row.seenHash || '').slice(0, 12)} | ${formatDateTime(row.detectedAt)} |`);
     }
   }
   if (report.skipped.length) {
     lines.push('', '## Salteadas por cadencia', '', '| Festival | Próximo chequeo |', '|---|---|');
     for (const row of report.skipped) {
-      lines.push(`| ${escapeCell(row.name)} (${escapeCell(row.id)}) | ${row.nextCheckAt ? row.nextCheckAt.slice(0, 10) : 'pausado'} |`);
+      lines.push(`| ${escapeCell(row.name)} (${escapeCell(row.id)}) | ${row.nextCheckAt ? formatDate(row.nextCheckAt) : 'pausado'} |`);
     }
   }
   lines.push('', 'El triage combina palabras clave del texto visible con evidencia dura: "Artistas DB" cuenta cuántos nombres del lineup guardado en el catálogo aparecen en la página (sin acentos ni mayúsculas). `lineup_not_in_html` significa que el catálogo tiene lineup pero la página no lo muestra en texto visible (JavaScript, datos embebidos en scripts o edición distinta). El hash normalizado ignora tags, scripts, estilos y espacios de maquetación.');
@@ -515,6 +548,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  decideObservation, loadSources, parseArgs, renderMarkdown, saveObservation, saveSourceState,
-  scanRows, withSchedule,
+  decideObservation, formatDate, formatDateTime, loadSources, parseArgs, renderMarkdown,
+  saveObservation, saveSourceState, scanRows, withSchedule,
 };

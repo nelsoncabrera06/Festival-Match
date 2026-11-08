@@ -8,7 +8,7 @@ const {
   RELEVANT_HASH_VERSION, analyzeHtml, analyzeRelevantContent, extractTitle, findLineupHits,
   htmlToRelevantText, htmlToVisibleText, normalizeForMatch, refineTriageWithLineup,
 } = require('../server/lineupHtml');
-const { parseArgs } = require('./lineup-sweep');
+const { formatDate, formatDateTime, parseArgs, renderMarkdown } = require('./lineup-sweep');
 
 async function main() {
   for (const address of [
@@ -29,6 +29,21 @@ async function main() {
   assert.throws(() => parseArgs(['--apply']), /desconocido/);
   assert.strictEqual(parseArgs(['--dry', '--limit=2']).limit, 2);
   assert.strictEqual(parseArgs(['--report-out=radar.md']).reportOut, 'radar.md');
+  // Formato humano del reporte: DD-MM-YYYY y hora UTC.
+  assert.strictEqual(formatDate('2026-12-08T03:19:16.169Z'), '08-12-2026');
+  assert.strictEqual(formatDate(new Date('2026-01-02T23:00:00Z')), '02-01-2026');
+  assert.strictEqual(formatDateTime('2026-11-08T03:36:23.903Z'), '08-11-2026 03:36:23 UTC');
+  assert.strictEqual(formatDate(null), '');
+  const sample = renderMarkdown({
+    mode: 'dry-run',
+    generatedAt: '2026-11-08T03:36:23.903Z',
+    summary: { total: 63, checked: 0, skipped: 63, ok: 0, notModified: 0, errors: 0, candidateHtml: 0 },
+    results: [],
+    skipped: [{ id: 'amf', name: 'AMF', nextCheckAt: '2026-12-08T03:19:16.169Z' }],
+  });
+  assert.match(sample, /- \*\*Generado:\*\* 08-11-2026 03:36:23 UTC/);
+  assert.match(sample, /- \*\*Salteadas por cadencia:\*\* 63/);
+  assert.match(sample, /\| 08-12-2026 \|/);
   assert.throws(() => parseArgs(['--report-out=']), /ruta/);
   assert.throws(() => parseArgs(['--observe']), /--apply-state/);
 

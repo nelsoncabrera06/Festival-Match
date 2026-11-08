@@ -10,7 +10,7 @@
     "seed:festivals:check": "node scripts/generate-festivals-migration.js --check",
     "lineup:rollover": "node scripts/lineup-rollover.js",
     "lineup:sweep": "node scripts/lineup-sweep.js",
-    "test:sweep": "node scripts/verify-lineup-sweep.js",
+    "test:sweep": "node scripts/verify-lineup-sweep.js && node scripts/verify-source-schedule.js",
     "test:festivals": "node scripts/verify-festivals-roundtrip.js && node scripts/verify-festivals-queries.js && node scripts/verify-rollover-report.js",
     "test:rollover": "node scripts/verify-rollover-report.js",
     "test:dates": "node scripts/verify-date-range.js"

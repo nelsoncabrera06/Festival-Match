@@ -88,7 +88,7 @@ async function resolvePublic(hostname, resolver = dns.lookup) {
   return records;
 }
 
-function requestOnce(url, addresses, timeoutMs = REQUEST_TIMEOUT_MS, maxBytes = MAX_BYTES) {
+function requestOnce(url, addresses, timeoutMs = REQUEST_TIMEOUT_MS, maxBytes = MAX_BYTES, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const pinnedLookup = (_hostname, options, callback) => {
       const selected = addresses[0];
@@ -103,6 +103,7 @@ function requestOnce(url, addresses, timeoutMs = REQUEST_TIMEOUT_MS, maxBytes = 
         'user-agent': 'FestivalMatch-LineupRadar/0.1 (+https://github.com/nelsoncabrera06/Festival-Match)',
         accept: 'text/html,application/xhtml+xml,application/json,text/plain;q=0.9,*/*;q=0.1',
         'accept-encoding': 'identity',
+        ...extraHeaders,
       },
       timeout: timeoutMs,
     }, (response) => {
@@ -138,10 +139,15 @@ async function fetchSource(inputUrl, options = {}) {
   const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
   const maxBytes = options.maxBytes ?? MAX_BYTES;
   let url = validateUrl(inputUrl);
+  // Requests condicionales: si el servidor responde 304 no se descarga el
+  // cuerpo ni cambia el hash. Solo se envían si hay un estado previo.
+  const conditionalHeaders = {};
+  if (options.etag) conditionalHeaders['if-none-match'] = options.etag;
+  if (options.lastModified) conditionalHeaders['if-modified-since'] = options.lastModified;
 
   for (let redirects = 0; ; redirects += 1) {
     const addresses = await resolvePublic(url.hostname, resolver);
-    const response = await request(url, addresses, timeoutMs, maxBytes);
+    const response = await request(url, addresses, timeoutMs, maxBytes, conditionalHeaders);
     const location = response.headers.location;
     if ([301, 302, 303, 307, 308].includes(response.status) && location) {
       if (redirects >= maxRedirects) throw new Error(`Se superó el máximo de ${maxRedirects} redirecciones`);
@@ -149,15 +155,43 @@ async function fetchSource(inputUrl, options = {}) {
       continue;
     }
 
+    if (response.status === 304) {
+      return {
+        status: 304,
+        notModified: true,
+        contentType: null,
+        finalUrl: url.toString(),
+        bytes: 0,
+        hash: null,
+        etag: options.etag || null,
+        lastModified: options.lastModified || null,
+        body: Buffer.alloc(0),
+      };
+    }
+
     const contentType = String(response.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
     if (response.status < 200 || response.status >= 300) {
-      throw new Error(`Respuesta HTTP ${response.status}`);
+      const error = new Error(`Respuesta HTTP ${response.status}`);
+      error.status = response.status;
+      // Retry-After puede venir en segundos o como fecha HTTP. Se adjunta para
+      // que el scheduler pueda respetarlo en vez de aplicar solo el backoff.
+      const retryAfter = response.headers['retry-after'];
+      if (retryAfter) {
+        const seconds = Number(retryAfter);
+        if (Number.isFinite(seconds)) error.retryAfterMs = Math.max(0, seconds * 1000);
+        else {
+          const at = Date.parse(retryAfter);
+          if (!Number.isNaN(at)) error.retryAfterMs = Math.max(0, at - Date.now());
+        }
+      }
+      throw error;
     }
     if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
       throw new Error(`Content-Type no permitido: ${contentType || '(ausente)'}`);
     }
     return {
       status: response.status,
+      notModified: false,
       contentType,
       finalUrl: url.toString(),
       bytes: response.body.length,

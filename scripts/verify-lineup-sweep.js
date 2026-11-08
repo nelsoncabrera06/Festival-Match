@@ -69,6 +69,33 @@ async function main() {
   assert.strictEqual(refineTriageWithLineup(keywordOnly, findLineupHits('x', [])).triage, keywordOnly.triage);
   assert.strictEqual(extractTitle('<html><head><title> FEP &amp; Más </title></head></html>'), 'FEP & Más');
 
+  // Requests condicionales: si hay ETag/Last-Modified se envían, y un 304 no
+  // descarga cuerpo ni produce hash nuevo.
+  let conditionalHeaders = null;
+  const notModified = await fetchSource('https://source.example/lineup', {
+    resolve: async () => [{ address: '8.8.8.8', family: 4 }],
+    etag: '"v1"',
+    lastModified: 'Wed, 21 Oct 2026 07:28:00 GMT',
+    request: async (_url, _addresses, _timeout, _maxBytes, headers) => {
+      conditionalHeaders = headers;
+      return { status: 304, headers: {}, body: Buffer.alloc(0) };
+    },
+  });
+  assert.strictEqual(conditionalHeaders['if-none-match'], '"v1"');
+  assert.strictEqual(conditionalHeaders['if-modified-since'], 'Wed, 21 Oct 2026 07:28:00 GMT');
+  assert.strictEqual(notModified.notModified, true);
+  assert.strictEqual(notModified.status, 304);
+  assert.strictEqual(notModified.hash, null);
+  assert.strictEqual(notModified.bytes, 0);
+
+  // Errores HTTP: status y Retry-After quedan disponibles para el scheduler.
+  const rateLimited = await fetchSource('https://source.example/lineup', {
+    resolve: async () => [{ address: '8.8.8.8', family: 4 }],
+    request: async () => ({ status: 429, headers: { 'retry-after': '120' }, body: Buffer.alloc(0) }),
+  }).then(() => null, (error) => error);
+  assert.strictEqual(rateLimited.status, 429);
+  assert.strictEqual(rateLimited.retryAfterMs, 120000);
+
   let requested = 0;
   const result = await fetchSource('https://source.example/lineup', {
     resolve: async () => [{ address: '8.8.8.8', family: 4 }],

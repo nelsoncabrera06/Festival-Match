@@ -219,6 +219,25 @@ async function initDatabase() {
   await pool.query('ALTER TABLE festivals ADD COLUMN IF NOT EXISTS ends_on DATE');
   await pool.query('ALTER TABLE festivals ADD COLUMN IF NOT EXISTS lineup_source_url TEXT');
 
+  // Estado operativo del radar de lineups (migrations/017_festival_source_checks.sql).
+  // Es una tabla companion: no se expone en rowToFestival() ni en el endpoint
+  // admin, y el frontend nunca la consulta. `next_check_at = NULL` = en pausa.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS festival_source_checks (
+      festival_id          TEXT PRIMARY KEY REFERENCES festivals(id) ON DELETE CASCADE,
+      last_checked_at      TIMESTAMPTZ,
+      next_check_at        TIMESTAMPTZ,
+      last_seen_hash       TEXT,
+      last_processed_hash  TEXT,
+      etag                 TEXT,
+      last_modified        TEXT,
+      last_http_status     INTEGER,
+      last_error           TEXT,
+      consecutive_failures INTEGER NOT NULL DEFAULT 0,
+      updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
+  await pool.query('CREATE INDEX IF NOT EXISTS festival_source_checks_next_check_idx ON festival_source_checks (next_check_at)');
+
   console.log('Base de datos PostgreSQL inicializada');
 }
 

@@ -50,7 +50,8 @@ Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje 
 - [x] Scanner de cambios sin IA (paso 13): `htmlToRelevantText()` descarta `nav`/`header`/`footer`/`aside`/`form`/`dialog`/`iframe` y roles de navegación; el hash **versión 2** se calcula sobre ese texto normalizado. `--observe` (requiere `--apply-state`) crea una fila en `lineup_source_observations` solo cuando el hash relevante cambió. La primera corrida con una versión nueva de hash es línea base y no genera observaciones falsas. No se llama a ningún LLM ni se publica nada.
 - [x] `migrations/018_lineup_source_observations.sql` agrega `festival_source_checks.hash_version` y crea `lineup_source_observations` (`previous_hash`, `seen_hash`, `hash_version`, `title`, `excerpt`, `detected_at`, `processed_at`, único por festival+hash, RLS y sin permisos para `anon`/`authenticated`). **Aplicada en Supabase** (08/11/2026) y validada antes con `ROLLBACK`. Las 63 fuentes quedaron en línea base con `hash_version = 2`, 0 fallos y 0 observaciones. El scanner reintenta sin condicional si un 304 trae hash de versión vieja, para no perder el primer cambio real.
 - [x] Prueba real del scanner (08/11/2026): se forzó un hash sintético en AMF y `--apply-state --observe --force` creó una observación con extracto; después se borró la fila de prueba. La corrida definitiva dejó **63/63 en `hash_version = 2`, 0 observaciones, 0 fallos**; Tomorrowland se recuperó del 403 transitorio (200, `consecutive_failures = 0`).
-- [ ] Pendiente: habilitar el cron del scanner (fase 13/17) y construir el extractor con IA (paso 14: proveedor/modelo, secret en GitHub Actions, tabla `lineup_proposals`). Publicar desde el admin los lineups visibles de Sónar, AMF, Ilosaarirock y Time Warp sigue siendo una decisión humana. No publicar lineups extraídos sin aprobación.
+- [x] Workflow `.github/workflows/lineup-scan.yml`: lunes **11:45 UTC** (unos 28 minutos después del rollover), `workflow_dispatch`, concurrencia `lineup-scan` y `timeout-minutes: 15`. Corre `lineup-sweep.js --apply-state --observe --report-out=radar-scan.md` y escribe el reporte en `$GITHUB_STEP_SUMMARY`. **No crea issues** porque las observaciones no son accionables hasta el extractor. El cron programado solo corre en la rama default: recién se activa con el merge `dev` → `main`; antes se puede probar con `workflow_dispatch` desde `dev`.
+- [ ] Pendiente: mergear `dev` → `main` para activar el cron del scanner, y construir el extractor con IA (paso 14: proveedor/modelo, secret en GitHub Actions, tabla `lineup_proposals`). Publicar desde el admin los lineups visibles de Sónar, AMF, Ilosaarirock y Time Warp sigue siendo una decisión humana. No publicar lineups extraídos sin aprobación.
 
 ### Mejora en curso (21/10/2026): región inicial por ubicación
 
@@ -422,7 +423,8 @@ scripts/              # generate-festivals-migration.js (genera 002_festivals.sq
 migrations/           # Schema versionado. 001_init.sql a 018 aplicados en Supabase.
                       # 002 no se re-aplica; las demás posteriores son incrementales.
                       # 002 NO se re-aplica (su ON CONFLICT pisa el catálogo). 007+ son incrementales.
-.github/workflows/    # keepalive.yml (cron Supabase), lineup-rollover.yml (cron semanal radar) + docker-publish.yml
+.github/workflows/    # keepalive.yml (cron Supabase), lineup-rollover.yml (rollover semanal),
+                      # lineup-scan.yml (scanner semanal de fuentes) + docker-publish.yml
 migrations/festival_match_backup_20260505.dump  # Backup de Cloud SQL (20260505). Ignorado por
                       # git vía `*.dump`. Datos viejos de 2026, opcional. NO confundir con
                       # los .sql de al lado: esos SÍ están versionados (ver Trampa 6)

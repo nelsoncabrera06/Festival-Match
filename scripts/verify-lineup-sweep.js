@@ -28,6 +28,9 @@ async function main() {
   assert.throws(() => parseArgs(['--limit=0']), /entre 1 y 63/);
   assert.throws(() => parseArgs(['--apply']), /desconocido/);
   assert.strictEqual(parseArgs(['--dry', '--limit=2']).limit, 2);
+  assert.strictEqual(parseArgs(['--report-out=radar.md']).reportOut, 'radar.md');
+  assert.throws(() => parseArgs(['--report-out=']), /ruta/);
+  assert.throws(() => parseArgs(['--observe']), /--apply-state/);
 
   const repeatedCopy = '<p>Festival schedule and artist information for this edition.</p>'.repeat(8);
   const htmlA = `<html><head><title>FEP &amp; Más</title><script>const now = 1;</script></head><body><h1>Line-up</h1><p>Artists: Björk<br>Rosalía</p>${repeatedCopy}</body></html>`;

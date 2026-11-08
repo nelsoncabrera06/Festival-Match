@@ -24,6 +24,7 @@ const USAGE = `Uso: node scripts/lineup-sweep.js [opciones]
   --festival=<id>       limita la inspección a un festival
   --limit=<n>           limita el número de fuentes (1-63)
   --json-out=<ruta>     guarda el reporte JSON local
+  --report-out=<ruta>   guarda el reporte Markdown (lo usa el workflow)
   --help                muestra esta ayuda
 
 El comando lee las URLs desde Supabase y solicita páginas públicas HTTPS.
@@ -34,7 +35,7 @@ aparecen en el reporte y no detienen el resto del barrido.
 
 function parseArgs(argv) {
   const options = {
-    festival: null, limit: 63, jsonOut: null, help: false,
+    festival: null, limit: 63, jsonOut: null, reportOut: null, help: false,
     applyState: false, observe: false, force: false,
   };
   for (const arg of argv) {
@@ -46,6 +47,7 @@ function parseArgs(argv) {
     else if (arg.startsWith('--festival=')) options.festival = arg.slice(11);
     else if (arg.startsWith('--limit=')) options.limit = Number(arg.slice(8));
     else if (arg.startsWith('--json-out=')) options.jsonOut = arg.slice(11);
+    else if (arg.startsWith('--report-out=')) options.reportOut = arg.slice(13);
     else throw new Error(`Argumento desconocido: ${arg}`);
   }
   if (options.festival === '') throw new Error('--festival necesita un id.');
@@ -53,6 +55,7 @@ function parseArgs(argv) {
     throw new Error('--limit debe ser un entero entre 1 y 63.');
   }
   if (options.jsonOut === '') throw new Error('--json-out necesita una ruta.');
+  if (options.reportOut === '') throw new Error('--report-out necesita una ruta.');
   if (options.force && !options.applyState) throw new Error('--force solo se usa junto con --apply-state.');
   if (options.observe && !options.applyState) throw new Error('--observe solo se usa junto con --apply-state.');
   return options;
@@ -478,7 +481,14 @@ async function main(argv = process.argv.slice(2)) {
           : row.state?.nextCheckAt || null,
       })),
     };
-    console.log(renderMarkdown(report));
+    const markdown = renderMarkdown(report);
+    console.log(markdown);
+    if (options.reportOut) {
+      const outputPath = path.resolve(options.reportOut);
+      fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+      fs.writeFileSync(outputPath, markdown, 'utf8');
+      console.error(`Reporte Markdown guardado en ${outputPath}`);
+    }
     if (stateErrors) {
       console.error(`Atención: ${stateErrors} actualizaciones de estado u observaciones fallaron.`);
     }

@@ -1,0 +1,57 @@
+# ============================================================
+# Radar de lineups — Scanner semanal de fuentes oficiales
+#
+# Corre todos los lunes a las 11:45 UTC (08:45 ART), 28 minutos
+# después del rollover. No rota festivales: visita las URLs
+# oficiales, compara el hash del contenido relevante y deja una
+# observación en `lineup_source_observations` cuando cambió algo.
+#
+# No usa IA y no publica lineups: el catálogo queda intacto hasta
+# que una propuesta se apruebe desde el admin (fase 3-4).
+#
+# No crea issues todavía: las observaciones no son accionables
+# hasta que exista el extractor. El reporte va al step summary.
+# ============================================================
+name: Radar de lineups (scanner semanal)
+
+on:
+  schedule:
+    # Lunes 11:45 UTC (08:45 ART). Después del rollover de las 11:17,
+    # fuera de la hora en punto para no competir con otros crons.
+    - cron: '45 11 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Un barrido a la vez: si alguien dispara a mano mientras corre el
+# programado, se encola en vez de duplicar requests a las fuentes.
+concurrency:
+  group: lineup-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci --omit=dev
+
+      - name: Revisar fuentes oficiales y guardar observaciones
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ALLOW_LOCAL_PRODUCTION_DB: 'true'
+        run: |
+          node scripts/lineup-sweep.js --apply-state --observe --report-out=radar-scan.md
+          cat radar-scan.md >> "$GITHUB_STEP_SUMMARY"

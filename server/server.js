@@ -626,7 +626,7 @@ function registerServer(app) {
   // necesita ver el catalogo completo para poder editar cualquiera.
   app.get('/api/admin/festivals', auth.requireAuth, requireAdmin, async (req, res) => {
     try {
-      const festivalsData = await db.getFestivals();
+      const festivalsData = await db.getAdminFestivals();
       res.json({ festivals: festivalsData });
     } catch (err) {
       console.error('Error leyendo festivales:', err.message);
@@ -637,7 +637,26 @@ function registerServer(app) {
   // Actualizar festival (admin)
   app.put('/api/admin/festivals/:id', auth.requireAuth, requireAdmin, async (req, res) => {
     const festivalId = req.params.id;
-    const updates = req.body;
+    const updates = { ...req.body };
+
+    if (Object.prototype.hasOwnProperty.call(updates, 'lineupSourceUrl')) {
+      const value = typeof updates.lineupSourceUrl === 'string'
+        ? updates.lineupSourceUrl.trim()
+        : '';
+      if (!value) {
+        updates.lineupSourceUrl = null;
+      } else {
+        try {
+          const parsed = new URL(value);
+          if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
+            return res.status(400).json({ error: 'La fuente debe ser una URL HTTP/HTTPS válida' });
+          }
+          updates.lineupSourceUrl = parsed.toString();
+        } catch {
+          return res.status(400).json({ error: 'La fuente debe ser una URL HTTP/HTTPS válida' });
+        }
+      }
+    }
 
     try {
       // El whitelist de campos vive en db.updateFestival (UPDATABLE_FESTIVAL_FIELDS),

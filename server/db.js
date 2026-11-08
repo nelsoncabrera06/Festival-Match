@@ -217,6 +217,7 @@ async function initDatabase() {
   // Aca solo se crean para que el dev local tenga el mismo schema que Supabase.
   await pool.query('ALTER TABLE festivals ADD COLUMN IF NOT EXISTS starts_on DATE');
   await pool.query('ALTER TABLE festivals ADD COLUMN IF NOT EXISTS ends_on DATE');
+  await pool.query('ALTER TABLE festivals ADD COLUMN IF NOT EXISTS lineup_source_url TEXT');
 
   console.log('Base de datos PostgreSQL inicializada');
 }
@@ -571,6 +572,18 @@ async function getFestivals() {
   return result.rows.map(rowToFestival);
 }
 
+// El enlace de la fuente solo se expone en el endpoint admin. rowToFestival()
+// y FESTIVAL_COLUMNS conservan el contrato público del catálogo.
+async function getAdminFestivals() {
+  const result = await pool.query(
+    `SELECT ${FESTIVAL_COLUMNS}, lineup_source_url FROM festivals ORDER BY sort_order`
+  );
+  return result.rows.map((row) => ({
+    ...rowToFestival(row),
+    lineupSourceUrl: row.lineup_source_url,
+  }));
+}
+
 async function getFestivalById(id) {
   const result = await pool.query(
     `SELECT ${FESTIVAL_COLUMNS} FROM festivals WHERE id = $1`,
@@ -643,6 +656,7 @@ const UPDATABLE_FESTIVAL_FIELDS = {
   country: 'country',
   dates: 'dates',
   website: 'website',
+  lineupSourceUrl: 'lineup_source_url',
   image: 'image',
   flyer: 'flyer',
   flyerImages: 'flyer_images',
@@ -991,6 +1005,7 @@ module.exports = {
   getAvailableGenres,
   // Catalogo de festivales (tabla festivals, antes server/festivals.json)
   getFestivals,
+  getAdminFestivals,
   getFestivalById,
   createFestival,
   updateFestival,

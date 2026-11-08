@@ -19,6 +19,34 @@ Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje 
 - [x] **Regla crítica de migraciones**: `002_festivals.sql` NO debe re-aplicarse (su `ON CONFLICT` sobreescribiría las 63 filas borrando ediciones manuales y rotaciones). La migración 012 es incremental.
 - [x] **Dirección futura (Fases 3-4)**: Extractor de grillas con IA en GitHub Actions (API de LLM, cadencia individual con `next_check_at` y hash de cambios en webs oficiales). Las grillas propuestas se guardarán en una tabla de propuestas (`lineup_proposals`) y requerirán aprobación humana desde el panel admin antes de publicarse (mismo patrón que `festival_suggestions`).
 
+### Radar de lineups — Fase 3, paso 1 en curso (07/11/2026)
+
+- [x] Decisión: guardar una URL oficial específica en `festivals.lineup_source_url`, separada de `website` y sin exponerla en `rowToFestival()`.
+- [x] Código local: migración incremental `013_festival_lineup_source.sql`, lectura limitada al endpoint admin y edición/preview en el modal de festivales.
+- [x] Inventario inicial de 63 fuentes en `agent-plan/lineup-sources.md` (archivo local ignorado por Git): 44 rutas oficiales específicas candidatas y 19 portadas oficiales como fallback. No se afirma todavía que sean legibles automáticamente.
+- [x] El usuario confirmó que `013_festival_lineup_source.sql` se aplicó correctamente en Supabase.
+- [x] Código local: el panel admin permite editar y previsualizar la fuente; el campo no modifica el objeto público del festival.
+- [x] Revisar técnicamente la estabilidad y el método de lectura de cada fuente; no habilitar el scanner todavía.
+- [x] `014_seed_lineup_source_urls.sql` aplicada en Supabase; lectura posterior confirmó 63/63 fuentes y cero NULL.
+- [x] `016_refine_tomorrowland_and_madcool_sources.sql` aplicada en Supabase: Tomorrowland pasó al FAQ oficial de Bélgica 2027 (puede devolver 403 transitorio) y Mad Cool a `/noticias` porque `/line-up/` todavía sirve el cartel 2026. El segundo barrido completo volvió a dar 63/63 respuestas 200.
+
+### Radar de lineups — Fase 3, paso 12 en curso (07/11/2026)
+
+- [x] Definición inicial: estado operativo separado en una tabla companion por festival (`last_checked_at`, `next_check_at`, hash, ETag/Last-Modified, status HTTP y error); no sumar estos campos a `rowToFestival()`.
+- [x] CLI local `scripts/lineup-sweep.js`: `--dry` por defecto, lectura desde Supabase en transacción `READ ONLY`, `--festival`, `--limit`, reporte Markdown y opcional JSON local. No persiste hashes ni estado.
+- [x] Fetcher con HTTPS solamente, DNS validado y pinneado para evitar rebinding, validación de cada redirect, límites de DNS 5 s/request 15 s/2 MiB, 3 redirects, content types permitidos y concurrencia máxima 2.
+- [x] `server/lineupHtml.js` genera texto visible heurístico, título, señales y SHA-256 normalizado (título + texto, sin tags/scripts/styles ni diferencias de espacios). No guarda el contenido HTML.
+- [x] Pruebas simuladas: rangos de IP pública/privada, IPv6, URL HTTPS, redirects privados, MIME, normalización estable, aviso futuro, hash y argumentos. `npm run test:sweep` pasó.
+- [x] Barrido final de las 63 fuentes: 63 `200 text/html`, cero errores tras corregir Sónar condicionalmente con migración 015 hacia `https://sonar.es/en`. Triage: 11 señales candidatas HTML, 27 por revisar, 4 avisos de anuncio futuro, 15 páginas genéricas/sociales y 6 con poco o ningún texto visible.
+- [x] Reporte detallado local ignorado por Git: `agent-plan/lineup-sweep-20261108.json` (URLs, status, títulos, triage, conteo de texto y hashes normalizados).
+- [x] Prueba preliminar de 8 páginas oficiales con visor web: 3 mostraron lineup como texto visible (Rock am Ring, Cosquín Rock, Estéreo Picnic); Awakenings y Sziget muestran estado oficial “lineup más adelante”; Lollapalooza Chicago aún presenta la edición 2026; Lollapalooza Brasil muestra 2027; Primavera Sound no devolvió texto legible.
+- [x] Revisión de candidatas con evidencia dura (08/11/2026): el sweep compara el texto visible con el lineup guardado en el catálogo (normalizado sin acentos/mayúsculas) y refina el triage con `lineup_not_in_html` (hay lineup en DB pero la página no lo muestra) y `candidate_html` (hay artistas visibles aunque falten palabras clave). Tests en `npm run test:sweep`.
+- [x] Resultado: 12 fuentes confirman artistas en HTML visible (Open'er, Rock Werchter, Roskilde —antes falso negativo—, Ultra Miami, Cosquín Rock, Steelfest, Estéreo Picnic, Hurricane, Southside, Rock am Ring, Rock im Park y Provinssi). 8 falsos positivos quedan en `lineup_not_in_html`: Corona Capital, Creamfields Argentina, Lollapalooza Brasil/Chile, NOS Alive, Primavera Sound, Primavera Sound Buenos Aires y Tuska; en Primavera Sound y Lolla Brasil algunos nombres están dentro de scripts, no en texto visible.
+- [x] Hallazgo importante: **Sónar (30 artistas), AMF, Ilosaarirock (parcial) y Time Warp ya publicaron lineup 2027 visible** aunque el catálogo los tenga `unannounced` y sin lineup. Mad Cool y Quilmes Rock son fuentes de anuncios, no de grilla. Ver `agent-plan/lineup-sources.md` y `agent-plan/lineup-sweep-20261108-post016.json` (local, ignorado por Git).
+- [x] Revisión de `robots.txt` (08/11/2026): ninguna de las 16 fuentes con artistas visibles bloquea su ruta objetivo; Rock am Ring, Rock im Park y Sónar no publican robots, y Roskilde responde sin `Content-Type`. El chequeo no interpreta precedencia de `Allow`; es condición necesaria, no autorización contractual. Detalle en `agent-plan/lineup-sources.md`.
+- [ ] Todavía no hay cadencia por festival, hashes condicionados ni estado persistido. No habilitar cron ni publicar lineups extraídos sin aprobación humana.
+- [ ] Próximo trabajo: añadir migración incremental de la tabla de estado y persistencia explícita detrás de `--apply-state`, con cadencia 7/30 días y backoff por fallos. El CLI sigue manual y no escribe estado.
+
 ### Mejora en curso (21/10/2026): región inicial por ubicación
 
 - [x] En la primera visita, elegir región con el país que Vercel infiere por IP: países
@@ -386,8 +414,9 @@ agent-plan/           # Plan de trabajo de Nelson (plan.md + el HTML generado). 
                       # repo: está en .gitignore. No confundir con la fuente de verdad
                       # del estado del proyecto, que es este archivo
 scripts/              # generate-festivals-migration.js (genera 002_festivals.sql)
-migrations/           # Schema versionado. 001_init.sql a 012_festival_dates.sql aplicados.
-                      # 002 NO se re-aplica (su ON CONFLICT pisa el catálogo). 007 a 012 son incrementales.
+migrations/           # Schema versionado. 001_init.sql a 016_refine_tomorrowland_and_madcool_sources.sql aplicados.
+                      # 002 no se re-aplica; las demás posteriores son incrementales.
+                      # 002 NO se re-aplica (su ON CONFLICT pisa el catálogo). 007+ son incrementales.
 .github/workflows/    # keepalive.yml (cron Supabase), lineup-rollover.yml (cron semanal radar) + docker-publish.yml
 migrations/festival_match_backup_20260505.dump  # Backup de Cloud SQL (20260505). Ignorado por
                       # git vía `*.dump`. Datos viejos de 2026, opcional. NO confundir con

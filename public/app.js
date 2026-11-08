@@ -284,6 +284,8 @@ function cacheElements() {
   elements.editFestivalCity = document.getElementById('edit-festival-city');
   elements.editFestivalDates = document.getElementById('edit-festival-dates');
   elements.editFestivalWebsite = document.getElementById('edit-festival-website');
+  elements.editFestivalLineupSource = document.getElementById('edit-festival-lineup-source');
+  elements.editFestivalLineupSourcePreview = document.getElementById('edit-festival-lineup-source-preview');
   elements.editFestivalStatus = document.getElementById('edit-festival-status');
 
   // Lineup Rollover Modal (Admin)
@@ -501,6 +503,7 @@ function setupEventListeners() {
   elements.editFestivalModalClose?.addEventListener('click', closeEditFestivalModal);
   elements.editFestivalCancel?.addEventListener('click', closeEditFestivalModal);
   elements.editFestivalForm?.addEventListener('submit', saveEditFestival);
+  elements.editFestivalLineupSource?.addEventListener('input', updateLineupSourcePreview);
   elements.editFestivalModal?.querySelector('.modal-backdrop')?.addEventListener('click', closeEditFestivalModal);
 
   // Lineup Rollover Modal (Admin)
@@ -858,6 +861,8 @@ function openEditFestivalModal(festivalId) {
   elements.editFestivalCity.value = festival.city || '';
   elements.editFestivalDates.value = festival.dates || '';
   elements.editFestivalWebsite.value = festival.website || '';
+  elements.editFestivalLineupSource.value = festival.lineupSourceUrl || '';
+  updateLineupSourcePreview();
   elements.editFestivalStatus.value = festival.lineupStatus || 'unannounced';
 
   // Mostrar modal
@@ -867,6 +872,22 @@ function openEditFestivalModal(festivalId) {
 function closeEditFestivalModal() {
   elements.editFestivalModal.style.display = 'none';
   elements.editFestivalForm.reset();
+}
+
+function updateLineupSourcePreview() {
+  const link = elements.editFestivalLineupSourcePreview;
+  const value = elements.editFestivalLineupSource?.value.trim();
+  if (!link) return;
+
+  try {
+    const url = new URL(value);
+    if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Protocolo no permitido');
+    link.href = url.toString();
+    link.style.display = 'inline-block';
+  } catch {
+    link.removeAttribute('href');
+    link.style.display = 'none';
+  }
 }
 
 async function saveEditFestival(e) {
@@ -887,6 +908,7 @@ async function saveEditFestival(e) {
     location: location,
     dates: elements.editFestivalDates.value,
     website: elements.editFestivalWebsite.value,
+    lineupSourceUrl: elements.editFestivalLineupSource.value.trim() || null,
     lineupStatus: elements.editFestivalStatus.value
   };
 

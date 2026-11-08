@@ -30,7 +30,7 @@ Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje 
 - [x] `014_seed_lineup_source_urls.sql` aplicada en Supabase; lectura posterior confirmó 63/63 fuentes y cero NULL.
 - [x] `016_refine_tomorrowland_and_madcool_sources.sql` aplicada en Supabase: Tomorrowland pasó al FAQ oficial de Bélgica 2027 (puede devolver 403 transitorio) y Mad Cool a `/noticias` porque `/line-up/` todavía sirve el cartel 2026. El segundo barrido completo volvió a dar 63/63 respuestas 200.
 
-### Radar de lineups — Fase 3, paso 12 en curso (07/11/2026)
+### Radar de lineups — Fase 3, pasos 12-13 (07-08/11/2026)
 
 - [x] Definición inicial: estado operativo separado en una tabla companion por festival (`last_checked_at`, `next_check_at`, hash, ETag/Last-Modified, status HTTP y error); no sumar estos campos a `rowToFestival()`.
 - [x] CLI local `scripts/lineup-sweep.js`: `--dry` por defecto, lectura desde Supabase en transacción `READ ONLY`, `--festival`, `--limit`, reporte Markdown y opcional JSON local. No persiste hashes ni estado.
@@ -44,10 +44,12 @@ Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje 
 - [x] Resultado: 12 fuentes confirman artistas en HTML visible (Open'er, Rock Werchter, Roskilde —antes falso negativo—, Ultra Miami, Cosquín Rock, Steelfest, Estéreo Picnic, Hurricane, Southside, Rock am Ring, Rock im Park y Provinssi). 8 falsos positivos quedan en `lineup_not_in_html`: Corona Capital, Creamfields Argentina, Lollapalooza Brasil/Chile, NOS Alive, Primavera Sound, Primavera Sound Buenos Aires y Tuska; en Primavera Sound y Lolla Brasil algunos nombres están dentro de scripts, no en texto visible.
 - [x] Hallazgo importante: **Sónar (30 artistas), AMF, Ilosaarirock (parcial) y Time Warp ya publicaron lineup 2027 visible** aunque el catálogo los tenga `unannounced` y sin lineup. Mad Cool y Quilmes Rock son fuentes de anuncios, no de grilla. Ver `agent-plan/lineup-sources.md` y `agent-plan/lineup-sweep-20261108-post016.json` (local, ignorado por Git).
 - [x] Revisión de `robots.txt` (08/11/2026): ninguna de las 16 fuentes con artistas visibles bloquea su ruta objetivo; Rock am Ring, Rock im Park y Sónar no publican robots, y Roskilde responde sin `Content-Type`. El chequeo no interpreta precedencia de `Allow`; es condición necesaria, no autorización contractual. Detalle en `agent-plan/lineup-sources.md`.
-- [x] Estado persistido implementado (08/11/2026): `migrations/017_festival_source_checks.sql` crea la tabla companion con `last_checked_at`, `next_check_at`, `last_seen_hash`, `last_processed_hash`, `etag`, `last_modified`, `last_http_status`, `last_error` y `consecutive_failures`, más RLS y revocación de permisos a `anon`/`authenticated`. **La 017 todavía no está aplicada**: el dry run funciona igual porque `loadSources` detecta la tabla faltante y barre sin estado.
+- [x] Estado persistido implementado (08/11/2026): `migrations/017_festival_source_checks.sql` crea la tabla companion con `last_checked_at`, `next_check_at`, `last_seen_hash`, `last_processed_hash`, `etag`, `last_modified`, `last_http_status`, `last_error` y `consecutive_failures`, más RLS y revocación de permisos a `anon`/`authenticated`. **La 017 está aplicada** (confirmado por Nelson): 63 filas de estado, 0 fallos y 4 en pausa (`hiatus`: Bonnaroo, Glastonbury, Mysteryland, Rock in Rio). La primera corrida completa dejó `next_check_at` a 7 días para temporada activa y 30 para el resto.
 - [x] `server/sourceSchedule.js`: cadencia 7 días en temporada activa (edición sin terminar o a <=45 días de empezar), 30 fuera de temporada/sin fechas, pausa para `hiatus`, backoff 1/2/4/7 días y `Retry-After` por encima del backoff. Fetcher con `If-None-Match`/`If-Modified-Since`, 304 como éxito y `status`/`retryAfterMs` en errores.
 - [x] CLI `--apply-state` (respeta `next_check_at`, guarda hash/ETag/status/error y próximo chequeo) y `--force` (revisa aunque no esté vencida). El default sigue siendo dry run y **nunca publica lineups**. Tests en `npm run test:sweep` (incluye `verify-source-schedule.js`). El SQL y las tres variantes de UPSERT se validaron contra Supabase con `ROLLBACK`.
-- [ ] Pendiente: Nelson aplica la 017 y corre `npm run lineup:sweep -- --apply-state --limit=3` para confirmar la persistencia real. Después: decidir cron de fase 13 y publicar desde el admin las propuestas ya visibles de Sónar, AMF, Ilosaarirock y Time Warp. No habilitar cron ni publicar lineups extraídos sin aprobación humana.
+- [x] Scanner de cambios sin IA (paso 13): `htmlToRelevantText()` descarta `nav`/`header`/`footer`/`aside`/`form`/`dialog`/`iframe` y roles de navegación; el hash **versión 2** se calcula sobre ese texto normalizado. `--observe` (requiere `--apply-state`) crea una fila en `lineup_source_observations` solo cuando el hash relevante cambió. La primera corrida con una versión nueva de hash es línea base y no genera observaciones falsas. No se llama a ningún LLM ni se publica nada.
+- [x] `migrations/018_lineup_source_observations.sql` agrega `festival_source_checks.hash_version` y crea `lineup_source_observations` (`previous_hash`, `seen_hash`, `hash_version`, `title`, `excerpt`, `detected_at`, `processed_at`, único por festival+hash, RLS y sin permisos para `anon`/`authenticated`). **Pendiente de aplicar por Nelson**; validada con `ROLLBACK`. Hasta aplicarla, el dry run funciona con el fallback de `loadSources` (avisa que falta el esquema).
+- [ ] Pendiente: aplicar la 018 y probar el scanner con `--apply-state --observe --force --festival=amf` (después de forzar un hash distinto en `festival_source_checks`) para ver una observación real. Luego: cron de fase 13, cron de fase 17/extractor y publicar desde el admin los lineups visibles de Sónar, AMF, Ilosaarirock y Time Warp. No habilitar cron ni publicar lineups extraídos sin aprobación humana.
 
 ### Mejora en curso (21/10/2026): región inicial por ubicación
 
@@ -416,8 +418,8 @@ agent-plan/           # Plan de trabajo de Nelson (plan.md + el HTML generado). 
                       # repo: está en .gitignore. No confundir con la fuente de verdad
                       # del estado del proyecto, que es este archivo
 scripts/              # generate-festivals-migration.js (genera 002_festivals.sql)
-migrations/           # Schema versionado. 001_init.sql a 016 aplicados en Supabase; la 017
-                      # (festival_source_checks) está escrita y validada pero pendiente de aplicar.
+migrations/           # Schema versionado. 001_init.sql a 017 aplicados en Supabase; la 018
+                      # (hash_version + lineup_source_observations) está validada y pendiente de aplicar.
                       # 002 no se re-aplica; las demás posteriores son incrementales.
                       # 002 NO se re-aplica (su ON CONFLICT pisa el catálogo). 007+ son incrementales.
 .github/workflows/    # keepalive.yml (cron Supabase), lineup-rollover.yml (cron semanal radar) + docker-publish.yml

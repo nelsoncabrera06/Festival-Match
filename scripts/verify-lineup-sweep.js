@@ -5,8 +5,8 @@ const assert = require('assert');
 const crypto = require('crypto');
 const { fetchSource, isPublicAddress, resolvePublic, validateUrl } = require('../server/lineupSourceFetcher');
 const {
-  analyzeHtml, extractTitle, findLineupHits, htmlToVisibleText, normalizeForMatch,
-  refineTriageWithLineup,
+  RELEVANT_HASH_VERSION, analyzeHtml, analyzeRelevantContent, extractTitle, findLineupHits,
+  htmlToRelevantText, htmlToVisibleText, normalizeForMatch, refineTriageWithLineup,
 } = require('../server/lineupHtml');
 const { parseArgs } = require('./lineup-sweep');
 
@@ -68,6 +68,29 @@ async function main() {
   // Sin lineup en el catálogo se respeta el triage léxico.
   assert.strictEqual(refineTriageWithLineup(keywordOnly, findLineupHits('x', [])).triage, keywordOnly.triage);
   assert.strictEqual(extractTitle('<html><head><title> FEP &amp; Más </title></head></html>'), 'FEP & Más');
+
+  // Contenido relevante: la navegación, cabecera, pie y formularios no deben
+  // cambiar el hash. Solo cambia cuando cambia el contenido (por ejemplo, la grilla).
+  const pageA = `<html><head><title>Festival</title></head><body>
+    <header><p>Menú</p><p>Comprar entradas</p></header>
+    <nav><a>Inicio</a><a>Lineup</a><a>Info</a></nav>
+    <main><h1>Line-up 2027</h1><p>Björk</p><p>Rosalía</p></main>
+    <footer><p>© 2026 Festival</p><p>Cookies</p></footer></body></html>`;
+  const pageB = `<html><head><title>Festival</title></head><body>
+    <header><p>Menú distinto</p><p>Comprar entradas ya!</p></header>
+    <nav><a>Inicio</a><a>Programa</a><a>Info</a><a>Noticias</a></nav>
+    <main><h1>Line-up 2027</h1><p>Björk</p><p>Rosalía</p></main>
+    <footer><p>© 2027 Festival</p><p>Aviso legal</p></footer></body></html>`;
+  const pageC = pageA.replace('<p>Rosalía</p>', '<p>Rosalía</p><p>Caroline Polachek</p>');
+  const relevantA = analyzeRelevantContent(pageA);
+  const relevantB = analyzeRelevantContent(pageB);
+  const relevantC = analyzeRelevantContent(pageC);
+  assert.strictEqual(relevantA.hash, relevantB.hash, 'el chrome no debe cambiar el hash relevante');
+  assert.notStrictEqual(relevantA.hash, relevantC.hash, 'un artista nuevo debe cambiar el hash');
+  assert.strictEqual(relevantA.hashVersion, RELEVANT_HASH_VERSION);
+  assert.ok(!htmlToRelevantText(pageB).includes('Comprar entradas ya'), 'la cabecera se descarta');
+  assert.ok(htmlToRelevantText(pageB).includes('Rosalía'));
+  assert.ok(relevantA.text.length <= 12000);
 
   // Requests condicionales: si hay ETag/Last-Modified se envían, y un 304 no
   // descarga cuerpo ni produce hash nuevo.

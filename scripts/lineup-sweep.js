@@ -10,7 +10,8 @@ const path = require('path');
 const { Client } = require('pg');
 const { fetchSource } = require('../server/lineupSourceFetcher');
 const {
-  analyzeVisibleText, extractTitle, findLineupHits, htmlToVisibleText, refineTriageWithLineup,
+  RELEVANT_HASH_VERSION, analyzeRelevantContent, analyzeVisibleText, extractTitle,
+  findLineupHits, htmlToVisibleText, refineTriageWithLineup,
 } = require('../server/lineupHtml');
 const { isCheckDue, nextCheckAt } = require('../server/sourceSchedule');
 
@@ -18,6 +19,7 @@ const USAGE = `Uso: node scripts/lineup-sweep.js [opciones]
 
   --dry                 barrido de lectura sin escribir (default)
   --apply-state         guarda estado y respeta next_check_at de cada fuente
+  --observe             con --apply-state, crea una observación si el contenido cambió
   --force               con --apply-state, revisa aunque no esté vencida
   --festival=<id>       limita la inspección a un festival
   --limit=<n>           limita el número de fuentes (1-63)
@@ -32,11 +34,13 @@ aparecen en el reporte y no detienen el resto del barrido.
 
 function parseArgs(argv) {
   const options = {
-    festival: null, limit: 63, jsonOut: null, help: false, applyState: false, force: false,
+    festival: null, limit: 63, jsonOut: null, help: false,
+    applyState: false, observe: false, force: false,
   };
   for (const arg of argv) {
     if (arg === '--dry') continue;
     if (arg === '--apply-state') options.applyState = true;
+    else if (arg === '--observe') options.observe = true;
     else if (arg === '--force') options.force = true;
     else if (arg === '--help' || arg === '-h') options.help = true;
     else if (arg.startsWith('--festival=')) options.festival = arg.slice(11);
@@ -50,6 +54,7 @@ function parseArgs(argv) {
   }
   if (options.jsonOut === '') throw new Error('--json-out necesita una ruta.');
   if (options.force && !options.applyState) throw new Error('--force solo se usa junto con --apply-state.');
+  if (options.observe && !options.applyState) throw new Error('--observe solo se usa junto con --apply-state.');
   return options;
 }
 
@@ -96,6 +101,7 @@ function mapSourceRow(row) {
         etag: row.etag,
         lastModified: row.last_modified,
         consecutiveFailures: row.consecutive_failures,
+        hashVersion: row.hash_version ?? null,
       }
       : null,
   };
@@ -110,7 +116,8 @@ async function loadSources(client, options) {
       `SELECT f.id, f.name, f.lineup_source_url, f.lineup,
               f.starts_on, f.ends_on, f.lineup_status,
               c.next_check_at, c.last_seen_hash, c.etag, c.last_modified,
-              c.last_checked_at, c.last_http_status, c.last_error, c.consecutive_failures
+              c.last_checked_at, c.last_http_status, c.last_error, c.consecutive_failures,
+              c.hash_version
          FROM public.festivals f
          LEFT JOIN public.festival_source_checks c ON c.festival_id = f.id
         WHERE ${filter}
@@ -118,10 +125,10 @@ async function loadSources(client, options) {
         LIMIT $2`, params);
     return rows.map(mapSourceRow);
   } catch (error) {
-    // Permite correr el dry run antes de aplicar migrations/017. Sin estado no
-    // hay caché condicional ni cadencia persistida, pero la lectura funciona.
-    if (error.code !== '42P01') throw error;
-    console.error('Aviso: falta la tabla festival_source_checks (migrations/017_festival_source_checks.sql). Se barre sin estado persistido.');
+    // Permite correr el dry run antes de aplicar migrations/017 o 018. Sin
+    // estado no hay caché condicional ni cadencia persistida, pero se lee igual.
+    if (error.code !== '42P01' && error.code !== '42703') throw error;
+    console.error('Aviso: falta el esquema de estado (migrations/017 y 018). Se barre sin estado persistido ni observaciones.');
     const rows = await readOnlyRows(client,
       `SELECT f.id, f.name, f.lineup_source_url, f.lineup,
               f.starts_on, f.ends_on, f.lineup_status
@@ -136,11 +143,14 @@ async function loadSources(client, options) {
 const escapeCell = (value) => String(value ?? '').replaceAll('|', '\\|').replace(/[\r\n]+/g, ' ');
 
 function renderMarkdown(report) {
-  const applied = report.mode === 'apply-state';
+  const applied = report.mode !== 'dry-run';
+  const modeLabel = report.mode === 'observe' ? 'observe' : applied ? 'apply-state' : 'dry run';
+  const observations = report.mode === 'observe' ? report.summary.observations : null;
+  const observationSummary = observations ? ` · Observaciones nuevas: ${observations.inserted} · Línea base: ${observations.baseline}` : '';
   const lines = [
-    `# Lineup source sweep (${applied ? 'apply-state' : 'dry run'})`,
+    `# Lineup source sweep (${modeLabel})`,
     '',
-    `Generado: ${report.generatedAt} · Fuentes: ${report.summary.total} · Revisadas: ${report.summary.checked} · Salteadas por cadencia: ${report.summary.skipped} · OK: ${report.summary.ok} · Sin cambios (304): ${report.summary.notModified} · Errores: ${report.summary.errors} · HTML candidato: ${report.summary.candidateHtml}`,
+    `Generado: ${report.generatedAt} · Fuentes: ${report.summary.total} · Revisadas: ${report.summary.checked} · Salteadas por cadencia: ${report.summary.skipped} · OK: ${report.summary.ok} · Sin cambios (304): ${report.summary.notModified} · Errores: ${report.summary.errors} · HTML candidato: ${report.summary.candidateHtml}${observationSummary}`,
     '',
     '| Festival | Triage | Artistas DB | HTTP | Título | Señales | Texto | Hash normalizado | Próximo chequeo | URL final / error |',
     '|---|---|---|---:|---|---|---:|---|---|---|',
@@ -152,7 +162,13 @@ function renderMarkdown(report) {
       ? `${row.lineupArtistMatched}/${row.lineupArtistTotal} (${Math.round(row.lineupHitRatio * 100)}%)`
       : '';
     const next = row.nextCheckAt ? `${row.nextCheckAt.slice(0, 10)} (${row.scheduleReason}${row.cadenceDays ? `, ${row.cadenceDays}d` : ''})` : 'pausado';
-    lines.push(`| ${escapeCell(row.name)} (${escapeCell(row.id)}) | ${row.triage || outcome} | ${coverage} | ${row.status ?? ''} | ${escapeCell(row.title || '')} | ${escapeCell((row.lineupSignals || []).join(', '))} | ${row.visibleTextLength ?? ''} | ${row.visibleTextHash || ''} | ${next} | ${escapeCell(detail)} |`);
+    lines.push(`| ${escapeCell(row.name)} (${escapeCell(row.id)}) | ${row.triage || outcome} | ${coverage} | ${row.status ?? ''} | ${escapeCell(row.title || '')} | ${escapeCell((row.lineupSignals || []).join(', '))} | ${row.visibleTextLength ?? ''} | ${row.relevantHash || row.visibleTextHash || ''} | ${next} | ${escapeCell(detail)} |`);
+  }
+  if (report.observed && report.observed.length) {
+    lines.push('', '## Observaciones nuevas', '', '| Festival | Hash anterior | Hash nuevo | Detectado |', '|---|---|---|---|');
+    for (const row of report.observed) {
+      lines.push(`| ${escapeCell(row.name)} (${escapeCell(row.id)}) | ${(row.previousHash || '').slice(0, 12)} | ${(row.seenHash || '').slice(0, 12)} | ${row.detectedAt.slice(0, 19)}Z |`);
+    }
   }
   if (report.skipped.length) {
     lines.push('', '## Salteadas por cadencia', '', '| Festival | Próximo chequeo |', '|---|---|');
@@ -161,9 +177,13 @@ function renderMarkdown(report) {
     }
   }
   lines.push('', 'El triage combina palabras clave del texto visible con evidencia dura: "Artistas DB" cuenta cuántos nombres del lineup guardado en el catálogo aparecen en la página (sin acentos ni mayúsculas). `lineup_not_in_html` significa que el catálogo tiene lineup pero la página no lo muestra en texto visible (JavaScript, datos embebidos en scripts o edición distinta). El hash normalizado ignora tags, scripts, estilos y espacios de maquetación.');
-  lines.push(applied
-    ? 'El estado se guardó en `festival_source_checks`: hash visto, ETag/Last-Modified, status HTTP, error y próximo chequeo. `last_processed_hash` queda intacto para la fase 3.'
-    : 'Dry run: no se escribió estado en la base. Las fechas de "Próximo chequeo" son las que se guardarían con `--apply-state`.');
+  if (observations) {
+    lines.push('El estado se guardó en `festival_source_checks` y los cambios detectados en `lineup_source_observations`. Una observación es solo una fila con hash, título y extracto: **no se publica ningún lineup** hasta la aprobación humana del paso 15. La primera corrida con una versión nueva de hash se trata como línea base y no genera observaciones falsas.');
+  } else {
+    lines.push(applied
+      ? 'El estado se guardó en `festival_source_checks`: hash visto, ETag/Last-Modified, status HTTP, error y próximo chequeo. `last_processed_hash` queda intacto para la fase 3.'
+      : 'Dry run: no se escribió estado en la base. Las fechas de "Próximo chequeo" son las que se guardarían con `--apply-state`.');
+  }
   return `${lines.join('\n')}\n`;
 }
 
@@ -201,6 +221,7 @@ async function scanRows(rows, { concurrency = 2, now = new Date(), fetch = fetch
         } else {
           const html = fetched.body.toString('utf8');
           const visibleText = htmlToVisibleText(html);
+          const relevant = analyzeRelevantContent(html);
           const lineupHits = findLineupHits(visibleText, row.lineup);
           const analysis = refineTriageWithLineup(
             analyzeVisibleText(visibleText, extractTitle(html)),
@@ -215,6 +236,9 @@ async function scanRows(rows, { concurrency = 2, now = new Date(), fetch = fetch
             lineupArtistMatched: lineupHits.matched,
             lineupHitRatio: lineupHits.ratio,
             lineupHitSample: lineupHits.hits.slice(0, 10),
+            relevantHash: relevant.hash,
+            relevantHashVersion: relevant.hashVersion,
+            relevantText: relevant.text,
             etag: fetched.etag, lastModified: fetched.lastModified, finalUrl: fetched.finalUrl,
           };
         }
@@ -290,21 +314,61 @@ async function saveSourceState(client, result, row, now = new Date()) {
   }
   await client.query(
     `INSERT INTO public.festival_source_checks
-       (festival_id, last_checked_at, next_check_at, last_seen_hash, etag, last_modified,
-        last_http_status, last_error, consecutive_failures, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, NULL, 0, NOW())
+       (festival_id, last_checked_at, next_check_at, last_seen_hash, hash_version, etag,
+        last_modified, last_http_status, last_error, consecutive_failures, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULL, 0, NOW())
      ON CONFLICT (festival_id) DO UPDATE SET
        last_checked_at = EXCLUDED.last_checked_at,
        next_check_at = EXCLUDED.next_check_at,
        last_seen_hash = EXCLUDED.last_seen_hash,
+       hash_version = EXCLUDED.hash_version,
        etag = EXCLUDED.etag,
        last_modified = EXCLUDED.last_modified,
        last_http_status = EXCLUDED.last_http_status,
        last_error = NULL,
        consecutive_failures = 0,
        updated_at = NOW()`,
-    [row.id, checkedAt, result.nextCheckAt, result.visibleTextHash, result.etag || null, result.lastModified || null, result.status]
+    [
+      row.id, checkedAt, result.nextCheckAt,
+      result.relevantHash || result.visibleTextHash,
+      result.relevantHashVersion || RELEVANT_HASH_VERSION,
+      result.etag || null, result.lastModified || null, result.status,
+    ]
   );
+}
+
+// Decide qué hacer con una respuesta respecto de las observaciones. Es una
+// función pura para poder testearla sin DB:
+// - sin estado o con otra versión de hash: línea base (no es un cambio real);
+// - mismo hash: nada;
+// - hash distinto: observación nueva.
+function decideObservation(row, result) {
+  if (!result || result.error) return { action: 'skip', reason: 'error' };
+  if (result.notModified) return { action: 'skip', reason: 'not_modified' };
+  if (!result.relevantHash) return { action: 'skip', reason: 'sin_hash' };
+  const state = row.state;
+  if (!state || !state.lastSeenHash) return { action: 'baseline', reason: 'sin_estado' };
+  if (state.hashVersion !== RELEVANT_HASH_VERSION) return { action: 'baseline', reason: 'hash_version' };
+  if (state.lastSeenHash === result.relevantHash) return { action: 'none', reason: 'sin_cambios' };
+  return { action: 'observe', reason: 'cambio', previousHash: state.lastSeenHash };
+}
+
+// Inserta la observación una sola vez por festival+hash. Devuelve true si
+// insertó y false si ya existía (idempotente ante reintentos).
+async function saveObservation(client, row, result) {
+  const inserted = await client.query(
+    `INSERT INTO public.lineup_source_observations
+       (festival_id, source_url, previous_hash, seen_hash, hash_version, title, excerpt)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (festival_id, seen_hash) DO NOTHING
+     RETURNING id`,
+    [
+      row.id, row.lineupSourceUrl, result.previousHash || null,
+      result.relevantHash, result.relevantHashVersion || RELEVANT_HASH_VERSION,
+      result.title || null, result.relevantText || null,
+    ]
+  );
+  return inserted.rowCount > 0;
 }
 
 async function main(argv = process.argv.slice(2)) {
@@ -339,26 +403,52 @@ async function main(argv = process.argv.slice(2)) {
     const results = await scanRows(dueRows, { now });
 
     let stateErrors = 0;
+    const observations = { inserted: 0, baseline: 0, unchanged: 0, skipped: 0, errors: 0 };
+    const observed = [];
     if (options.applyState) {
       const byId = new Map(dueRows.map((row) => [row.id, row]));
       for (const result of results) {
+        const row = byId.get(result.id);
+        const decision = options.observe ? decideObservation(row, result) : null;
+        if (decision) result.observation = decision.action;
         try {
-          await saveSourceState(client, result, byId.get(result.id), now);
+          await saveSourceState(client, result, row, now);
+          if (options.observe && decision) {
+            if (decision.action === 'observe') {
+              const created = await saveObservation(client, row, result);
+              if (created) {
+                observations.inserted += 1;
+                observed.push({
+                  id: row.id,
+                  name: row.name,
+                  previousHash: decision.previousHash,
+                  seenHash: result.relevantHash,
+                  detectedAt: new Date(now).toISOString(),
+                });
+              } else {
+                observations.unchanged += 1;
+              }
+            } else if (decision.action === 'baseline') observations.baseline += 1;
+            else if (decision.action === 'none') observations.unchanged += 1;
+            else observations.skipped += 1;
+          }
         } catch (error) {
           stateErrors += 1;
           result.stateError = error.message;
+          if (options.observe && decision?.action === 'observe') observations.errors += 1;
         }
       }
     }
 
     const report = {
-      mode: options.applyState ? 'apply-state' : 'dry-run',
+      mode: options.observe ? 'observe' : options.applyState ? 'apply-state' : 'dry-run',
       generatedAt: new Date().toISOString(),
       summary: {
         total: rows.length,
         checked: results.length,
         skipped: skipped.length,
         stateErrors,
+        observations,
         ok: results.filter((row) => !row.error).length,
         notModified: results.filter((row) => row.notModified).length,
         errors: results.filter((row) => row.error).length,
@@ -372,6 +462,7 @@ async function main(argv = process.argv.slice(2)) {
         }, {}),
       },
       results,
+      observed,
       skipped: skipped.map((row) => ({
         id: row.id,
         name: row.name,
@@ -382,7 +473,7 @@ async function main(argv = process.argv.slice(2)) {
     };
     console.log(renderMarkdown(report));
     if (stateErrors) {
-      console.error(`Atención: ${stateErrors} actualizaciones de estado fallaron.`);
+      console.error(`Atención: ${stateErrors} actualizaciones de estado u observaciones fallaron.`);
     }
     if (options.jsonOut) {
       const outputPath = path.resolve(options.jsonOut);
@@ -407,5 +498,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  loadSources, parseArgs, renderMarkdown, saveSourceState, scanRows, withSchedule,
+  decideObservation, loadSources, parseArgs, renderMarkdown, saveObservation, saveSourceState,
+  scanRows, withSchedule,
 };

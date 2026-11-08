@@ -6,7 +6,10 @@ const assert = require('assert');
 const {
   isCheckDue, nextCheckAt, parseDate, ACTIVE_CADENCE_DAYS, OFF_SEASON_CADENCE_DAYS,
 } = require('../server/sourceSchedule');
-const { parseArgs, saveSourceState, scanRows } = require('./lineup-sweep');
+const {
+  decideObservation, parseArgs, saveObservation, saveSourceState, scanRows,
+} = require('./lineup-sweep');
+const { RELEVANT_HASH_VERSION } = require('../server/lineupHtml');
 
 const DAY = 24 * 60 * 60 * 1000;
 const now = new Date('2026-11-08T12:00:00Z');
@@ -70,17 +73,22 @@ function main() {
   // saveSourceState: tres variantes de SQL, sin tocar last_processed_hash.
   return (async () => {
     const calls = [];
-    const fakeClient = { query: async (sql, params) => { calls.push({ sql, params }); return { rows: [] }; } };
+    const fakeClient = { query: async (sql, params) => { calls.push({ sql, params }); return { rows: [{ id: 1 }], rowCount: 1 }; } };
     const row = { id: 'rock-am-ring' };
 
     await saveSourceState(fakeClient, {
-      status: 200, visibleTextHash: 'abc', etag: '"v2"', lastModified: null,
+      status: 200, relevantHash: 'rel', relevantHashVersion: RELEVANT_HASH_VERSION,
+      visibleTextHash: 'vis', etag: '"v2"', lastModified: 'Wed, 21 Oct 2026 07:28:00 GMT',
       nextCheckAt: '2026-11-15T12:00:00.000Z', consecutiveFailures: 0,
     }, row, now);
     assert.match(calls[0].sql, /last_seen_hash = EXCLUDED\.last_seen_hash/);
+    assert.match(calls[0].sql, /hash_version = EXCLUDED\.hash_version/);
     assert.match(calls[0].sql, /consecutive_failures = 0/);
-    assert.strictEqual(calls[0].params[3], 'abc');
-    assert.strictEqual(calls[0].params[4], '"v2"');
+    assert.strictEqual(calls[0].params[3], 'rel');
+    assert.strictEqual(calls[0].params[4], RELEVANT_HASH_VERSION);
+    assert.strictEqual(calls[0].params[5], '"v2"');
+    assert.strictEqual(calls[0].params[6], 'Wed, 21 Oct 2026 07:28:00 GMT');
+    assert.strictEqual(calls[0].params[7], 200);
     assert.ok(!/last_processed_hash/.test(calls[0].sql));
 
     calls.length = 0;
@@ -137,7 +145,39 @@ function main() {
     assert.strictEqual(failed[0].scheduleReason, 'retry_after');
     assert.strictEqual(new Date(failed[0].nextCheckAt).getTime() - now.getTime(), 60000);
 
-    console.log('OK: cadencia (temporada, hiatus, backoff, Retry-After) y persistencia de estado.');
+    // decideObservation: sin estado o con hash_version viejo es línea base;
+    // mismo hash no hace nada; hash distinto crea observación.
+    const baseRow = { id: 'uno', state: { lastSeenHash: 'h1', hashVersion: RELEVANT_HASH_VERSION } };
+    const ok = { relevantHash: 'h1' };
+    assert.strictEqual(decideObservation({ id: 'uno', state: null }, ok).action, 'baseline');
+    assert.strictEqual(decideObservation({ id: 'uno', state: { lastSeenHash: 'h1', hashVersion: 1 } }, ok).action, 'baseline');
+    assert.strictEqual(decideObservation(baseRow, ok).action, 'none');
+    const changed = decideObservation(baseRow, { relevantHash: 'h2' });
+    assert.strictEqual(changed.action, 'observe');
+    assert.strictEqual(changed.previousHash, 'h1');
+    assert.strictEqual(decideObservation(baseRow, { notModified: true }).action, 'skip');
+    assert.strictEqual(decideObservation(baseRow, { error: 'HTTP 500' }).action, 'skip');
+    assert.strictEqual(decideObservation(baseRow, {}).action, 'skip');
+
+    // saveObservation es idempotente: ON CONFLICT no inserta dos veces.
+    calls.length = 0;
+    const inserted = await saveObservation(fakeClient, {
+      id: 'uno', lineupSourceUrl: 'https://source.example/lineup',
+    }, {
+      previousHash: 'h1', relevantHash: 'h2', relevantHashVersion: RELEVANT_HASH_VERSION,
+      title: 'Lineup', relevantText: 'Björk',
+    });
+    assert.strictEqual(inserted, true);
+    assert.match(calls[0].sql, /ON CONFLICT \(festival_id, seen_hash\) DO NOTHING/);
+    assert.deepStrictEqual(calls[0].params, [
+      'uno', 'https://source.example/lineup', 'h1', 'h2', RELEVANT_HASH_VERSION, 'Lineup', 'Björk',
+    ]);
+    const duplicateClient = { query: async () => ({ rows: [], rowCount: 0 }) };
+    assert.strictEqual(await saveObservation(duplicateClient, { id: 'uno' }, {
+      relevantHash: 'h2', relevantHashVersion: RELEVANT_HASH_VERSION,
+    }), false);
+
+    console.log('OK: cadencia (temporada, hiatus, backoff, Retry-After), estado y observaciones.');
   })();
 }
 

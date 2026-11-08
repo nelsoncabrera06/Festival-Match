@@ -81,6 +81,37 @@ function analyzeHtml(html) {
   return analyzeVisibleText(htmlToVisibleText(html), extractTitle(html));
 }
 
+// Contenido "relevante" para el scanner: se sacan los bloques de navegación,
+// cabecera, pie, formularios y embeds, que cambian por banners/fechas/menús y
+// ensucian el hash. No se intenta entender el HTML: solo reducir ruido.
+// Versión 2 del hash; la 1 era el texto visible completo.
+const RELEVANT_HASH_VERSION = 2;
+const MAX_EXCERPT_CHARS = 12000;
+
+function htmlToRelevantText(html) {
+  const withoutChrome = String(html)
+    .replace(/<(nav|header|footer|aside|form|dialog|iframe)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ')
+    .replace(/<[a-z][^>]*\brole=["'](?:navigation|banner|contentinfo|search)["'][^>]*>[\s\S]*?<\/[a-z]+\s*>/gi, ' ');
+  return htmlToVisibleText(withoutChrome);
+}
+
+function normalizeRelevantText(text) {
+  return String(text ?? '').normalize('NFC').replace(/\s+/g, ' ').trim();
+}
+
+function hashRelevantText(text) {
+  return crypto.createHash('sha256').update(normalizeRelevantText(text)).digest('hex');
+}
+
+function analyzeRelevantContent(html) {
+  const text = htmlToRelevantText(html);
+  return {
+    text: normalizeRelevantText(text).slice(0, MAX_EXCERPT_CHARS),
+    hash: hashRelevantText(text),
+    hashVersion: RELEVANT_HASH_VERSION,
+  };
+}
+
 // Corrige el triage léxico con evidencia dura: cuántos artistas del catálogo
 // aparecen en el texto. Un triage que dice "candidato" con 0/N artistas es un
 // falso positivo (contenido por JavaScript, edición equivocada o página de
@@ -125,6 +156,9 @@ function analyzeVisibleText(visibleText, title = '') {
 }
 
 module.exports = {
-  analyzeHtml, analyzeVisibleText, decodeHtmlEntities, extractTitle, findLineupHits,
-  htmlToVisibleText, normalizeForMatch, refineTriageWithLineup,
+  MAX_EXCERPT_CHARS,
+  RELEVANT_HASH_VERSION,
+  analyzeHtml, analyzeRelevantContent, analyzeVisibleText, decodeHtmlEntities, extractTitle,
+  findLineupHits, hashRelevantText, htmlToRelevantText, htmlToVisibleText, normalizeForMatch,
+  normalizeRelevantText, refineTriageWithLineup,
 };

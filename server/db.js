@@ -237,6 +237,25 @@ async function initDatabase() {
       updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`);
   await pool.query('CREATE INDEX IF NOT EXISTS festival_source_checks_next_check_idx ON festival_source_checks (next_check_at)');
+  // Versión del algoritmo de hash (migrations/018): el scanner la usa para
+  // distinguir un cambio real de una línea base tras cambiar de versión.
+  await pool.query('ALTER TABLE festival_source_checks ADD COLUMN IF NOT EXISTS hash_version INTEGER');
+  // Cambios detectados pendientes de extracción/aprobación (paso 13-14).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS lineup_source_observations (
+      id            BIGSERIAL PRIMARY KEY,
+      festival_id   TEXT NOT NULL REFERENCES festivals(id) ON DELETE CASCADE,
+      source_url    TEXT NOT NULL,
+      previous_hash TEXT,
+      seen_hash     TEXT NOT NULL,
+      hash_version  INTEGER NOT NULL,
+      title         TEXT,
+      excerpt       TEXT,
+      detected_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      processed_at  TIMESTAMPTZ,
+      UNIQUE (festival_id, seen_hash)
+    )`);
+  await pool.query('CREATE INDEX IF NOT EXISTS lineup_source_observations_pending_idx ON lineup_source_observations (festival_id, detected_at DESC) WHERE processed_at IS NULL');
 
   console.log('Base de datos PostgreSQL inicializada');
 }

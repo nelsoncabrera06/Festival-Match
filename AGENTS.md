@@ -51,7 +51,7 @@ Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje 
 - [x] `migrations/018_lineup_source_observations.sql` agrega `festival_source_checks.hash_version` y crea `lineup_source_observations` (`previous_hash`, `seen_hash`, `hash_version`, `title`, `excerpt`, `detected_at`, `processed_at`, único por festival+hash, RLS y sin permisos para `anon`/`authenticated`). **Aplicada en Supabase** (08/11/2026) y validada antes con `ROLLBACK`. Las 63 fuentes quedaron en línea base con `hash_version = 2`, 0 fallos y 0 observaciones. El scanner reintenta sin condicional si un 304 trae hash de versión vieja, para no perder el primer cambio real.
 - [x] Prueba real del scanner (08/11/2026): se forzó un hash sintético en AMF y `--apply-state --observe --force` creó una observación con extracto; después se borró la fila de prueba. La corrida definitiva dejó **63/63 en `hash_version = 2`, 0 observaciones, 0 fallos**; Tomorrowland se recuperó del 403 transitorio (200, `consecutive_failures = 0`).
 - [x] Workflow `.github/workflows/lineup-scan.yml`: lunes **11:45 UTC** (unos 28 minutos después del rollover), `workflow_dispatch`, concurrencia `lineup-scan` y `timeout-minutes: 15`. Corre `lineup-sweep.js --apply-state --observe --report-out=radar-scan.md` y escribe el reporte en `$GITHUB_STEP_SUMMARY`. **No crea issues** porque las observaciones no son accionables hasta el extractor. Ya está en `main` (fast-forward), así que el cron está activo. Nelson lo corrió a mano desde Actions y el reporte se vio bien. El reporte final muestra las métricas una por línea y fechas `DD-MM-YYYY` (hora UTC en "Generado"/"Detectado"); el almacenamiento sigue en ISO/UTC.
-### Radar de lineups — próximo paso: fase 4 (extractor con IA)
+### Radar de lineups — fase 4 (extractor con IA)
 
 **Decisión tomada (08/11/2026):** proveedor **OpenRouter** con el modelo
 `deepseek/deepseek-v4.1-flash-1017` (precio verificado: $0,006 por millón de tokens de entrada y
@@ -111,12 +111,33 @@ soporte irregular de salida estructurada), aunque sirven para una comparación p
       paso 15; se pueden borrar con `DELETE` sin efecto en el catálogo.
 - [ ] Cargar el secret en GitHub Actions.
 - [ ] Cablear el extractor al workflow semanal (hoy `lineup-scan.yml` solo escanea).
-- [ ] Paso 15: sección de propuestas en el panel admin con aprobación humana, incluyendo
-      limpieza de sufijos ("live", "DJ set", "b2b") al aprobar: el extractor los copia tal cual
-      porque así están en la página.
-- [ ] Decisión de contenido pendiente: Sónar tiene fechas oficiales (17-19 junio 2027) y 20
-      artistas publicados, pero el catálogo sigue con `dates = '2027 (fecha por anunciar)'` y
-      `unannounced`. No se tocó: publicar sigue siendo decisión humana.
+- [x] **Paso 15 implementado (09/11/2026)**: cuarto tab "Propuestas de lineup" en el panel admin
+      con comparación lado a lado del catálogo actual y la propuesta, cambios resaltados
+      (agregados/quitados), fuente enlazada, evidencia, confianza, fechas, tickets, edición de la
+      página y textarea para corregir nombres antes de publicar.
+- [x] Endpoints `GET /api/admin/lineup-proposals`, `POST /api/admin/lineup-proposals/:id/approve`
+      y `POST /api/admin/lineup-proposals/:id/reject`, protegidos con `requireAuth` +
+      `requireAdmin`. La aprobación corre en una transacción en `db.approveLineupProposal`:
+      publica `lineup` + `lineup_status` (+ `dates`/`starts_on`/`ends_on` solo si el admin marca
+      "actualizar fechas"), marca las demás pendientes del festival como `superseded` y guarda
+      `reviewed_at`/`reviewed_by`. Un fallo hace `ROLLBACK` y no toca el catálogo.
+- [x] `server/lineupApproval.js` limpia sufijos de formato al publicar (`(live)`, `DJ set`, `b2b`)
+      y separa colaboraciones `b2b` en artistas independientes. La propuesta original conserva el
+      texto crudo; la limpieza se aplica recién al aprobar y el admin puede editarla.
+- [x] Guardas: no se aprueba una propuesta con `extraction_error`, ya revisada (`approved`/
+      `rejected`/`superseded`), reemplazada por otra más nueva pendiente, ni una `unannounced`
+      que borraría un lineup existente. Rechazar nunca modifica `festivals`.
+- [x] Tests `npm run test:approval` con `pg` interceptado: limpieza de nombres, transacción,
+      `applyDates`, errores, propuesta reemplazada, `unannounced` sin artistas y rechazo.
+- [x] Validación real contra Supabase: la propuesta pendiente de Sónar se leyó desde la base y se
+      ejecutó la transacción completa de aprobación con `ROLLBACK`. Después la fila volvió a
+      `pending` y Sónar siguió con 0 artistas y `unannounced`.
+- [ ] **Decisión de contenido pendiente:** Sónar sigue con 1 propuesta `pending` (20 artistas
+      extraídos, 21 tras separar b2b), `dates = '2027 (fecha por anunciar)'` y `unannounced`.
+      No se aprobó: publicar desde el panel sigue siendo una decisión humana. La fecha extraída
+      ("17th, 18th and 19th June 2027") no se interpreta automáticamente porque
+      `server/dateRange.js` espera el formato en español; la checkbox de fechas arranca
+      desmarcada en ese caso.
 
 **Invariantes del extractor (no re-litigar):** solo crea propuestas; publicar requiere
 aprobación admin (paso 15); nunca modificar `festivals` desde el extractor; idempotencia por
@@ -499,7 +520,7 @@ agent-plan/           # Plan de trabajo de Nelson (plan.md + el HTML generado). 
                       # repo: está en .gitignore. No confundir con la fuente de verdad
                       # del estado del proyecto, que es este archivo
 scripts/              # generate-festivals-migration.js (genera 002_festivals.sql)
-migrations/           # Schema versionado. 001_init.sql a 018 aplicados en Supabase.
+migrations/           # Schema versionado. 001_init.sql a 019 aplicados en Supabase.
                       # 002 no se re-aplica; las demás posteriores son incrementales.
                       # 002 NO se re-aplica (su ON CONFLICT pisa el catálogo). 007+ son incrementales.
 .github/workflows/    # keepalive.yml (cron Supabase), lineup-rollover.yml (rollover semanal),

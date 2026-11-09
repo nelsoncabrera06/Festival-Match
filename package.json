@@ -13,6 +13,7 @@
     "lineup:extract": "node scripts/lineup-extract.js",
     "test:sweep": "node scripts/verify-lineup-sweep.js && node scripts/verify-source-schedule.js",
     "test:extract": "node scripts/verify-lineup-extractor.js",
+    "test:approval": "node scripts/verify-lineup-approval.js",
     "test:festivals": "node scripts/verify-festivals-roundtrip.js && node scripts/verify-festivals-queries.js && node scripts/verify-rollover-report.js",
     "test:rollover": "node scripts/verify-rollover-report.js",
     "test:dates": "node scripts/verify-date-range.js"

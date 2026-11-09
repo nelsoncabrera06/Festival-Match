@@ -33,9 +33,11 @@ let currentYear = new Date().getFullYear(); // Año actual (se actualiza desde e
 let userRole = 'user'; // Rol del usuario
 let isUserAdmin = false; // Es admin?
 let currentAdminFilter = 'pending'; // Filtro actual de sugerencias admin
-let currentAdminTab = 'users'; // Tab activo del admin (suggestions, festivals, users)
+let currentProposalFilter = 'pending'; // Filtro actual de propuestas de lineup
+let currentAdminTab = 'users'; // Tab activo del admin (suggestions, proposals, festivals, users)
 let adminFestivalsData = []; // Cache de festivales para admin
 let adminUsersData = []; // Cache de usuarios para admin
+let adminProposalsData = []; // Cache de propuestas de lineup para admin
 let userToDelete = null; // Usuario pendiente de eliminar
 
 // Mapeo de códigos de país a nombres con banderas
@@ -263,9 +265,12 @@ function cacheElements() {
   elements.tabAdmin = document.querySelector('.tab-admin');
   elements.tabAdminContent = document.getElementById('tab-admin');
   elements.adminSuggestions = document.getElementById('admin-suggestions');
-  elements.adminFilterBtns = document.querySelectorAll('.admin-filter-btn');
+  elements.adminFilterBtns = document.querySelectorAll('.admin-filter-btn[data-status]');
   elements.adminTabBtns = document.querySelectorAll('.admin-tab-btn');
   elements.adminSuggestionsSection = document.getElementById('admin-suggestions-section');
+  elements.adminProposalsSection = document.getElementById('admin-proposals-section');
+  elements.adminProposals = document.getElementById('admin-proposals');
+  elements.adminProposalFilterBtns = document.querySelectorAll('[data-proposal-status]');
   elements.adminFestivalsSection = document.getElementById('admin-festivals-section');
   elements.adminFestivalsTbody = document.getElementById('admin-festivals-tbody');
   elements.adminFestivalsCount = document.getElementById('admin-festivals-count');
@@ -494,12 +499,23 @@ function setupEventListeners() {
     });
   });
 
-  // Admin tabs (Sugerencias / Festivales)
+  // Admin tabs (Sugerencias / Propuestas / Festivales / Usuarios)
   elements.adminTabBtns?.forEach(btn => {
     btn.addEventListener('click', () => {
       switchAdminTab(btn.dataset.adminTab);
     });
   });
+
+  // Admin - filtros y acciones de propuestas de lineup
+  elements.adminProposalFilterBtns?.forEach(btn => {
+    btn.addEventListener('click', () => {
+      elements.adminProposalFilterBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentProposalFilter = btn.dataset.proposalStatus;
+      loadAdminProposals();
+    });
+  });
+  elements.adminProposals?.addEventListener('click', handleAdminProposalClick);
 
   // Edit Festival Modal
   elements.editFestivalModalClose?.addEventListener('click', closeEditFestivalModal);
@@ -734,6 +750,261 @@ async function rejectSuggestion(id) {
 }
 
 // ==========================================
+// Admin - Propuestas del radar de lineups (paso 15)
+// ==========================================
+
+const PROPOSAL_STATUS_LABELS = {
+  pending: 'Pendiente',
+  approved: 'Aprobada',
+  rejected: 'Rechazada',
+  superseded: 'Reemplazada'
+};
+
+function formatProposalDate(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+async function loadAdminProposals() {
+  if (!isUserAdmin || !elements.adminProposals) return;
+
+  elements.adminProposals.innerHTML = `
+    <div class="admin-loading">
+      <div class="mini-loader"></div>
+      <span>Cargando propuestas...</span>
+    </div>
+  `;
+
+  const status = currentProposalFilter === 'all' ? '' : currentProposalFilter;
+  try {
+    const response = await fetch(`/api/admin/lineup-proposals?status=${encodeURIComponent(status)}`, {
+      credentials: 'include'
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error al cargar propuestas');
+
+    adminProposalsData = Array.isArray(data.proposals) ? data.proposals : [];
+    renderAdminProposals(adminProposalsData, data.counts || {});
+  } catch (err) {
+    console.error('Error loading admin lineup proposals:', err);
+    elements.adminProposals.innerHTML = `
+      <div class="admin-error">${escapeHtml(err.message || 'Error al cargar propuestas')}</div>
+    `;
+  }
+}
+
+function renderAdminProposals(proposals, counts) {
+  if (!elements.adminProposals) return;
+
+  const countsText = [
+    `${counts.pending || 0} pendientes`,
+    `${counts.approved || 0} aprobadas`,
+    `${counts.rejected || 0} rechazadas`,
+    `${counts.superseded || 0} reemplazadas`
+  ].join(' · ');
+
+  if (!proposals.length) {
+    const label = currentProposalFilter === 'all' ? 'propuestas' : `propuestas ${PROPOSAL_STATUS_LABELS[currentProposalFilter] || ''}`.trim();
+    elements.adminProposals.innerHTML = `
+      <div class="admin-proposals-summary">${countsText}</div>
+      <div class="admin-empty">No hay ${escapeHtml(label)}.</div>
+    `;
+    return;
+  }
+
+  elements.adminProposals.innerHTML = `
+    <div class="admin-proposals-summary">${countsText}</div>
+    ${proposals.map(renderAdminProposalCard).join('')}
+  `;
+}
+
+function renderProposalArtistList(names, otherNames, changeClass) {
+  if (!names.length) return '<span class="proposal-empty">Sin artistas</span>';
+  const other = new Set((otherNames || []).map(normalizeString));
+  return names.map((name) => {
+    const changed = !other.has(normalizeString(name));
+    return `<span class="proposal-artist${changed ? ` ${changeClass}` : ''}">${escapeHtml(name)}</span>`;
+  }).join('');
+}
+
+function renderAdminProposalCard(proposal) {
+  const currentLineup = Array.isArray(proposal.currentLineup) ? proposal.currentLineup : [];
+  const proposedArtists = Array.isArray(proposal.proposedArtists) ? proposal.proposedArtists : [];
+  const isPending = proposal.reviewStatus === 'pending';
+  const hasError = Boolean(proposal.extractionError);
+  const confidence = proposal.confidence === null || proposal.confidence === undefined
+    ? '—'
+    : Number(proposal.confidence).toFixed(2);
+  const reviewLabel = PROPOSAL_STATUS_LABELS[proposal.reviewStatus] || proposal.reviewStatus;
+  const statusLabel = {
+    confirmed: 'Confirmado', partial: 'Parcial', unannounced: 'Sin anunciar'
+  }[proposal.lineupStatus] || (proposal.lineupStatus || '—');
+  const proposalDates = proposal.proposalDates;
+  const announcement = proposal.lineupAnnouncement || {};
+  const tickets = proposal.tickets || {};
+  const confidenceClass = Number(proposal.confidence) < 0.6 ? ' low' : '';
+
+  const facts = [
+    `<div><strong>Fuente:</strong> ${proposal.sourceUrl
+      ? `<a href="${escapeHtml(proposal.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(proposal.sourceUrl)} ↗</a>`
+      : '—'}</div>`,
+    `<div><strong>Fechas actuales del catálogo:</strong> ${escapeHtml(proposal.festivalDates || '—')}</div>`,
+    `<div><strong>Fechas propuestas:</strong> ${proposalDates && proposalDates.text
+      ? `${escapeHtml(proposalDates.text)}${proposalDates.startsOn ? '' : ' <span class="proposal-warning">(no se pudo interpretar automáticamente)</span>'}`
+      : '—'}</div>`,
+    announcement.announcedAt
+      ? `<div><strong>El sitio anuncia el lineup el:</strong> ${escapeHtml(announcement.announcedAt)}</div>`
+      : '',
+    tickets.status && tickets.status !== 'not_mentioned'
+      ? `<div><strong>Tickets:</strong> ${escapeHtml(tickets.status)}${tickets.onSaleAt ? ` (${escapeHtml(tickets.onSaleAt)})` : ''}</div>`
+      : '',
+    proposal.pageEditionYear !== null && proposal.pageEditionYear !== undefined
+      ? `<div><strong>Edición de la página:</strong> ${escapeHtml(String(proposal.pageEditionYear))}${proposal.editionMatchesTarget === false ? ' <span class="proposal-warning">⚠ no coincide con el catálogo</span>' : ''}</div>`
+      : ''
+  ].filter(Boolean).join('');
+
+  const evidence = (proposal.evidence || []).length
+    ? `<details class="proposal-details" open><summary>Evidencia textual</summary><ul>${proposal.evidence.map((quote) => `<li>${escapeHtml(quote)}</li>`).join('')}</ul></details>`
+    : '';
+  const uncertainty = (proposal.uncertainty || []).length
+    ? `<details class="proposal-details"><summary>Dudas del extractor</summary><ul>${proposal.uncertainty.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></details>`
+    : '';
+
+  const actions = isPending && !hasError ? `
+    <div class="proposal-actions">
+      ${proposalDates && proposalDates.text ? `
+        <label class="proposal-date-option">
+          <input type="checkbox" class="proposal-apply-dates" ${proposalDates.startsOn && proposal.editionMatchesTarget !== false ? 'checked' : ''}>
+          Actualizar también las fechas del catálogo
+        </label>` : ''}
+      <div class="proposal-action-buttons">
+        <button type="button" class="btn-reject" data-proposal-action="reject">Rechazar</button>
+        <button type="button" class="btn-approve" data-proposal-action="approve">Publicar lineup</button>
+      </div>
+    </div>` : '';
+
+  return `
+    <article class="admin-proposal-card" data-proposal-id="${proposal.id}">
+      <div class="proposal-card-header">
+        <div>
+          <h4>${escapeHtml(proposal.festivalName || proposal.festivalId)} <span class="lineup-status-badge ${escapeHtml(proposal.lineupStatus || '')}">${escapeHtml(statusLabel)}</span></h4>
+          <p class="proposal-meta-line">
+            Detectada ${formatProposalDate(proposal.firstSeenAt)} · ${escapeHtml(proposal.model || 'modelo desconocido')}
+            · esquema v${escapeHtml(String(proposal.schemaVersion ?? '—'))}
+            ${isPending ? '' : ` · ${escapeHtml(reviewLabel)} ${formatProposalDate(proposal.reviewedAt)}${proposal.reviewedBy ? ` por ${escapeHtml(proposal.reviewedBy)}` : ''}`}
+          </p>
+        </div>
+        <div class="proposal-confidence${confidenceClass}">
+          <span>Confianza</span>
+          <strong>${escapeHtml(confidence)}</strong>
+        </div>
+      </div>
+
+      ${hasError ? `
+        <div class="proposal-error-block">
+          <strong>Error de extracción:</strong> ${escapeHtml(proposal.extractionError)}
+          <p>Esta propuesta no se puede publicar. Rechazala o corregí la fuente y volvé a correr el extractor.</p>
+        </div>
+        ${isPending ? `<div class="proposal-actions"><div class="proposal-action-buttons"><button type="button" class="btn-reject" data-proposal-action="reject">Rechazar</button></div></div>` : ''}
+      ` : `
+        <div class="proposal-compare">
+          <div class="proposal-column">
+            <h5>Catálogo actual (${currentLineup.length})</h5>
+            <div class="proposal-artist-list current">${renderProposalArtistList(currentLineup, proposedArtists, 'removed')}</div>
+          </div>
+          <div class="proposal-column">
+            <h5>Propuesta (${proposedArtists.length})</h5>
+            <div class="proposal-artist-list proposed">${renderProposalArtistList(proposedArtists, currentLineup, 'added')}</div>
+            ${isPending ? `
+              <details class="proposal-edit">
+                <summary>Editar nombres antes de publicar</summary>
+                <textarea class="proposal-artists-input" rows="${Math.min(Math.max(proposedArtists.length + 2, 5), 20)}">${escapeHtml(proposedArtists.join('\n'))}</textarea>
+                <small>Un nombre por línea. Se limpian sufijos como “(live)”, “DJ set” y se separan colaboraciones “b2b”.</small>
+              </details>` : ''}
+          </div>
+        </div>
+        <div class="proposal-facts">${facts}</div>
+        ${evidence}
+        ${uncertainty}
+        ${actions}
+      `}
+    </article>
+  `;
+}
+
+async function handleAdminProposalClick(event) {
+  const button = event.target.closest('button[data-proposal-action]');
+  if (!button || !elements.adminProposals?.contains(button)) return;
+
+  const card = button.closest('[data-proposal-id]');
+  if (!card) return;
+  const proposalId = Number(card.dataset.proposalId);
+  const action = button.dataset.proposalAction;
+
+  if (action === 'approve') return approveLineupProposalCard(card, proposalId, button);
+  if (action === 'reject') return rejectLineupProposalCard(proposalId, button);
+}
+
+async function approveLineupProposalCard(card, proposalId, button) {
+  if (!confirm('¿Publicar esta grilla en el catálogo? Se actualizará el lineup público del festival.')) return;
+
+  const textarea = card.querySelector('.proposal-artists-input');
+  const artists = textarea
+    ? textarea.value.split('\n').map((line) => line.trim()).filter(Boolean)
+    : null;
+  const applyDates = card.querySelector('.proposal-apply-dates')?.checked === true;
+
+  button.disabled = true;
+  const originalText = button.textContent;
+  button.textContent = 'Publicando...';
+  try {
+    const response = await fetch(`/api/admin/lineup-proposals/${proposalId}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ artists, applyDates })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error al aprobar la propuesta');
+
+    // El catálogo cambió: invalidar el cache del admin para que la tabla de
+    // festivales y el matching se recarguen con el lineup nuevo.
+    adminFestivalsData = [];
+    alert(`Lineup publicado: ${data.festival?.lineup?.length ?? 0} artistas.`);
+    await loadAdminProposals();
+  } catch (err) {
+    console.error('Error approving lineup proposal:', err);
+    alert(err.message || 'Error al aprobar la propuesta');
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+}
+
+async function rejectLineupProposalCard(proposalId, button) {
+  if (!confirm('¿Rechazar esta propuesta? No se modificará el catálogo.')) return;
+
+  button.disabled = true;
+  const originalText = button.textContent;
+  button.textContent = 'Rechazando...';
+  try {
+    const response = await fetch(`/api/admin/lineup-proposals/${proposalId}/reject`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error al rechazar la propuesta');
+    await loadAdminProposals();
+  } catch (err) {
+    console.error('Error rejecting lineup proposal:', err);
+    alert(err.message || 'Error al rechazar la propuesta');
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+}
+
+// ==========================================
 // Admin - Gestion de Festivales
 // ==========================================
 
@@ -749,6 +1020,9 @@ function switchAdminTab(tab) {
   if (elements.adminSuggestionsSection) {
     elements.adminSuggestionsSection.style.display = tab === 'suggestions' ? 'block' : 'none';
   }
+  if (elements.adminProposalsSection) {
+    elements.adminProposalsSection.style.display = tab === 'proposals' ? 'block' : 'none';
+  }
   if (elements.adminFestivalsSection) {
     elements.adminFestivalsSection.style.display = tab === 'festivals' ? 'block' : 'none';
   }
@@ -759,6 +1033,9 @@ function switchAdminTab(tab) {
   // Cargar datos si es necesario
   if (tab === 'festivals' && adminFestivalsData.length === 0) {
     loadAdminFestivals();
+  }
+  if (tab === 'proposals') {
+    loadAdminProposals();
   }
   if (tab === 'users' && adminUsersData.length === 0) {
     loadAdminUsers();

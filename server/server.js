@@ -717,6 +717,94 @@ function registerServer(app) {
   });
 
   // ==========================================
+  // ADMIN - Propuestas del radar de lineups (fase 4, paso 15)
+  // ==========================================
+  //
+  // El extractor nunca escribe en `festivals`: deja propuestas en
+  // `lineup_proposals` y estas rutas son la única vía para publicarlas. La
+  // aprobación corre en una transacción en db.approveLineupProposal.
+  const PROPOSAL_STATUSES = new Set(['pending', 'approved', 'rejected', 'superseded']);
+
+  const proposalReviewer = (req) => (req.user && (req.user.email || String(req.user.id))) || 'admin';
+
+  const sendProposalError = (res, err, fallbackMessage) => {
+    if (err.proposalCode) {
+      return res.status(err.statusCode || 409).json({ error: err.message, code: err.proposalCode });
+    }
+    console.error(`${fallbackMessage}:`, err.message);
+    return res.status(500).json({ error: fallbackMessage });
+  };
+
+  app.get('/api/admin/lineup-proposals', auth.requireAuth, requireAdmin, async (req, res) => {
+    const requested = req.query.status;
+    const status = requested === undefined || requested === '' || requested === 'all'
+      ? null
+      : String(requested);
+
+    if (status !== null && !PROPOSAL_STATUSES.has(status)) {
+      return res.status(400).json({ error: 'status inválido' });
+    }
+
+    try {
+      const [proposals, counts] = await Promise.all([
+        db.getLineupProposals(status),
+        db.getLineupProposalCounts(),
+      ]);
+      res.json({ proposals, counts });
+    } catch (err) {
+      // 42P01 = undefined_table: falta aplicar la 019 en un entorno local.
+      if (err.code === '42P01') {
+        return res.status(503).json({
+          error: 'Falta aplicar migrations/019_lineup_proposals.sql en la base.',
+          code: 'PROPOSALS_TABLE_MISSING',
+        });
+      }
+      console.error('Error leyendo propuestas de lineup:', err.message);
+      res.status(500).json({ error: 'Error al leer las propuestas de lineup' });
+    }
+  });
+
+  app.post('/api/admin/lineup-proposals/:id/approve', auth.requireAuth, requireAdmin, async (req, res) => {
+    const proposalId = Number(req.params.id);
+    if (!Number.isInteger(proposalId) || proposalId < 1) {
+      return res.status(400).json({ error: 'id de propuesta inválido' });
+    }
+
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const artists = Array.isArray(body.artists) ? body.artists : null;
+    if (artists && artists.some((artist) => typeof artist !== 'string')) {
+      return res.status(400).json({ error: 'artists debe ser una lista de nombres' });
+    }
+
+    try {
+      const result = await db.approveLineupProposal(proposalId, {
+        reviewedBy: proposalReviewer(req),
+        applyDates: body.applyDates === true,
+        artists,
+      });
+      res.json({ success: true, ...result });
+    } catch (err) {
+      sendProposalError(res, err, 'Error al aprobar la propuesta de lineup');
+    }
+  });
+
+  app.post('/api/admin/lineup-proposals/:id/reject', auth.requireAuth, requireAdmin, async (req, res) => {
+    const proposalId = Number(req.params.id);
+    if (!Number.isInteger(proposalId) || proposalId < 1) {
+      return res.status(400).json({ error: 'id de propuesta inválido' });
+    }
+
+    try {
+      const proposal = await db.rejectLineupProposal(proposalId, {
+        reviewedBy: proposalReviewer(req),
+      });
+      res.json({ success: true, proposal });
+    } catch (err) {
+      sendProposalError(res, err, 'Error al rechazar la propuesta de lineup');
+    }
+  });
+
+  // ==========================================
   // ADMIN - Gestion de Usuarios
   // ==========================================
 

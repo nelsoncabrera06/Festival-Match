@@ -3,6 +3,8 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 // Fechas estructuradas derivadas de `dates` (starts_on / ends_on).
 const { parseDateRange } = require('./dateRange');
+// Limpieza de nombres al aprobar una propuesta del radar (paso 15).
+const { prepareArtists } = require('./lineupApproval');
 
 const SALT_ROUNDS = 10;
 
@@ -256,6 +258,39 @@ async function initDatabase() {
       UNIQUE (festival_id, seen_hash)
     )`);
   await pool.query('CREATE INDEX IF NOT EXISTS lineup_source_observations_pending_idx ON lineup_source_observations (festival_id, detected_at DESC) WHERE processed_at IS NULL');
+  // Propuestas extraídas con IA (migrations/019_lineup_proposals.sql). El dev
+  // local necesita la tabla para probar el panel admin; en producción la crea
+  // la migración y esta función no corre (Vercel no llama initDatabase).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS lineup_proposals (
+      id               BIGSERIAL PRIMARY KEY,
+      festival_id      TEXT NOT NULL REFERENCES festivals(id) ON DELETE CASCADE,
+      observation_id   BIGINT REFERENCES lineup_source_observations(id) ON DELETE SET NULL,
+      source_url       TEXT NOT NULL,
+      seen_hash        TEXT NOT NULL,
+      hash_version     INTEGER NOT NULL,
+      model            TEXT NOT NULL,
+      schema_version   INTEGER NOT NULL,
+      lineup_status    TEXT CHECK (lineup_status IS NULL OR lineup_status IN ('confirmed', 'partial', 'unannounced')),
+      artists_count    INTEGER NOT NULL DEFAULT 0 CHECK (artists_count >= 0),
+      confidence       NUMERIC(3,2) CHECK (confidence IS NULL OR (confidence >= 0 AND confidence <= 1)),
+      payload          JSONB NOT NULL,
+      extraction_error TEXT,
+      review_status    TEXT NOT NULL DEFAULT 'pending'
+                         CHECK (review_status IN ('pending', 'approved', 'rejected', 'superseded')),
+      reviewed_at      TIMESTAMPTZ,
+      reviewed_by      TEXT,
+      first_seen_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (festival_id, seen_hash),
+      CONSTRAINT lineup_proposals_outcome_check CHECK (
+        (extraction_error IS NULL AND lineup_status IS NOT NULL)
+        OR (extraction_error IS NOT NULL)
+      )
+    )`);
+  await pool.query('CREATE INDEX IF NOT EXISTS lineup_proposals_pending_idx ON lineup_proposals (first_seen_at DESC) WHERE review_status = \'pending\'');
+  await pool.query('CREATE INDEX IF NOT EXISTS lineup_proposals_festival_idx ON lineup_proposals (festival_id, first_seen_at DESC)');
 
   console.log('Base de datos PostgreSQL inicializada');
 }
@@ -843,6 +878,256 @@ async function rolloverFestival(id, nextYear) {
 }
 
 // ==========================================
+// Propuestas del radar de lineups (fase 4, paso 15)
+// ==========================================
+//
+// `lineup_proposals` la escribe el extractor (paso 14) y la lee/revisa el panel
+// admin. Esta capa es deliberadamente la única que toca `festivals` al aprobar:
+// el extractor nunca publica. Las consultas de lectura exponen el catálogo
+// actual junto a la propuesta para que el admin compare antes de decidir.
+
+const PROPOSAL_COLUMNS = `
+  p.id, p.festival_id, p.source_url, p.seen_hash, p.model, p.schema_version,
+  p.lineup_status, p.artists_count, p.confidence, p.payload, p.extraction_error,
+  p.review_status, p.reviewed_at, p.reviewed_by,
+  p.first_seen_at, p.created_at, p.updated_at,
+  f.name AS festival_name, f.lineup AS current_lineup,
+  f.lineup_status AS current_lineup_status, f.dates AS festival_dates
+`;
+
+function proposalReviewError(code, message, statusCode) {
+  const error = new Error(message);
+  error.proposalCode = code;
+  error.statusCode = statusCode;
+  return error;
+}
+
+function rowToProposal(row) {
+  const payload = row.payload && typeof row.payload === 'object' ? row.payload : {};
+  const proposalDates = typeof payload.datesText === 'string' && payload.datesText.trim()
+    ? { text: payload.datesText.trim(), ...parseDateRange(payload.datesText.trim()) }
+    : null;
+
+  return {
+    id: Number(row.id),
+    festivalId: row.festival_id,
+    festivalName: row.festival_name,
+    sourceUrl: row.source_url,
+    seenHash: row.seen_hash,
+    model: row.model,
+    schemaVersion: row.schema_version,
+    lineupStatus: row.lineup_status,
+    artistsCount: row.artists_count,
+    confidence: row.confidence === null ? null : Number(row.confidence),
+    currentLineup: Array.isArray(row.current_lineup) ? row.current_lineup : [],
+    currentLineupStatus: row.current_lineup_status,
+    festivalDates: row.festival_dates,
+    proposedArtists: prepareArtists(payload.artists || []),
+    proposalDates,
+    lineupAnnouncement: payload.lineupAnnouncement || null,
+    tickets: payload.tickets || null,
+    evidence: Array.isArray(payload.evidence) ? payload.evidence : [],
+    uncertainty: Array.isArray(payload.uncertainty) ? payload.uncertainty : [],
+    pageEditionYear: payload.pageEditionYear ?? null,
+    editionMatchesTarget: payload.editionMatchesTarget ?? null,
+    extractionError: row.extraction_error,
+    reviewStatus: row.review_status,
+    reviewedAt: row.reviewed_at,
+    reviewedBy: row.reviewed_by,
+    firstSeenAt: row.first_seen_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+async function getLineupProposals(status = 'pending') {
+  const result = await pool.query(
+    `SELECT ${PROPOSAL_COLUMNS}
+       FROM public.lineup_proposals p
+       JOIN public.festivals f ON f.id = p.festival_id
+      WHERE ($1::text IS NULL OR p.review_status = $1)
+      ORDER BY p.first_seen_at DESC, p.id DESC
+      LIMIT 200`,
+    [status || null]
+  );
+  return result.rows.map(rowToProposal);
+}
+
+async function getLineupProposalCounts() {
+  const result = await pool.query(
+    `SELECT review_status, COUNT(*)::int AS count
+       FROM public.lineup_proposals
+      GROUP BY review_status`
+  );
+  return result.rows.reduce((counts, row) => {
+    counts[row.review_status] = row.count;
+    return counts;
+  }, { pending: 0, approved: 0, rejected: 0, superseded: 0 });
+}
+
+// Aprueba una propuesta en una transacción: o se publica el lineup y se marca
+// la revisión, o no se toca nada. `artists` permite que el admin edite la lista
+// antes de publicar (por ejemplo, para corregir una limpieza de sufijos que no
+// le gustó). `applyDates` es explícito: no se pisan fechas del catálogo por el
+// solo hecho de aprobar artistas.
+async function approveLineupProposal(id, { reviewedBy, applyDates = false, artists = null } = {}) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const selected = await client.query(
+      `SELECT ${PROPOSAL_COLUMNS}
+         FROM public.lineup_proposals p
+         JOIN public.festivals f ON f.id = p.festival_id
+        WHERE p.id = $1
+        FOR UPDATE OF p, f`,
+      [id]
+    );
+    const row = selected.rows[0];
+    if (!row) throw proposalReviewError('NOT_FOUND', 'Propuesta no encontrada.', 404);
+    if (row.review_status !== 'pending') {
+      throw proposalReviewError('ALREADY_REVIEWED', 'La propuesta ya fue revisada.', 409);
+    }
+    if (row.extraction_error) {
+      throw proposalReviewError('EXTRACTION_ERROR', 'La propuesta tiene un error de extracción y no se puede aprobar.', 409);
+    }
+
+    const lineupStatus = row.lineup_status;
+    if (!['confirmed', 'partial', 'unannounced'].includes(lineupStatus)) {
+      throw proposalReviewError('INVALID_STATUS', 'La propuesta no tiene un estado de lineup válido.', 409);
+    }
+
+    // Si hay otra propuesta más nueva pendiente para el mismo festival, esta
+    // quedó vieja. No se aprueba a ciegas: el admin puede rechazar la nueva y
+    // volver, pero no publicar una grilla que ya fue reemplazada.
+    const newer = await client.query(
+      `SELECT id
+         FROM public.lineup_proposals
+        WHERE festival_id = $1
+          AND review_status = 'pending'
+          AND id <> $2
+          AND (first_seen_at > $3 OR (first_seen_at = $3 AND id > $2))
+        LIMIT 1`,
+      [row.festival_id, row.id, row.first_seen_at]
+    );
+    if (newer.rows.length > 0) {
+      throw proposalReviewError(
+        'SUPERSEDED_BY_NEWER',
+        `Hay una propuesta más nueva pendiente (id ${newer.rows[0].id}). Revisala en lugar de aprobar esta.`,
+        409
+      );
+    }
+
+    const payload = row.payload && typeof row.payload === 'object' ? row.payload : {};
+    const finalArtists = Array.isArray(artists)
+      ? prepareArtists(artists)
+      : prepareArtists(payload.artists || []);
+    const currentLineup = Array.isArray(row.current_lineup) ? row.current_lineup : [];
+
+    if (lineupStatus === 'unannounced' && finalArtists.length > 0) {
+      throw proposalReviewError('INVALID_ARTISTS', 'Una propuesta "unannounced" no puede publicar artistas.', 400);
+    }
+    if (lineupStatus !== 'unannounced' && finalArtists.length === 0) {
+      throw proposalReviewError('EMPTY_LINEUP', 'La propuesta no tiene artistas para publicar.', 409);
+    }
+    if (lineupStatus === 'unannounced' && currentLineup.length > 0) {
+      throw proposalReviewError(
+        'WOULD_CLEAR_LINEUP',
+        'La propuesta no trae artistas y el catálogo ya tiene un lineup. No se aprueba para no borrarlo.',
+        409
+      );
+    }
+
+    const sets = ['lineup = $2', 'lineup_status = $3', 'updated_at = NOW()'];
+    const values = [row.festival_id, finalArtists, lineupStatus];
+
+    const datesText = typeof payload.datesText === 'string' ? payload.datesText.trim() : '';
+    if (applyDates && datesText) {
+      const range = parseDateRange(datesText);
+      values.push(datesText);
+      sets.push(`dates = $${values.length}`);
+      values.push(range.startsOn);
+      sets.push(`starts_on = $${values.length}`);
+      values.push(range.endsOn);
+      sets.push(`ends_on = $${values.length}`);
+    }
+
+    await client.query(
+      `UPDATE public.festivals SET ${sets.join(', ')} WHERE id = $1`,
+      values
+    );
+
+    // Las propuestas viejas del mismo festival que seguían pendientes quedan
+    // superseded: ya no representan la versión más reciente del contenido.
+    await client.query(
+      `UPDATE public.lineup_proposals
+          SET review_status = 'superseded', reviewed_at = NOW(),
+              reviewed_by = $2, updated_at = NOW()
+        WHERE festival_id = $1 AND id <> $3 AND review_status = 'pending'`,
+      [row.festival_id, reviewedBy || null, row.id]
+    );
+
+    const approved = await client.query(
+      `UPDATE public.lineup_proposals
+          SET review_status = 'approved', reviewed_at = NOW(),
+              reviewed_by = $2, updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, review_status, reviewed_at, reviewed_by`,
+      [row.id, reviewedBy || null]
+    );
+
+    await client.query('COMMIT');
+
+    return {
+      proposal: approved.rows[0],
+      festival: {
+        id: row.festival_id,
+        name: row.festival_name,
+        lineup: finalArtists,
+        lineupStatus,
+        dates: applyDates && datesText ? datesText : row.festival_dates,
+      },
+    };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function rejectLineupProposal(id, { reviewedBy } = {}) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const selected = await client.query(
+      `SELECT id, review_status FROM public.lineup_proposals WHERE id = $1 FOR UPDATE`,
+      [id]
+    );
+    const row = selected.rows[0];
+    if (!row) throw proposalReviewError('NOT_FOUND', 'Propuesta no encontrada.', 404);
+    if (row.review_status !== 'pending') {
+      throw proposalReviewError('ALREADY_REVIEWED', 'La propuesta ya fue revisada.', 409);
+    }
+
+    const rejected = await client.query(
+      `UPDATE public.lineup_proposals
+          SET review_status = 'rejected', reviewed_at = NOW(),
+              reviewed_by = $2, updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, review_status, reviewed_at, reviewed_by`,
+      [row.id, reviewedBy || null]
+    );
+    await client.query('COMMIT');
+    return rejected.rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// ==========================================
 // Funciones de Festivales Favoritos
 // ==========================================
 
@@ -1055,6 +1340,11 @@ module.exports = {
   // Campos que PUT /api/admin/festivals/:id puede escribir. Exportado para que
   // un test pueda verificar que el SET de la query sale de acá y de otro lugar.
   UPDATABLE_FESTIVAL_FIELDS,
+  // Propuestas del radar de lineups (paso 15)
+  getLineupProposals,
+  getLineupProposalCounts,
+  approveLineupProposal,
+  rejectLineupProposal,
   // Festivales favoritos
   getUserFavoriteFestivals,
   addUserFestival,

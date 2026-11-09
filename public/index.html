@@ -411,6 +411,7 @@
               <button class="admin-tab-btn active" data-admin-tab="users">Usuarios</button>
               <button class="admin-tab-btn" data-admin-tab="suggestions">Sugerencias</button>
               <button class="admin-tab-btn" data-admin-tab="festivals">Festivales</button>
+              <button class="admin-tab-btn" data-admin-tab="proposals">Propuestas de lineup</button>
             </div>
           </div>
 
@@ -424,6 +425,24 @@
             </div>
             <div id="admin-suggestions" class="admin-suggestions">
               <!-- Las sugerencias se cargan dinamicamente -->
+            </div>
+          </div>
+
+          <!-- Seccion: Propuestas del radar de lineups -->
+          <div id="admin-proposals-section" class="admin-section" style="display: none;">
+            <div class="admin-filters">
+              <button class="admin-filter-btn active" data-proposal-status="pending">Pendientes</button>
+              <button class="admin-filter-btn" data-proposal-status="approved">Aprobadas</button>
+              <button class="admin-filter-btn" data-proposal-status="rejected">Rechazadas</button>
+              <button class="admin-filter-btn" data-proposal-status="superseded">Reemplazadas</button>
+              <button class="admin-filter-btn" data-proposal-status="all">Todas</button>
+            </div>
+            <p class="admin-proposals-help">
+              Las propuestas se generan solas desde las fuentes oficiales, pero <strong>nunca se publican solas</strong>.
+              Compará la grilla actual con la propuesta y aprobá o rechazá.
+            </p>
+            <div id="admin-proposals" class="admin-proposals">
+              <!-- Las propuestas se cargan dinamicamente -->
             </div>
           </div>
 

@@ -51,7 +51,7 @@ Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje 
 - [x] `migrations/018_lineup_source_observations.sql` agrega `festival_source_checks.hash_version` y crea `lineup_source_observations` (`previous_hash`, `seen_hash`, `hash_version`, `title`, `excerpt`, `detected_at`, `processed_at`, único por festival+hash, RLS y sin permisos para `anon`/`authenticated`). **Aplicada en Supabase** (08/11/2026) y validada antes con `ROLLBACK`. Las 63 fuentes quedaron en línea base con `hash_version = 2`, 0 fallos y 0 observaciones. El scanner reintenta sin condicional si un 304 trae hash de versión vieja, para no perder el primer cambio real.
 - [x] Prueba real del scanner (08/11/2026): se forzó un hash sintético en AMF y `--apply-state --observe --force` creó una observación con extracto; después se borró la fila de prueba. La corrida definitiva dejó **63/63 en `hash_version = 2`, 0 observaciones, 0 fallos**; Tomorrowland se recuperó del 403 transitorio (200, `consecutive_failures = 0`).
 - [x] Workflow `.github/workflows/lineup-scan.yml`: lunes **11:45 UTC** (unos 28 minutos después del rollover), `workflow_dispatch`, concurrencia `lineup-scan` y `timeout-minutes: 25`. Corre el barrido (`--apply-state --observe`), después el extractor (`--apply --limit=10`) y genera el reporte semanal. **Desde el 09/11/2026 abre un issue semanal en modo prueba aunque no haya novedades** (ver paso 16); el modo normal será solo con propuestas nuevas o fallos de extracción. El reporte va siempre al `$GITHUB_STEP_SUMMARY`. El cron está activo en `main` y Nelson ya lo corrió a mano. Las métricas van una por línea y las fechas se muestran `DD-MM-YYYY` (hora UTC en "Generado"/"Detectado"); el almacenamiento sigue en ISO/UTC.
-### Radar de lineups — fase 4 (extractor con IA): pasos 14-16 cerrados
+### Radar de lineups — fase 4 cerrada (pasos 14-17)
 
 **Decisión tomada (08/11/2026):** proveedor **OpenRouter** con el modelo
 `deepseek/deepseek-v4.1-flash-1017` (precio verificado: $0,006 por millón de tokens de entrada y
@@ -147,6 +147,22 @@ soporte irregular de salida estructurada), aunque sirven para una comparación p
       el cuerpo arranca con **Sin cambios que reportar.** Para volver al comportamiento normal,
       restaurar en `lineup-scan.yml` la condición `if: steps.report.outputs.has_news == 'true'`
       en el paso "Publicar issue semanal".
+- [x] **Paso 17 cerrado (09/11/2026):** migraciones 012-019 aplicadas, código deployado en
+      `main`, secret de OpenRouter cargado y workflow semanal cableado. Nelson corrió el
+      workflow manualmente y funcionó completo: barrido → extracción → reporte → issue.
+- [x] El reporte semanal registra modelo, tokens de entrada/salida y costo estimado por corrida
+      sin exponer la key. `--limit=10` acota las observaciones procesadas por corrida y el límite
+      de gasto está configurado en OpenRouter.
+- [x] **No se limita la cobertura inicial:** las 63 fuentes ya se validaron en las fases 3-4 y el
+      extractor solo crea propuestas. El riesgo de una propuesta mala está contenido por la
+      aprobación humana, no por reducir la lista.
+- [x] **Ningún lineup público puede cambiar sin aprobación admin:** el workflow no tiene ninguna
+      llamada que actualice `festivals`; el único camino es `approveLineupProposal` desde el
+      panel, con transacción y auditoría (`reviewed_at`/`reviewed_by`). El test del extractor
+      verifica explícitamente que su SQL no incluya `UPDATE public.festivals`.
+- [ ] **Seguimiento operativo normal:** revisar la primera corrida programada del lunes 11:45 UTC
+      y, después de unas semanas, decidir si el modo prueba de issues se vuelve a condicionar a
+      `has_news == 'true'`.
 - [x] Tests `npm run test:radar`: CLI, semana sin novedades, propuesta nueva, pendiente sin
       anuncio explícito, fallo del extractor, fallo por propuesta, aprobaciones recientes y
       fuentes con error.

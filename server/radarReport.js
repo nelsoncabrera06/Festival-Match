@@ -64,6 +64,13 @@ function buildRadarReport({ scan = null, extraction = null, pending = [], approv
   const created = extractionSummary.created ?? newProposals.length;
   const failed = extractionSummary.failed ?? failedProposals.length;
   const pendingCount = pending.length || extractionSummary.pendingTotal || 0;
+  const analyzed = extractionSummary.analyzed ?? 0;
+  const promptTokens = extractionSummary.promptTokens ?? 0;
+  const completionTokens = extractionSummary.completionTokens ?? 0;
+  const costUsd = extractionSummary.costUsd;
+  const costLabel = costUsd === null || costUsd === undefined
+    ? 'sin datos'
+    : `$${Number(costUsd).toFixed(6)} USD`;
   const extractionCrashed = Boolean(extractionFailed) && failedProposals.length === 0;
   const hasNews = created > 0 || failed > 0 || extractionCrashed;
   const quietWeek = !hasNews && sourceErrors.length === 0;
@@ -93,6 +100,10 @@ function buildRadarReport({ scan = null, extraction = null, pending = [], approv
     `- **Detecciones de cambio:** ${observationsNew}`,
     `- **Propuestas nuevas:** ${created}`,
     `- **Fallos de extracción:** ${failed}`,
+    `- **Observaciones analizadas:** ${analyzed}`,
+    `- **Modelo de extracción:** ${extraction?.model || '—'}`,
+    `- **Tokens de entrada / salida:** ${promptTokens} / ${completionTokens}`,
+    `- **Costo estimado de la corrida:** ${costLabel}`,
     `- **Propuestas pendientes:** ${pendingCount}`,
     `- **Cambios aprobados (últimos 7 días):** ${approved.length}`,
     '',
@@ -206,6 +217,10 @@ function buildRadarReport({ scan = null, extraction = null, pending = [], approv
       observations: observationsNew,
       created,
       failed,
+      analyzed,
+      promptTokens,
+      completionTokens,
+      costUsd,
       extractionCrashed,
       pending: pendingCount,
       approved: approved.length,

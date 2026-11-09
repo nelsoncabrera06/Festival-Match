@@ -391,6 +391,8 @@ async function main() {
   assert.match(insert.sql, /WHERE public\.lineup_proposals\.extraction_error IS NOT NULL/);
   assert.ok(!insert.sql.includes('Sónar'), 'los valores nunca van interpolados en el SQL');
   assert.ok(!insert.sql.includes('abc123'));
+  assert.ok(!insert.sql.includes('UPDATE public.festivals'),
+    'el extractor solo crea propuestas: nunca publica en festivals');
   assert.strictEqual(typeof insert.params[10], 'string', 'el payload viaja como JSON serializado');
   assert.strictEqual(JSON.parse(insert.params[10]).artists.length, 3);
 

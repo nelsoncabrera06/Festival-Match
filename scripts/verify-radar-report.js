@@ -68,6 +68,7 @@ assert.match(quiet.markdown, /# Radar de lineups — reporte semanal/);
 assert.match(quiet.markdown, /\*\*Fuentes revisadas:\*\* 63 de 63/);
 assert.match(quiet.markdown, /\*\*Propuestas nuevas:\*\* 0/);
 assert.match(quiet.markdown, /Sin cambios que reportar/);
+assert.match(quiet.markdown, /Costo estimado de la corrida:\*\* sin datos/);
 assert.match(quiet.markdown, /No se generaron propuestas nuevas/);
 assert.match(quiet.markdown, /No hay propuestas pendientes/);
 assert.match(quiet.markdown, /se publica como issue/);
@@ -82,7 +83,11 @@ const withNew = buildRadarReport({
     }],
   }),
   extraction: emptyExtraction({
-    summary: { created: 1, valid: 1, analyzed: 1, artists: 20, pendingTotal: 1 },
+    model: 'deepseek/deepseek-v4.1-flash-1017',
+    summary: {
+      created: 1, valid: 1, analyzed: 1, artists: 20, pendingTotal: 1,
+      promptTokens: 1200, completionTokens: 400, costUsd: 0.000207,
+    },
     results: [{
       festivalId: 'sonar', name: 'Sónar', sourceUrl: 'https://sonar.es/en',
       ok: true, created: true, status: 'partial', artistsCount: 20,
@@ -106,6 +111,10 @@ assert.match(withNew.markdown, /\*\*Sónar\*\* — 20 artistas/);
 assert.match(withNew.markdown, /Anuncio declarado: 05 nov 2026/);
 assert.match(withNew.markdown, /\(https:\/\/sonar\.es\/en\)/);
 assert.match(withNew.markdown, /Propuestas pendientes:\*\* 1/);
+assert.match(withNew.markdown, /Observaciones analizadas:\*\* 1/);
+assert.match(withNew.markdown, /Modelo de extracción:\*\* deepseek\/deepseek-v4\.1-flash-1017/);
+assert.match(withNew.markdown, /Tokens de entrada \/ salida:\*\* 1200 \/ 400/);
+assert.match(withNew.markdown, /Costo estimado de la corrida:\*\* \$0\.000207 USD/);
 assert.ok(!withNew.markdown.includes('Detectado por primera vez: 05 nov 2026'),
   'con announced_at no se muestra first_seen como si fuera el anuncio');
 

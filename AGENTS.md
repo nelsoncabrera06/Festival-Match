@@ -226,6 +226,13 @@ festival + hash de la observación; `processed_at` al consumirla.
   de ese país en la región; recordar los cambios manuales de país junto con la región.
 - [x] Si no hay país reconocible (por ejemplo, localhost), inferir países latinoamericanos
   comunes por zona horaria; si no, usar USA. No se consulta un servicio externo de geolocalización.
+- [x] **Región `global` (09/11/2026):** se agregó la opción "Global" al filtro de región para
+  buscar en todo el catálogo sin cambiar de región. En backend, `REGIONS.global` es la unión de
+  códigos/nombres de las tres regiones, así que `/api/festivals`, `/api/user/festivals`,
+  `/api/demo/festivals` y `/api/artist-events` ya la aceptan sin casos especiales. El loop de
+  "otras regiones" saltea `global` para no duplicar. En frontend, `global` se recuerda en
+  `localStorage`, no preselecciona el país detectado por IP y el filtro de país queda vacío.
+  Verificado con el server local: `region=global` devuelve los 63 festivales; `region=europe`, 43.
 - [ ] Revisar en localhost y producción, incluyendo cambiar de región y recargar. Localhost no
   expone la IP pública al backend; ahí la detección usa la zona horaria del navegador.
 

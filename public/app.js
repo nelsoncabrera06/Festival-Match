@@ -147,7 +147,7 @@ async function initializeRegion() {
   try {
     savedRegion = localStorage.getItem('festivalMatchRegion') || '';
     preferredCountry = localStorage.getItem('festivalMatchCountry') || '';
-    if (['europe', 'usa', 'latam'].includes(savedRegion)) {
+    if (['global', 'europe', 'usa', 'latam'].includes(savedRegion)) {
       currentRegion = savedRegion;
     }
   } catch (err) {
@@ -2788,7 +2788,7 @@ function renderFestivals(festivals) {
 
   // Actualizar opciones de filtros
   updateCountryOptions();
-  if (!currentCountry) {
+  if (!currentCountry && currentRegion !== 'global') {
     const countryCandidate = preferredCountry || detectedCountry;
     if (countryCandidate && festivals.some(f => f.country === countryCandidate)) {
       currentCountry = countryCandidate;
@@ -3073,6 +3073,7 @@ function switchRegion(region) {
 // Obtener nombre de región para mostrar
 function getRegionDisplayName(region) {
   const names = {
+    global: 'Global',
     europe: 'Europa',
     usa: 'USA',
     latam: 'Latinoamérica'

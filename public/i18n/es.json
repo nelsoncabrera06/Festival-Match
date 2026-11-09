@@ -4,6 +4,7 @@
         "subtitle": "Encuentra tu festival ideal"
     },
     "regions": {
+        "global": "Global",
         "europe": "Europa",
         "usa": "USA",
         "latam": "Latinoamérica"
@@ -91,6 +92,7 @@
         "favoritesOnly": "Solo favoritos"
     },
     "regions": {
+        "global": "Global",
         "europe": "Europa",
         "usa": "USA",
         "latam": "Latinoamérica"

@@ -1068,6 +1068,17 @@ function registerServer(app) {
     }
   };
 
+  // Región "global": no es un país nuevo, es la unión de las tres regiones.
+  // Se agrega acá para que todos los endpoints que ya usan REGIONS[region]
+  // funcionen sin casos especiales. El loop de "otras regiones" de abajo la
+  // saltea para no decir que un evento europeo también está en "global".
+  const ALL_COUNTRY_CODES = [...new Set(Object.values(REGIONS).flatMap((r) => r.countryCodes))];
+  const ALL_COUNTRY_NAMES = [...new Set(Object.values(REGIONS).flatMap((r) => r.countryNames))];
+  REGIONS.global = {
+    countryNames: ALL_COUNTRY_NAMES,
+    countryCodes: ALL_COUNTRY_CODES,
+  };
+
   // Alias para compatibilidad
   const EUROPEAN_COUNTRIES = REGIONS.europe.countryNames;
 
@@ -1199,7 +1210,7 @@ function registerServer(app) {
       // Buscar en qué otras regiones tiene eventos
       const otherRegions = [];
       for (const [regKey, regConf] of Object.entries(REGIONS)) {
-        if (regKey !== region) {
+        if (regKey !== region && regKey !== 'global') {
           const hasEvents = response.data.some(e => regConf.countryNames.includes(e.venue?.country));
           if (hasEvents) {
             otherRegions.push(regKey);

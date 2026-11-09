@@ -4,6 +4,7 @@
         "subtitle": "Löydä ihanteellinen festivaalisi"
     },
     "regions": {
+        "global": "Maailma",
         "europe": "Eurooppa",
         "usa": "USA",
         "latam": "Latinalainen Amerikka"
@@ -92,6 +93,7 @@
         "favoritesOnly": "Vain suosikit"
     },
     "regions": {
+        "global": "Maailma",
         "europe": "Eurooppa",
         "usa": "USA",
         "latam": "Latinalainen Amerikka"

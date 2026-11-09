@@ -163,6 +163,21 @@ soporte irregular de salida estructurada), aunque sirven para una comparación p
 - [ ] **Seguimiento operativo normal:** revisar la primera corrida programada del lunes 11:45 UTC
       y, después de unas semanas, decidir si el modo prueba de issues se vuelve a condicionar a
       `has_news == 'true'`.
+- [ ] **Crons programados: primera verificación (09/11/2026) — sin corrida todavía, causa = atraso
+      de GitHub, no un bug nuestro.** A las 17:42 UTC del primer lunes no había ninguna corrida con
+      `event: schedule` en `lineup-rollover.yml` (slot 11:17 UTC) ni en `lineup-scan.yml` (slot
+      11:45 UTC). **El keepalive, que corre a las 11:17 UTC desde hace 30 días, tampoco tenía corrida
+      ese día**, así que la cola de `schedule` de GitHub estaba atrasada en bloque.
+      Historial medido de keepalive: entre **4,5 y 9,5 horas de atraso** (slots de 11:17 UTC
+      ejecutados a las 14:34–20:47 UTC, con un caso de 20:47). Conclusión: los `schedule` de este
+      repo no se pueden leer como "a las 08:17 ART"; llegan a la tarde.
+      Configuración, verificada el 09/11 y **no tocar**: `cron: '17 11 * * 1'` y `cron: '45 11 * * 1'`
+      son correctos (lunes en UTC, `1` = lunes); ambos workflows están `active`, en `main` (rama por
+      defecto, requisito de GitHub) y con `workflow_dispatch` como respaldo. Los dos workflows
+      llegaron a `main` el 07/11 22:19 UTC y el 08/11, así que el 09/11 era el primer lunes posible.
+      **Decisión de Nelson (09/11/2026): no disparar a mano; esperar a que salga solo y controlar de
+      nuevo el 10/11/2026.** Si para el 10/11 siguen sin aparecer dos lunes seguidos de `schedule`,
+      ahí sí investigar (puede ser que GitHub descarte el slot por atraso).
 
 ### Radar de lineups — paso 18: datos de festivales en hiatus (09/11/2026)
 

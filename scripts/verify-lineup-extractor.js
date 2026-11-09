@@ -380,7 +380,8 @@ async function main() {
 
   // ---------- persistencia ----------
   const client = fakeClient();
-  await saveProposal(client, record);
+  const saved = await saveProposal(client, record);
+  assert.deepStrictEqual(saved, { written: true, id: 1, inserted: false });
   const insert = client.queries[0];
   assert.strictEqual(insert.params.length, 12, 'la sentencia debe tener 12 parámetros');
   for (let index = 1; index <= 12; index += 1) {
@@ -392,6 +393,19 @@ async function main() {
   assert.ok(!insert.sql.includes('abc123'));
   assert.strictEqual(typeof insert.params[10], 'string', 'el payload viaja como JSON serializado');
   assert.strictEqual(JSON.parse(insert.params[10]).artists.length, 3);
+
+  // El RETURNING marca una fila insertada cuando xmax = 0. Es lo que usa el
+  // workflow para decidir si hay que abrir el issue semanal.
+  const insertClient = {
+    queries: [],
+    async query(sql, params) {
+      this.queries.push({ sql, params });
+      return { rowCount: 1, rows: [{ id: 9, inserted: true }] };
+    },
+  };
+  assert.deepStrictEqual(await saveProposal(insertClient, record), {
+    written: true, id: 9, inserted: true,
+  });
 
   // El marcado de la observación deja el update crítico al final: si el estado
   // del scanner falla (migración 017 ausente), la observación igual queda
@@ -417,6 +431,7 @@ async function main() {
     schemaVersion: EXTRACTION_SCHEMA_VERSION,
     summary: {
       pending: 1, analyzed: 1, valid: 1, failed: 0, skipped: 0, artists: 3,
+      created: 1, updated: 0, pendingTotal: 1,
       promptTokens: 1200, completionTokens: 400, costUsd: 0.000207,
     },
     results: [{
@@ -431,6 +446,8 @@ async function main() {
   assert.match(markdown, /# Lineup extractor \(dry run\)/);
   assert.match(markdown, /- \*\*Generado:\*\* 08-11-2026 12:30:00 UTC/);
   assert.match(markdown, /- \*\*Costo estimado:\*\* \$0\.000207 USD/);
+  assert.match(markdown, /- \*\*Propuestas nuevas:\*\* 1/);
+  assert.match(markdown, /- \*\*Pendientes en total:\*\* 1/);
   assert.match(markdown, /\| Sónar \(sonar\) \| partial \| 3 \| 0\.90 \| 05-11-2026 \|/);
   assert.match(markdown, /Ninguna propuesta se guardó|Dry run: no se escribió nada en la base/);
   assert.match(markdown, /consumió tokens/);

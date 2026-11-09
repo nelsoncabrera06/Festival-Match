@@ -1,18 +1,20 @@
 # ============================================================
-# Radar de lineups — Scanner semanal de fuentes oficiales
+# Radar de lineups — barrido, extracción y reporte semanal
 #
 # Corre todos los lunes a las 11:45 UTC (08:45 ART), 28 minutos
-# después del rollover. No rota festivales: visita las URLs
-# oficiales, compara el hash del contenido relevante y deja una
-# observación en `lineup_source_observations` cuando cambió algo.
+# después del rollover.
 #
-# No usa IA y no publica lineups: el catálogo queda intacto hasta
-# que una propuesta se apruebe desde el admin (fase 3-4).
+# 1. Barre las fuentes oficiales, compara hashes y guarda observaciones.
+# 2. Pasa las observaciones nuevas al extractor con IA, que crea
+#    propuestas en `lineup_proposals`.
+# 3. Genera un reporte semanal con fuentes, detecciones, propuestas
+#    nuevas/pendientes, cambios aprobados y fallos.
 #
-# No crea issues todavía: las observaciones no son accionables
-# hasta que exista el extractor. El reporte va al step summary.
+# No publica lineups: el catálogo queda intacto hasta que un admin
+# apruebe cada propuesta desde el panel. El issue solo se abre si hay
+# propuestas nuevas o un fallo de extracción.
 # ============================================================
-name: Radar de lineups (scanner semanal)
+name: Radar de lineups (barrido + extracción semanal)
 
 on:
   schedule:
@@ -23,6 +25,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 # Un barrido a la vez: si alguien dispara a mano mientras corre el
 # programado, se encola en vez de duplicar requests a las fuentes.
@@ -31,9 +34,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  scan:
+  radar:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
 
     steps:
       - name: Checkout del repositorio
@@ -53,5 +56,50 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           ALLOW_LOCAL_PRODUCTION_DB: 'true'
         run: |
-          node scripts/lineup-sweep.js --apply-state --observe --report-out=radar-scan.md
-          cat radar-scan.md >> "$GITHUB_STEP_SUMMARY"
+          node scripts/lineup-sweep.js \
+            --apply-state --observe \
+            --report-out=radar-scan.md \
+            --json-out=radar-scan.json
+
+      - name: Extraer propuestas con IA
+        id: extract
+        # Un fallo del extractor no debe impedir que se genere el reporte:
+        # el issue semanal tiene que avisar que la corrida quedó a medias.
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ALLOW_LOCAL_PRODUCTION_DB: 'true'
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          node scripts/lineup-extract.js \
+            --apply --limit=10 \
+            --report-out=radar-extract.md \
+            --json-out=radar-extract.json
+
+      - name: Generar reporte semanal
+        id: report
+        if: always()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ALLOW_LOCAL_PRODUCTION_DB: 'true'
+        run: |
+          node scripts/radar-report.js \
+            --scan=radar-scan.json \
+            --extract=radar-extract.json \
+            --extract-failed=${{ steps.extract.outcome == 'failure' }} \
+            --report-out=radar-weekly.md
+          cat radar-weekly.md >> "$GITHUB_STEP_SUMMARY"
+
+      # Modo prueba (09/11/2026): por pedido de Nelson, las primeras semanas
+      # se abre un issue aunque no haya novedades, para ver el output. Cuando
+      # no hay cambios, el título y el cuerpo lo dicen explícitamente. Para
+      # volver al comportamiento normal, restaurar:
+      #   if: steps.report.outputs.has_news == 'true'
+      - name: Publicar issue semanal
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "${{ steps.report.outputs.title }}" \
+            --body-file radar-weekly.md \
+            --assignee "nelsoncabrera06"

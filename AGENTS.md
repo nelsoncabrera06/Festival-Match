@@ -50,8 +50,8 @@ Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje 
 - [x] Scanner de cambios sin IA (paso 13): `htmlToRelevantText()` descarta `nav`/`header`/`footer`/`aside`/`form`/`dialog`/`iframe` y roles de navegación; el hash **versión 2** se calcula sobre ese texto normalizado. `--observe` (requiere `--apply-state`) crea una fila en `lineup_source_observations` solo cuando el hash relevante cambió. La primera corrida con una versión nueva de hash es línea base y no genera observaciones falsas. No se llama a ningún LLM ni se publica nada.
 - [x] `migrations/018_lineup_source_observations.sql` agrega `festival_source_checks.hash_version` y crea `lineup_source_observations` (`previous_hash`, `seen_hash`, `hash_version`, `title`, `excerpt`, `detected_at`, `processed_at`, único por festival+hash, RLS y sin permisos para `anon`/`authenticated`). **Aplicada en Supabase** (08/11/2026) y validada antes con `ROLLBACK`. Las 63 fuentes quedaron en línea base con `hash_version = 2`, 0 fallos y 0 observaciones. El scanner reintenta sin condicional si un 304 trae hash de versión vieja, para no perder el primer cambio real.
 - [x] Prueba real del scanner (08/11/2026): se forzó un hash sintético en AMF y `--apply-state --observe --force` creó una observación con extracto; después se borró la fila de prueba. La corrida definitiva dejó **63/63 en `hash_version = 2`, 0 observaciones, 0 fallos**; Tomorrowland se recuperó del 403 transitorio (200, `consecutive_failures = 0`).
-- [x] Workflow `.github/workflows/lineup-scan.yml`: lunes **11:45 UTC** (unos 28 minutos después del rollover), `workflow_dispatch`, concurrencia `lineup-scan` y `timeout-minutes: 15`. Corre `lineup-sweep.js --apply-state --observe --report-out=radar-scan.md` y escribe el reporte en `$GITHUB_STEP_SUMMARY`. **No crea issues** porque las observaciones no son accionables hasta el extractor. Ya está en `main` (fast-forward), así que el cron está activo. Nelson lo corrió a mano desde Actions y el reporte se vio bien. El reporte final muestra las métricas una por línea y fechas `DD-MM-YYYY` (hora UTC en "Generado"/"Detectado"); el almacenamiento sigue en ISO/UTC.
-### Radar de lineups — fase 4 (extractor con IA)
+- [x] Workflow `.github/workflows/lineup-scan.yml`: lunes **11:45 UTC** (unos 28 minutos después del rollover), `workflow_dispatch`, concurrencia `lineup-scan` y `timeout-minutes: 25`. Corre el barrido (`--apply-state --observe`), después el extractor (`--apply --limit=10`) y genera el reporte semanal. **Desde el 09/11/2026 abre un issue semanal en modo prueba aunque no haya novedades** (ver paso 16); el modo normal será solo con propuestas nuevas o fallos de extracción. El reporte va siempre al `$GITHUB_STEP_SUMMARY`. El cron está activo en `main` y Nelson ya lo corrió a mano. Las métricas van una por línea y las fechas se muestran `DD-MM-YYYY` (hora UTC en "Generado"/"Detectado"); el almacenamiento sigue en ISO/UTC.
+### Radar de lineups — fase 4 (extractor con IA): pasos 14-16 cerrados
 
 **Decisión tomada (08/11/2026):** proveedor **OpenRouter** con el modelo
 `deepseek/deepseek-v4.1-flash-1017` (precio verificado: $0,006 por millón de tokens de entrada y
@@ -93,9 +93,10 @@ soporte irregular de salida estructurada), aunque sirven para una comparación p
       fallback, costo, persistencia sin interpolar valores en el SQL, reporte).
 - [x] **`019_lineup_proposals.sql` aplicada en Supabase** (09/11/2026): tabla con 19 columnas,
       RLS activo, 0 filas al momento de aplicar.
-- [x] Key de OpenRouter creada con límite de gasto y cargada en `.env`. Falta cargarla como
-      secret `OPENROUTER_API_KEY` en GitHub Actions (Settings → Secrets and variables →
-      **Actions**, como *repository secret*: el workflow no declara `environment`).
+- [x] Key de OpenRouter creada con límite de gasto y cargada en `.env`. El secret
+      `OPENROUTER_API_KEY` quedó cargado en GitHub Actions (confirmado por Nelson el 09/11/2026;
+      Settings → Secrets and variables → **Actions**, como *repository secret*: el workflow no
+      declara `environment`).
 - [x] Primera prueba real contra OpenRouter (09/11/2026): el modelo acepta `json_schema` strict
       sin fallback; con texto sintético copió los 6 nombres, dedujo `partial` y extrajo la fecha
       de anuncio y el estado de tickets. Costo USD 0,0004.
@@ -109,8 +110,9 @@ soporte irregular de salida estructurada), aunque sirven para una comparación p
       Segunda corrida: 0 pendientes y 0 tokens. Costo total de las pruebas: USD 0,0027.
       **Estado de datos:** quedan 1 observación y 1 propuesta de Sónar como primer caso para el
       paso 15; se pueden borrar con `DELETE` sin efecto en el catálogo.
-- [ ] Cargar el secret en GitHub Actions.
-- [ ] Cablear el extractor al workflow semanal (hoy `lineup-scan.yml` solo escanea).
+- [x] Cargar el secret `OPENROUTER_API_KEY` en GitHub Actions (confirmado por Nelson, 09/11/2026).
+- [x] Cablear el extractor al workflow semanal: `lineup-scan.yml` corre barrido → extracción →
+      reporte, y abre un issue solo cuando el reporte marca novedades.
 - [x] **Paso 15 implementado (09/11/2026)**: cuarto tab "Propuestas de lineup" en el panel admin
       con comparación lado a lado del catálogo actual y la propuesta, cambios resaltados
       (agregados/quitados), fuente enlazada, evidencia, confianza, fechas, tickets, edición de la
@@ -132,6 +134,22 @@ soporte irregular de salida estructurada), aunque sirven para una comparación p
 - [x] Validación real contra Supabase: la propuesta pendiente de Sónar se leyó desde la base y se
       ejecutó la transacción completa de aprobación con `ROLLBACK`. Después la fila volvió a
       `pending` y Sónar siguió con 0 artistas y `unannounced`.
+- [x] **Paso 16 implementado (09/11/2026):** `server/radarReport.js` + `scripts/radar-report.js`
+      generan el reporte semanal combinando barrido, extracción y el estado real de
+      `lineup_proposals`. Incluye fuentes revisadas, errores, detecciones, propuestas nuevas,
+      pendientes, aprobadas en los últimos 7 días y fallos de extracción. Usa
+      `announced_at` solo si la fuente lo declara; si no, muestra `first_seen_at`.
+- [x] El reporte distingue propuestas nuevas, pendientes, aprobadas y fallos. Una pendiente
+      vieja no cuenta como novedad y cada propuesta enlaza su fuente oficial.
+- [ ] **Modo prueba temporal (09/11/2026):** por pedido de Nelson, el workflow abre un issue
+      **todas las semanas** durante las primeras corridas, aunque no haya novedades, para ver el
+      output. En una semana sin cambios el título es "Radar de lineups — sin cambios (fecha)" y
+      el cuerpo arranca con **Sin cambios que reportar.** Para volver al comportamiento normal,
+      restaurar en `lineup-scan.yml` la condición `if: steps.report.outputs.has_news == 'true'`
+      en el paso "Publicar issue semanal".
+- [x] Tests `npm run test:radar`: CLI, semana sin novedades, propuesta nueva, pendiente sin
+      anuncio explícito, fallo del extractor, fallo por propuesta, aprobaciones recientes y
+      fuentes con error.
 - [ ] **Decisión de contenido pendiente:** Sónar sigue con 1 propuesta `pending` (20 artistas
       extraídos, 21 tras separar b2b), `dates = '2027 (fecha por anunciar)'` y `unannounced`.
       No se aprobó: publicar desde el panel sigue siendo una decisión humana. La fecha extraída
@@ -144,7 +162,7 @@ aprobación admin (paso 15); nunca modificar `festivals` desde el extractor; ide
 festival + hash de la observación; `processed_at` al consumirla.
 
 - [ ] Decisión humana pendiente: publicar desde el admin los lineups 2027 ya visibles de **Sónar (30 artistas), AMF, Ilosaarirock (parcial) y Time Warp**. No hay que esperar a la IA para eso, pero tampoco se hace automáticamente.
-- Nota operativa: el scanner semanal con línea base completa solo genera observaciones cuando cambia el contenido relevante. Un issue semanal todavía no aplica; cuando exista el extractor se puede evaluar publicar un issue solo si hay propuestas nuevas.
+- Nota operativa: el scanner semanal con línea base completa solo genera observaciones cuando cambia el contenido relevante. El issue semanal se abre solo si la corrida produjo propuestas nuevas o fallos de extracción; si no, el reporte queda en el step summary.
 
 ### Mejora en curso (21/10/2026): región inicial por ubicación
 
@@ -524,7 +542,7 @@ migrations/           # Schema versionado. 001_init.sql a 019 aplicados en Supab
                       # 002 no se re-aplica; las demás posteriores son incrementales.
                       # 002 NO se re-aplica (su ON CONFLICT pisa el catálogo). 007+ son incrementales.
 .github/workflows/    # keepalive.yml (cron Supabase), lineup-rollover.yml (rollover semanal),
-                      # lineup-scan.yml (scanner semanal de fuentes) + docker-publish.yml
+                      # lineup-scan.yml (barrido + extractor + reporte semanal) + docker-publish.yml
 migrations/festival_match_backup_20260505.dump  # Backup de Cloud SQL (20260505). Ignorado por
                       # git vía `*.dump`. Datos viejos de 2026, opcional. NO confundir con
                       # los .sql de al lado: esos SÍ están versionados (ver Trampa 6)

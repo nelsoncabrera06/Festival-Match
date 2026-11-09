@@ -212,7 +212,7 @@ async function saveProposal(client, record) {
        extraction_error = EXCLUDED.extraction_error,
        updated_at = NOW()
      WHERE public.lineup_proposals.extraction_error IS NOT NULL
-     RETURNING id`,
+     RETURNING id, (xmax = 0) AS inserted`,
     [
       record.festivalId, record.observationId, record.sourceUrl, record.seenHash,
       record.hashVersion, record.model, record.schemaVersion, record.lineupStatus,
@@ -220,7 +220,9 @@ async function saveProposal(client, record) {
       record.extractionError,
     ]
   );
-  return inserted.rowCount > 0;
+  const row = inserted.rows[0];
+  if (!row) return { written: false, id: null, inserted: false };
+  return { written: true, id: Number(row.id), inserted: Boolean(row.inserted) };
 }
 
 async function markObservationProcessed(client, observation) {
@@ -256,6 +258,9 @@ function renderMarkdown(report) {
     `- **Observaciones pendientes:** ${summary.pending}`,
     `- **Analizadas:** ${summary.analyzed}`,
     `- **Propuestas válidas:** ${summary.valid}`,
+    `- **Propuestas nuevas:** ${summary.created ?? 0}`,
+    `- **Propuestas actualizadas:** ${summary.updated ?? 0}`,
+    `- **Pendientes en total:** ${summary.pendingTotal ?? 'sin datos'}`,
     `- **Con error de extracción:** ${summary.failed}`,
     `- **Omitidas:** ${summary.skipped}`,
     `- **Artistas propuestos:** ${summary.artists}`,
@@ -360,6 +365,9 @@ async function main(argv = process.argv.slice(2)) {
       failed: 0,
       skipped: 0,
       artists: 0,
+      created: 0,
+      updated: 0,
+      pendingTotal: null,
       promptTokens: 0,
       completionTokens: 0,
       costUsd: null,
@@ -391,9 +399,14 @@ async function main(argv = process.argv.slice(2)) {
 
       if (options.apply) {
         try {
-          const written = await saveProposal(client, result.record);
-          if (!written) {
+          const saved = await saveProposal(client, result.record);
+          result.saved = saved;
+          if (!saved.written) {
             result.warnings.push('Ya existía una propuesta válida para esta versión del contenido.');
+          } else if (saved.inserted) {
+            summary.created += 1;
+          } else {
+            summary.updated += 1;
           }
           // La observación solo se marca procesada cuando la propuesta es
           // válida. Un fallo queda con `processed_at` en NULL y su fila de
@@ -411,6 +424,9 @@ async function main(argv = process.argv.slice(2)) {
         name: item.festival.name,
         sourceUrl: item.observation.sourceUrl,
         ok: result.ok,
+        proposalId: result.saved?.id || null,
+        created: Boolean(result.saved?.inserted),
+        updated: Boolean(result.saved?.written && !result.saved?.inserted),
         status: result.proposal ? result.proposal.lineupStatus : null,
         artistsCount: result.proposal ? result.proposal.artists.length : 0,
         artistSample: result.proposal ? result.proposal.artists.slice(0, 8).map((artist) => artist.name) : [],
@@ -431,6 +447,17 @@ async function main(argv = process.argv.slice(2)) {
     }
 
     summary.costUsd = summary.costUsd === null ? null : Number(summary.costUsd.toFixed(6));
+
+    // Total de propuestas pendientes después de esta corrida. Lo usa el
+    // reporte semanal para mostrar el trabajo acumulado, no solo lo nuevo.
+    try {
+      const pending = await client.query(
+        `SELECT COUNT(*)::int AS count FROM public.lineup_proposals WHERE review_status = 'pending'`
+      );
+      summary.pendingTotal = pending.rows[0]?.count ?? null;
+    } catch {
+      summary.pendingTotal = null;
+    }
 
     const report = {
       mode: options.apply ? 'apply' : 'dry-run',
@@ -454,6 +481,16 @@ async function main(argv = process.argv.slice(2)) {
       fs.mkdirSync(path.dirname(outputPath), { recursive: true });
       fs.writeFileSync(outputPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
       console.error(`JSON guardado localmente en ${outputPath}`);
+    }
+    if (process.env.GITHUB_OUTPUT) {
+      try {
+        fs.appendFileSync(
+          process.env.GITHUB_OUTPUT,
+          `created=${summary.created}\nupdated=${summary.updated}\nfailed=${summary.failed}\npending=${summary.pendingTotal ?? ''}\nhas_new_proposals=${summary.created > 0}\n`
+        );
+      } catch (err) {
+        console.error(`No se pudo escribir en GITHUB_OUTPUT: ${err.message}`);
+      }
     }
     if (saveErrors) console.error(`Atención: ${saveErrors} escrituras fallaron.`);
     if (summary.analyzed > 0 && summary.valid === 0) return 1;

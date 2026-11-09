@@ -464,6 +464,7 @@ async function main(argv = process.argv.slice(2)) {
                 observed.push({
                   id: row.id,
                   name: row.name,
+                  sourceUrl: row.lineupSourceUrl,
                   previousHash: decision.previousHash,
                   seenHash: result.relevantHash,
                   detectedAt: new Date(now).toISOString(),

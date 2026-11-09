@@ -44,13 +44,16 @@ function emptyExtraction(overrides = {}) {
 
 // ---------- CLI ----------
 assert.deepStrictEqual(parseArgs([]), {
-  scan: null, extract: null, reportOut: null, help: false, extractFailed: false,
+  scan: null, extract: null, facts: null, reportOut: null, help: false,
+  extractFailed: false, factsFailed: false,
 });
 assert.strictEqual(parseArgs(['--scan=a.json']).scan, 'a.json');
 assert.strictEqual(parseArgs(['--extract=b.json']).extract, 'b.json');
+assert.strictEqual(parseArgs(['--facts=c.json']).facts, 'c.json');
 assert.strictEqual(parseArgs(['--report-out=c.md']).reportOut, 'c.md');
 assert.strictEqual(parseArgs(['--extract-failed=true']).extractFailed, true);
 assert.strictEqual(parseArgs(['--extract-failed=false']).extractFailed, false);
+assert.strictEqual(parseArgs(['--facts-failed=true']).factsFailed, true);
 assert.throws(() => parseArgs(['--extract-failed=si']), /true o false/);
 assert.throws(() => parseArgs(['--publicar']), /desconocido/);
 
@@ -133,6 +136,49 @@ const pendingOnly = buildRadarReport({
 assert.strictEqual(pendingOnly.hasNews, false, 'una pendiente vieja no reabre el issue');
 assert.match(pendingOnly.markdown, /Detectado por primera vez: 08 nov 2026/);
 assert.match(pendingOnly.markdown, /AMF/);
+
+// ---------- datos de festival detectados (Glastonbury/Mysteryland) ----------
+const withFacts = buildRadarReport({
+  scan: emptyScan(),
+  extraction: emptyExtraction(),
+  facts: {
+    summary: { total: 4, analyzed: 4, ok: 4, changes: 2, failed: 0, promptTokens: 5000, completionTokens: 800, costUsd: 0.0007 },
+    results: [{
+      ok: true,
+      festival: { id: 'glastonbury', name: 'Glastonbury Festival', lineupStatus: 'hiatus', dates: '2027 (confirmado)' },
+      sourceUrl: 'https://www.glastonburyfestivals.co.uk',
+      pageUrl: 'https://www.glastonburyfestivals.co.uk/news/glastonbury-2027-ticket-information-confirmed/',
+      editionStatus: 'has_edition', editionYear: 2027,
+      datesText: '23-27 June 2027', startsOn: '2027-06-23', endsOn: '2027-06-27',
+      suggestion: { lineupStatus: 'unannounced', datesText: '23-27 June 2027', reason: 'La edición existe.' },
+      changed: true, changeReasons: ['estado hiatus → unannounced', 'fechas "2027 (confirmado)" → "23-27 June 2027"'],
+      evidence: ['General Admission tickets valid from Wednesday 23rd June to Sunday 27th June, 2027.'],
+      errors: [], warnings: [],
+    }],
+  },
+  pending: [],
+  approved: [],
+  generatedAt: GENERATED,
+});
+assert.strictEqual(withFacts.hasNews, true);
+assert.match(withFacts.title, /2 datos de festival para revisar/);
+assert.match(withFacts.markdown, /Datos de festivales en hiatus/);
+assert.match(withFacts.markdown, /Glastonbury Festival/);
+assert.match(withFacts.markdown, /estado hiatus → unannounced/);
+assert.match(withFacts.markdown, /23-27 June 2027/);
+
+const factsCrashed = buildRadarReport({
+  scan: emptyScan(),
+  extraction: emptyExtraction(),
+  facts: null,
+  factsFailed: true,
+  pending: [],
+  approved: [],
+  generatedAt: GENERATED,
+});
+assert.strictEqual(factsCrashed.hasNews, true);
+assert.match(factsCrashed.title, /revisar chequeo de datos/);
+assert.match(factsCrashed.markdown, /chequeo de datos falló|terminó con error/);
 
 // ---------- fallo de extracción del propio script ----------
 const crashed = buildRadarReport({

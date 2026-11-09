@@ -515,6 +515,7 @@ module.exports = {
   parseCompletion,
   proposalJsonSchema,
   requestProposal,
+  sendRequest,
   targetYearOf,
   validateExtraction,
 };

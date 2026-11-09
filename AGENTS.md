@@ -44,8 +44,8 @@ Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje 
 - [x] Resultado: 12 fuentes confirman artistas en HTML visible (Open'er, Rock Werchter, Roskilde —antes falso negativo—, Ultra Miami, Cosquín Rock, Steelfest, Estéreo Picnic, Hurricane, Southside, Rock am Ring, Rock im Park y Provinssi). 8 falsos positivos quedan en `lineup_not_in_html`: Corona Capital, Creamfields Argentina, Lollapalooza Brasil/Chile, NOS Alive, Primavera Sound, Primavera Sound Buenos Aires y Tuska; en Primavera Sound y Lolla Brasil algunos nombres están dentro de scripts, no en texto visible.
 - [x] Hallazgo importante: **Sónar (30 artistas), AMF, Ilosaarirock (parcial) y Time Warp ya publicaron lineup 2027 visible** aunque el catálogo los tenga `unannounced` y sin lineup. Mad Cool y Quilmes Rock son fuentes de anuncios, no de grilla. Ver `agent-plan/lineup-sources.md` y `agent-plan/lineup-sweep-20261108-post016.json` (local, ignorado por Git).
 - [x] Revisión de `robots.txt` (08/11/2026): ninguna de las 16 fuentes con artistas visibles bloquea su ruta objetivo; Rock am Ring, Rock im Park y Sónar no publican robots, y Roskilde responde sin `Content-Type`. El chequeo no interpreta precedencia de `Allow`; es condición necesaria, no autorización contractual. Detalle en `agent-plan/lineup-sources.md`.
-- [x] Estado persistido implementado (08/11/2026): `migrations/017_festival_source_checks.sql` crea la tabla companion con `last_checked_at`, `next_check_at`, `last_seen_hash`, `last_processed_hash`, `etag`, `last_modified`, `last_http_status`, `last_error` y `consecutive_failures`, más RLS y revocación de permisos a `anon`/`authenticated`. **La 017 está aplicada** (confirmado por Nelson): 63 filas de estado, 0 fallos y 4 en pausa (`hiatus`: Bonnaroo, Glastonbury, Mysteryland, Rock in Rio). La primera corrida completa dejó `next_check_at` a 7 días para temporada activa y 30 para el resto.
-- [x] `server/sourceSchedule.js`: cadencia 7 días en temporada activa (edición sin terminar o a <=45 días de empezar), 30 fuera de temporada/sin fechas, pausa para `hiatus`, backoff 1/2/4/7 días y `Retry-After` por encima del backoff. Fetcher con `If-None-Match`/`If-Modified-Since`, 304 como éxito y `status`/`retryAfterMs` en errores.
+- [x] Estado persistido implementado (08/11/2026): `migrations/017_festival_source_checks.sql` crea la tabla companion con `last_checked_at`, `next_check_at`, `last_seen_hash`, `last_processed_hash`, `etag`, `last_modified`, `last_http_status`, `last_error` y `consecutive_failures`, más RLS y revocación de permisos a `anon`/`authenticated`. **La 017 está aplicada** (confirmado por Nelson): 63 filas de estado, 0 fallos y 4 en `hiatus` (Bonnaroo, Glastonbury, Mysteryland, Rock in Rio). La primera corrida completa dejó `next_check_at` a 7 días para temporada activa y 30 para el resto. **Actualización 09/11/2026:** `hiatus` ya no se pausa para siempre; `migrations/020_resume_hiatus_checks.sql` reactiva esas filas y el scheduler los revisa cada 30 días.
+- [x] `server/sourceSchedule.js`: cadencia 7 días en temporada activa (edición sin terminar o a <=45 días de empezar), 30 fuera de temporada/sin fechas, **30 días para `hiatus`** (no pausa infinita), backoff 1/2/4/7 días y `Retry-After` por encima del backoff. Fetcher con `If-None-Match`/`If-Modified-Since`, 304 como éxito y `status`/`retryAfterMs` en errores.
 - [x] CLI `--apply-state` (respeta `next_check_at`, guarda hash/ETag/status/error y próximo chequeo) y `--force` (revisa aunque no esté vencida). El default sigue siendo dry run y **nunca publica lineups**. Tests en `npm run test:sweep` (incluye `verify-source-schedule.js`). El SQL y las tres variantes de UPSERT se validaron contra Supabase con `ROLLBACK`.
 - [x] Scanner de cambios sin IA (paso 13): `htmlToRelevantText()` descarta `nav`/`header`/`footer`/`aside`/`form`/`dialog`/`iframe` y roles de navegación; el hash **versión 2** se calcula sobre ese texto normalizado. `--observe` (requiere `--apply-state`) crea una fila en `lineup_source_observations` solo cuando el hash relevante cambió. La primera corrida con una versión nueva de hash es línea base y no genera observaciones falsas. No se llama a ningún LLM ni se publica nada.
 - [x] `migrations/018_lineup_source_observations.sql` agrega `festival_source_checks.hash_version` y crea `lineup_source_observations` (`previous_hash`, `seen_hash`, `hash_version`, `title`, `excerpt`, `detected_at`, `processed_at`, único por festival+hash, RLS y sin permisos para `anon`/`authenticated`). **Aplicada en Supabase** (08/11/2026) y validada antes con `ROLLBACK`. Las 63 fuentes quedaron en línea base con `hash_version = 2`, 0 fallos y 0 observaciones. El scanner reintenta sin condicional si un 304 trae hash de versión vieja, para no perder el primer cambio real.
@@ -163,6 +163,36 @@ soporte irregular de salida estructurada), aunque sirven para una comparación p
 - [ ] **Seguimiento operativo normal:** revisar la primera corrida programada del lunes 11:45 UTC
       y, después de unas semanas, decidir si el modo prueba de issues se vuelve a condicionar a
       `has_news == 'true'`.
+
+### Radar de lineups — paso 18: datos de festivales en hiatus (09/11/2026)
+
+- [x] Causa raíz encontrada: `hiatus` se usaba como pausa infinita (`next_check_at = NULL`) y el
+      scanner solo miraba lineups, no fechas. Glastonbury y Mysteryland quedaron congelados con
+      `dates = '2027 (confirmado)'` aunque ya tenían fechas oficiales.
+- [x] `server/festivalFactsExtractor.js` + `scripts/festival-facts.js`: revisan SOLO los festivales
+      en `hiatus`, empiezan por la web oficial y siguen hasta 2 links del mismo dominio con el año
+      objetivo o palabras como ticket/news/info. La fuente de lineup se usa como respaldo si la
+      portada no alcanza (necesario para Rock in Rio, cuya home es un redirect).
+- [x] El extractor no escribe en la DB ni publica: produce `radar-facts.json` para el reporte
+      semanal. El admin sigue corrigiendo desde el panel.
+- [x] El reporte semanal y el issue muestran "Datos de festivales en hiatus" con actual vs
+      detectado, sugerencia, cambios, evidencia y fuente. `has_news` también se activa con cambios
+      de datos, no solo con propuestas de lineup.
+- [x] `migrations/020_resume_hiatus_checks.sql`: pone `next_check_at = NOW()` en las filas hiatus
+      que estaban en NULL. **Pendiente de aplicar en Supabase al momento de escribir esto.** El
+      chequeo de datos funciona igual sin la migración; la migración solo reactiva el scanner de
+      lineup/estado de esas 4 fuentes.
+- [x] Prueba real (09/11/2026, 4 festivales, USD 0,0009): **Glastonbury** 23-27 junio 2027,
+      **Mysteryland** 27-29 agosto 2027, **Bonnaroo** sin edición 2027, **Rock in Rio** septiembre
+      2028. El dato de Google que parecía decir Rock in Rio 2027 probablemente era Rock in Rio
+      Lisboa; la web oficial de Río dice 2028. Esto refuerza que la fuente de verdad debe ser la
+      web oficial.
+- [x] Tests `npm run test:facts` (contexto de página, links, validación, página de noticias,
+      `no_edition`, fechas parciales, cambios, reporte y OpenRouter) y `npm run test:radar`
+      actualizado para la sección de datos.
+- **Expansión futura:** usar un buscador externo (Brave/Serper/DuckDuckGo) como descubrimiento
+  para festivales que no están en hiatus. Se decidió no sumar otra API/secret todavía: la web
+  oficial ya alcanza para los 4 hiatus y el buscador solo debería proponer URLs, nunca ser fuente.
 - [x] Tests `npm run test:radar`: CLI, semana sin novedades, propuesta nueva, pendiente sin
       anuncio explícito, fallo del extractor, fallo por propuesta, aprobaciones recientes y
       fuentes con error.
@@ -555,10 +585,11 @@ agent-plan/           # Plan de trabajo de Nelson (plan.md + el HTML generado). 
                       # del estado del proyecto, que es este archivo
 scripts/              # generate-festivals-migration.js (genera 002_festivals.sql)
 migrations/           # Schema versionado. 001_init.sql a 019 aplicados en Supabase.
+                      # 020_resume_hiatus_checks.sql creada y pendiente de aplicar.
                       # 002 no se re-aplica; las demás posteriores son incrementales.
                       # 002 NO se re-aplica (su ON CONFLICT pisa el catálogo). 007+ son incrementales.
 .github/workflows/    # keepalive.yml (cron Supabase), lineup-rollover.yml (rollover semanal),
-                      # lineup-scan.yml (barrido + extractor + reporte semanal) + docker-publish.yml
+                      # lineup-scan.yml (barrido + facts + extractor + reporte semanal) + docker-publish.yml
 migrations/festival_match_backup_20260505.dump  # Backup de Cloud SQL (20260505). Ignorado por
                       # git vía `*.dump`. Datos viejos de 2026, opcional. NO confundir con
                       # los .sql de al lado: esos SÍ están versionados (ver Trampa 6)

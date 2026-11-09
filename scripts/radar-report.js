@@ -24,8 +24,10 @@ const USAGE = `Uso: node scripts/radar-report.js [opciones]
 
   --scan=<ruta>        JSON del barrido de fuentes (opcional)
   --extract=<ruta>     JSON de la corrida del extractor (opcional)
+  --facts=<ruta>       JSON del chequeo de datos de festivales (opcional)
   --report-out=<ruta>  guarda el reporte Markdown (lo usa el workflow)
   --extract-failed=true|false  marca que el paso del extractor falló (lo usa el workflow)
+  --facts-failed=true|false    marca que el chequeo de datos falló (lo usa el workflow)
   --help               muestra esta ayuda
 
 Requiere DATABASE_URL. No usa OPENROUTER_API_KEY ni escribe en la base:
@@ -33,21 +35,31 @@ solo lee propuestas pendientes y aprobadas de la última semana.
 `;
 
 function parseArgs(argv) {
-  const options = { scan: null, extract: null, reportOut: null, help: false, extractFailed: false };
+  const options = {
+    scan: null, extract: null, facts: null, reportOut: null, help: false,
+    extractFailed: false, factsFailed: false,
+  };
   for (const arg of argv) {
     if (arg === '--help' || arg === '-h') options.help = true;
     else if (arg.startsWith('--scan=')) options.scan = arg.slice(7);
     else if (arg.startsWith('--extract=')) options.extract = arg.slice(10);
+    else if (arg.startsWith('--facts=')) options.facts = arg.slice(8);
     else if (arg.startsWith('--report-out=')) options.reportOut = arg.slice(13);
     else if (arg.startsWith('--extract-failed=')) {
       const value = arg.slice(17);
       if (!['true', 'false'].includes(value)) throw new Error('--extract-failed acepta true o false.');
       options.extractFailed = value === 'true';
     }
+    else if (arg.startsWith('--facts-failed=')) {
+      const value = arg.slice(15);
+      if (!['true', 'false'].includes(value)) throw new Error('--facts-failed acepta true o false.');
+      options.factsFailed = value === 'true';
+    }
     else throw new Error(`Argumento desconocido: ${arg}`);
   }
   if (options.scan === '') throw new Error('--scan necesita una ruta.');
   if (options.extract === '') throw new Error('--extract necesita una ruta.');
+  if (options.facts === '') throw new Error('--facts necesita una ruta.');
   if (options.reportOut === '') throw new Error('--report-out necesita una ruta.');
   return options;
 }
@@ -148,6 +160,7 @@ function writeGithubOutput(result) {
       + `title=${result.title || 'Radar de lineups'}\n`
       + `created=${result.counts.created}\n`
       + `pending=${result.counts.pending}\n`
+      + `fact_changes=${result.counts.factsChanges}\n`
       + `today=${result.today}\n`
     );
   } catch (error) {
@@ -173,6 +186,7 @@ async function main(argv = process.argv.slice(2)) {
 
   const scan = readJsonFile(options.scan, 'barrido');
   const extraction = readJsonFile(options.extract, 'extractor');
+  const facts = readJsonFile(options.facts, 'chequeo de datos');
   const client = databaseClient();
 
   try {
@@ -181,9 +195,11 @@ async function main(argv = process.argv.slice(2)) {
     const result = buildRadarReport({
       scan,
       extraction,
+      facts,
       pending: proposalState.pending,
       approved: proposalState.approved,
       extractionFailed: options.extractFailed,
+      factsFailed: options.factsFailed,
       generatedAt: new Date().toISOString(),
     });
 
@@ -198,7 +214,8 @@ async function main(argv = process.argv.slice(2)) {
     writeGithubOutput({ ...result, today: formatDate(result.generatedAt || new Date().toISOString()) });
     console.error(
       `Radar semanal: ${result.counts.created} propuestas nuevas, `
-      + `${result.counts.pending} pendientes, ${result.counts.failed} fallos de extracción.`
+      + `${result.counts.pending} pendientes, ${result.counts.failed} fallos de extracción, `
+      + `${result.counts.factsChanges} cambios de datos.`
     );
     return 0;
   } catch (error) {

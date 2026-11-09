@@ -46,7 +46,10 @@ function announcementLabel(announcedAt, firstSeenAt) {
   return 'Fecha de anuncio no declarada';
 }
 
-function buildRadarReport({ scan = null, extraction = null, pending = [], approved = [], extractionFailed = false, generatedAt = new Date().toISOString() } = {}) {
+function buildRadarReport({
+  scan = null, extraction = null, facts = null, pending = [], approved = [],
+  extractionFailed = false, factsFailed = false, generatedAt = new Date().toISOString(),
+} = {}) {
   const scanSummary = (scan && scan.summary) || {};
   const extractionSummary = (extraction && extraction.summary) || {};
   const detections = Array.isArray(scan && scan.observed) ? scan.observed : [];
@@ -59,6 +62,15 @@ function buildRadarReport({ scan = null, extraction = null, pending = [], approv
   const failedProposals = Array.isArray(extraction && extraction.results)
     ? extraction.results.filter((row) => row && !row.ok)
     : [];
+  const factsSummary = (facts && facts.summary) || {};
+  const factResults = Array.isArray(facts && facts.results) ? facts.results : [];
+  const factChanges = factResults.filter((row) => row && row.changed);
+  const factFailures = factResults.filter((row) => row && !row.ok);
+  const factsCrashed = Boolean(factsFailed) && factResults.length === 0;
+  const factsCostUsd = factsSummary.costUsd;
+  const factsCostLabel = factsCostUsd === null || factsCostUsd === undefined
+    ? 'sin datos'
+    : `$${Number(factsCostUsd).toFixed(6)} USD`;
 
   const observationsNew = scanSummary.observations?.inserted ?? detections.length;
   const created = extractionSummary.created ?? newProposals.length;
@@ -72,7 +84,9 @@ function buildRadarReport({ scan = null, extraction = null, pending = [], approv
     ? 'sin datos'
     : `$${Number(costUsd).toFixed(6)} USD`;
   const extractionCrashed = Boolean(extractionFailed) && failedProposals.length === 0;
-  const hasNews = created > 0 || failed > 0 || extractionCrashed;
+  const factChangesCount = factsSummary.changes ?? factChanges.length;
+  const hasNews = created > 0 || failed > 0 || extractionCrashed
+    || factChangesCount > 0 || factsCrashed;
   const quietWeek = !hasNews && sourceErrors.length === 0;
 
   // El workflow está en modo prueba: abre un issue todas las semanas para ver
@@ -80,14 +94,18 @@ function buildRadarReport({ scan = null, extraction = null, pending = [], approv
   // novedades. Para volver al comportamiento normal alcanza con restaurar el
   // `if: steps.report.outputs.has_news == 'true'` en lineup-scan.yml.
   const title = created > 0
-    ? `Radar de lineups — ${created} propuesta${created === 1 ? '' : 's'} nueva${created === 1 ? '' : 's'} (${formatDate(generatedAt)})`
-    : failed > 0
-      ? `Radar de lineups — ${failed} fallo${failed === 1 ? '' : 's'} de extracción (${formatDate(generatedAt)})`
-      : extractionCrashed
-        ? `Radar de lineups — revisar corrida del extractor (${formatDate(generatedAt)})`
-        : sourceErrors.length > 0
-          ? `Radar de lineups — fuentes con error (${formatDate(generatedAt)})`
-          : `Radar de lineups — sin cambios (${formatDate(generatedAt)})`;
+    ? `Radar de lineups — ${created} propuesta${created === 1 ? '' : 's'} nueva${created === 1 ? '' : 's'}${factChangesCount ? ` y ${factChangesCount} dato${factChangesCount === 1 ? '' : 's'} para revisar` : ''} (${formatDate(generatedAt)})`
+    : factChangesCount > 0
+      ? `Radar de lineups — ${factChangesCount} dato${factChangesCount === 1 ? '' : 's'} de festival para revisar (${formatDate(generatedAt)})`
+      : failed > 0
+        ? `Radar de lineups — ${failed} fallo${failed === 1 ? '' : 's'} de extracción (${formatDate(generatedAt)})`
+        : extractionCrashed
+          ? `Radar de lineups — revisar corrida del extractor (${formatDate(generatedAt)})`
+          : factsCrashed
+            ? `Radar de lineups — revisar chequeo de datos (${formatDate(generatedAt)})`
+            : sourceErrors.length > 0
+              ? `Radar de lineups — fuentes con error (${formatDate(generatedAt)})`
+              : `Radar de lineups — sin cambios (${formatDate(generatedAt)})`;
 
   const lines = [
     '# Radar de lineups — reporte semanal',
@@ -106,6 +124,9 @@ function buildRadarReport({ scan = null, extraction = null, pending = [], approv
     `- **Costo estimado de la corrida:** ${costLabel}`,
     `- **Propuestas pendientes:** ${pendingCount}`,
     `- **Cambios aprobados (últimos 7 días):** ${approved.length}`,
+    `- **Festivales en hiatus revisados:** ${factsSummary.analyzed ?? factResults.length}`,
+    `- **Datos de festival con cambios sugeridos:** ${factChangesCount}`,
+    `- **Costo del chequeo de datos:** ${factsCostLabel}`,
     '',
   ];
 
@@ -187,6 +208,42 @@ function buildRadarReport({ scan = null, extraction = null, pending = [], approv
     lines.push('');
   }
 
+  lines.push('### Datos de festivales en hiatus', '');
+  if (!factResults.length && !factsCrashed) {
+    lines.push('No se revisaron festivales en hiatus.', '');
+  } else if (factsCrashed) {
+    lines.push('La corrida del chequeo de datos falló antes de generar resultados. Revisar el log del workflow.', '');
+  } else {
+    for (const row of factResults) {
+      const festival = row.festival || {};
+      const current = `${festival.lineupStatus || '—'} · ${festival.dates || '—'}`;
+      lines.push(`- **${festival.name || festival.id}** — actual: ${current}${row.ok ? '' : ' · ⚠ chequeo falló'}`);
+      if (row.ok) {
+        const detected = `${row.editionStatus || '—'}${row.editionYear ? ` · ${row.editionYear}` : ''}${row.datesText ? ` · ${row.datesText}` : ''}`;
+        lines.push(`  - Detectado: ${detected}`);
+        if (row.suggestion) lines.push(`  - Sugerencia: ${row.suggestion.reason}`);
+        if (row.changeReasons?.length) lines.push(`  - Cambios: ${row.changeReasons.join('; ')}`);
+        if (row.evidence?.length) lines.push(`  - Evidencia: "${row.evidence[0]}"`);
+      } else {
+        lines.push(`  - Error: ${row.errors?.join(' ') || 'desconocido'}`);
+      }
+      lines.push(`  - Fuente: ${sourceLink(row.pageUrl || row.sourceUrl)}`);
+    }
+    lines.push('');
+  }
+
+  if (factFailures.length || factsCrashed) {
+    lines.push('### Fallos del chequeo de datos', '');
+    if (factsCrashed && !factFailures.length) {
+      lines.push('La corrida del chequeo de datos terminó con error antes de generar resultados.', '');
+    } else {
+      for (const row of factFailures) {
+        lines.push(`- **${row.festival?.name || row.festival?.id || 'Festival'}** — ${row.errors?.join(' ') || 'error desconocido'}`);
+      }
+      lines.push('');
+    }
+  }
+
   if (sourceErrors.length) {
     lines.push('## Fuentes con error', '');
     for (const row of sourceErrors.slice(0, 20)) {
@@ -222,6 +279,10 @@ function buildRadarReport({ scan = null, extraction = null, pending = [], approv
       completionTokens,
       costUsd,
       extractionCrashed,
+      factsChecked: factsSummary.analyzed ?? factResults.length,
+      factsChanges: factChangesCount,
+      factsCostUsd: factsSummary.costUsd ?? null,
+      factsCrashed,
       pending: pendingCount,
       approved: approved.length,
     },

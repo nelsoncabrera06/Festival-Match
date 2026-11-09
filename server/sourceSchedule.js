@@ -7,13 +7,15 @@
 // - Temporada activa (la edición todavía no terminó o terminó hace <= 7 días):
 //   revisar cada 7 días.
 // - Fuera de temporada o sin fechas estructuradas: cada 30 días.
-// - Hiatus: en pausa (`nextCheckAt = null`), se saltea salvo --force.
+// - Hiatus: cadencia larga (30 días). No se pausa para siempre: un festival
+//   en pausa puede anunciar su próxima edición, como Glastonbury 2027.
 // - Fallos consecutivos: backoff 1, 2, 4 y 7 días (tope).
 // - `Retry-After` del servidor manda sobre el backoff si es mayor.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ACTIVE_CADENCE_DAYS = 7;
 const OFF_SEASON_CADENCE_DAYS = 30;
+const HIATUS_CADENCE_DAYS = 30;
 const ACTIVE_GRACE_DAYS = 7;
 const FAILURE_BACKOFF_DAYS = [1, 2, 4, 7];
 
@@ -45,7 +47,15 @@ function nextCheckAt({
   const nowDate = toDate(now);
 
   if (lineupStatus === 'hiatus') {
-    return { at: null, cadenceDays: null, paused: true, reason: 'hiatus' };
+    // No es una pausa infinita: se revisa poco seguido para detectar el
+    // anuncio de una edición nueva. Si aparece una edición, el admin cambia
+    // el estado y vuelve a la cadencia normal.
+    return {
+      at: new Date(nowDate.getTime() + HIATUS_CADENCE_DAYS * DAY_MS),
+      cadenceDays: HIATUS_CADENCE_DAYS,
+      paused: false,
+      reason: 'hiatus',
+    };
   }
 
   if (Number.isFinite(retryAfterMs) && retryAfterMs > 0) {
@@ -99,6 +109,7 @@ module.exports = {
   ACTIVE_GRACE_DAYS,
   DAY_MS,
   FAILURE_BACKOFF_DAYS,
+  HIATUS_CADENCE_DAYS,
   OFF_SEASON_CADENCE_DAYS,
   isCheckDue,
   nextCheckAt,

@@ -61,6 +61,21 @@ jobs:
             --report-out=radar-scan.md \
             --json-out=radar-scan.json
 
+      - name: Revisar datos de festivales en hiatus
+        id: facts
+        # Chequea fechas/edición en la web oficial de los festivales en pausa.
+        # No publica nada: el resultado va al reporte semanal y al issue.
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ALLOW_LOCAL_PRODUCTION_DB: 'true'
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          node scripts/festival-facts.js \
+            --limit=20 \
+            --report-out=radar-facts.md \
+            --json-out=radar-facts.json
+
       - name: Extraer propuestas con IA
         id: extract
         # Un fallo del extractor no debe impedir que se genere el reporte:
@@ -86,7 +101,9 @@ jobs:
           node scripts/radar-report.js \
             --scan=radar-scan.json \
             --extract=radar-extract.json \
+            --facts=radar-facts.json \
             --extract-failed=${{ steps.extract.outcome == 'failure' }} \
+            --facts-failed=${{ steps.facts.outcome == 'failure' }} \
             --report-out=radar-weekly.md
           cat radar-weekly.md >> "$GITHUB_STEP_SUMMARY"
 

@@ -4,7 +4,7 @@
 // Tests de la cadencia del radar y de la persistencia de estado, sin DB real.
 const assert = require('assert');
 const {
-  isCheckDue, nextCheckAt, parseDate, ACTIVE_CADENCE_DAYS, OFF_SEASON_CADENCE_DAYS,
+  isCheckDue, nextCheckAt, parseDate, ACTIVE_CADENCE_DAYS, HIATUS_CADENCE_DAYS, OFF_SEASON_CADENCE_DAYS,
 } = require('../server/sourceSchedule');
 const {
   decideObservation, parseArgs, saveObservation, saveSourceState, scanRows,
@@ -37,10 +37,11 @@ function main() {
   assert.strictEqual(off.reason, 'off_season');
   assert.strictEqual(nextCheckAt({ now }).cadenceDays, OFF_SEASON_CADENCE_DAYS);
 
-  // Hiatus = pausado, no se revisa salvo --force.
+  // Hiatus = cadencia larga, no pausa infinita.
   const hiatus = nextCheckAt({ now, lineupStatus: 'hiatus', endsOn: '2027-06-05' });
-  assert.strictEqual(hiatus.at, null);
-  assert.strictEqual(hiatus.paused, true);
+  assert.strictEqual(hiatus.paused, false);
+  assert.strictEqual(hiatus.cadenceDays, HIATUS_CADENCE_DAYS);
+  assert.strictEqual(days(hiatus.at), HIATUS_CADENCE_DAYS);
   assert.strictEqual(hiatus.reason, 'hiatus');
 
   // Backoff progresivo con tope de 7 días.

@@ -72,7 +72,7 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           node scripts/festival-facts.js \
-            --limit=20 \
+            --apply --limit=20 \
             --report-out=radar-facts.md \
             --json-out=radar-facts.json
 

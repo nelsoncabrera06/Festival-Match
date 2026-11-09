@@ -17,7 +17,7 @@
     "test:extract": "node scripts/verify-lineup-extractor.js",
     "test:approval": "node scripts/verify-lineup-approval.js",
     "test:radar": "node scripts/verify-radar-report.js",
-    "test:facts": "node scripts/verify-festival-facts.js",
+    "test:facts": "node scripts/verify-festival-facts.js && node scripts/verify-festival-facts-approval.js",
     "test:festivals": "node scripts/verify-festivals-roundtrip.js && node scripts/verify-festivals-queries.js && node scripts/verify-rollover-report.js",
     "test:rollover": "node scripts/verify-rollover-report.js",
     "test:dates": "node scripts/verify-date-range.js"

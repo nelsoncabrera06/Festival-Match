@@ -12,8 +12,9 @@ const {
   FACTS_SCHEMA_VERSION, buildFactsPrompt, requestFacts, validateFacts,
 } = require('../server/festivalFactsExtractor');
 const {
-  analyzeFestival, buildPageContext, discoverLinks, factsChanged, needsMoreEvidence,
-  parseArgs, renderMarkdown, targetYearOf,
+  analyzeFestival, buildFactProposalRecord, buildPageContext, discoverLinks, factsChanged,
+  formatDateRangeEs, needsMoreEvidence, normalizeSuggestedDates, parseArgs, renderMarkdown,
+  saveFactProposal, targetYearOf,
 } = require('./festival-facts');
 
 const FESTIVAL = {
@@ -50,10 +51,11 @@ async function main() {
   // ---------- argumentos ----------
   assert.deepStrictEqual(parseArgs([]), {
     festival: null, limit: 10, model: 'deepseek/deepseek-v4.1-flash-1017',
-    jsonOut: null, reportOut: null, help: false,
+    jsonOut: null, reportOut: null, help: false, apply: false,
   });
   assert.strictEqual(parseArgs(['--festival=glastonbury']).festival, 'glastonbury');
   assert.strictEqual(parseArgs(['--limit=20']).limit, 20);
+  assert.strictEqual(parseArgs(['--apply']).apply, true);
   assert.throws(() => parseArgs(['--limit=0']), /entre 1 y 20/);
   assert.throws(() => parseArgs(['--limit=21']), /entre 1 y 20/);
   assert.throws(() => parseArgs(['--publicar']), /desconocido/);
@@ -63,6 +65,11 @@ async function main() {
   assert.strictEqual(targetYearOf({ dates: '2027 (confirmado)' }), 2027);
   assert.strictEqual(targetYearOf({ dates: '2028 (fecha por anunciar)' }), 2028);
   assert.strictEqual(targetYearOf({ dates: 'TBA' }), null);
+  assert.strictEqual(formatDateRangeEs('2027-06-23', '2027-06-27'), '23-27 Junio 2027');
+  assert.strictEqual(formatDateRangeEs('2027-08-27', '2027-08-29'), '27-29 Agosto 2027');
+  assert.strictEqual(normalizeSuggestedDates({ startsOn: '2027-06-23', endsOn: '2027-06-27' }), '23-27 Junio 2027');
+  assert.strictEqual(normalizeSuggestedDates({ datesText: 'SETEMBRO DE 2028' }), 'Septiembre 2028');
+  assert.strictEqual(normalizeSuggestedDates({ datesText: 'September 2028' }), 'Septiembre 2028');
 
   // ---------- contexto de página ----------
   const html = `<!doctype html><html><head>
@@ -193,6 +200,39 @@ async function main() {
   assert.strictEqual(noEditionAnalysis.suggestion.lineupStatus, 'hiatus');
   assert.strictEqual(needsMoreEvidence({ editionStatus: noEditionAnalysis.editionStatus }), false);
 
+  // ---------- propuesta persistible ----------
+  const record = buildFactProposalRecord(analyzed);
+  assert.strictEqual(record.festivalId, 'glastonbury');
+  assert.strictEqual(record.proposedDates, '23-27 Junio 2027');
+  assert.strictEqual(record.proposedLineupStatus, 'unannounced');
+  assert.strictEqual(record.proposedStartsOn, '2027-06-23');
+  assert.strictEqual(record.proposedEndsOn, '2027-06-27');
+  assert.strictEqual(record.seenHash.length, 64);
+  assert.strictEqual(record.payload.editionYear, 2027);
+  assert.ok(record.evidence.length > 0);
+  assert.deepStrictEqual(buildFactProposalRecord(analyzed).seenHash, record.seenHash, 'el hash es estable');
+
+  const client = {
+    queries: [],
+    async query(sql, params) {
+      this.queries.push({ sql, params: params || [] });
+      if (String(sql).startsWith('INSERT INTO public.festival_fact_proposals')) {
+        return { rows: [{ id: 5, inserted: true }], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+  };
+  const saved = await saveFactProposal(client, record);
+  assert.deepStrictEqual(saved, { written: true, id: 5, inserted: true });
+  const insertQuery = client.queries.find((q) => q.sql.startsWith('INSERT INTO public.festival_fact_proposals'));
+  assert.deepStrictEqual(insertQuery.params.slice(0, 1), ['glastonbury']);
+  assert.ok(client.queries.every((q) => !q.sql.includes('Sónar')));
+  assert.ok(client.queries.some((q) => q.sql === 'BEGIN'));
+  assert.ok(client.queries.some((q) => q.sql === 'COMMIT'));
+  assert.ok(client.queries.some((q) => q.sql.includes("review_status = 'superseded'")));
+  assert.ok(!client.queries.some((q) => q.sql.includes('UPDATE public.festivals')),
+    'el radar de datos solo crea propuestas: no publica en festivals');
+
   // ---------- reporte ----------
   const report = renderMarkdown({
     generatedAt: '2026-11-09T10:00:00.000Z', model: 'm', schemaVersion: FACTS_SCHEMA_VERSION,
@@ -205,7 +245,8 @@ async function main() {
   assert.match(report, /# Festival facts \(check\)/);
   assert.match(report, /Glastonbury Festival/);
   assert.match(report, /estado hiatus → unannounced/);
-  assert.match(report, /Este chequeo \*\*no modifica el catálogo\*\*/);
+  assert.match(report, /Dry run: no se escribió en la base/);
+  assert.match(report, /Propuestas nuevas:\*\* 0/);
 
   // ---------- OpenRouter: formato y error sin key ----------
   await assert.rejects(() => requestFacts({ messages: [] }), /OPENROUTER_API_KEY/);

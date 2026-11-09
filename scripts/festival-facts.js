@@ -16,6 +16,7 @@
 // palabras como ticket/news/info. La búsqueda web externa queda para una
 // segunda etapa; la fuente de verdad sigue siendo la web oficial.
 
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { Client } = require('pg');
@@ -35,21 +36,23 @@ const USAGE = `Uso: node scripts/festival-facts.js [opciones]
   --festival=<id>       revisa un solo festival en hiatus
   --limit=<n>           máximo de festivales a revisar (1-20, default 10)
   --model=<id>          modelo de OpenRouter (default ${DEFAULT_MODEL})
+  --apply               guarda propuestas en festival_fact_proposals
   --json-out=<ruta>     guarda el reporte JSON (lo usa el workflow)
   --report-out=<ruta>   guarda un Markdown simple (debug local)
   --help                muestra esta ayuda
 
-Requiere OPENROUTER_API_KEY y DATABASE_URL. No modifica la base ni publica
-fechas: solo produce datos para el reporte semanal.
+Requiere OPENROUTER_API_KEY y DATABASE_URL. Con --apply guarda propuestas;
+publicar sigue siendo una acción humana desde el panel admin.
 `;
 
 function parseArgs(argv) {
   const options = {
     festival: null, limit: 10, model: DEFAULT_MODEL,
-    jsonOut: null, reportOut: null, help: false,
+    jsonOut: null, reportOut: null, help: false, apply: false,
   };
   for (const arg of argv) {
     if (arg === '--help' || arg === '-h') options.help = true;
+    else if (arg === '--apply') options.apply = true;
     else if (arg.startsWith('--festival=')) options.festival = arg.slice(11);
     else if (arg.startsWith('--limit=')) options.limit = Number(arg.slice(8));
     else if (arg.startsWith('--model=')) options.model = arg.slice(8);
@@ -224,6 +227,54 @@ function needsMoreEvidence(facts) {
   return true;
 }
 
+const MESES_ES = {
+  january: 'Enero', february: 'Febrero', march: 'Marzo', april: 'Abril',
+  may: 'Mayo', june: 'Junio', july: 'Julio', august: 'Agosto',
+  september: 'Septiembre', october: 'Octubre', november: 'Noviembre', december: 'Diciembre',
+  janeiro: 'Enero', fevereiro: 'Febrero', marco: 'Marzo', abril: 'Abril',
+  maio: 'Mayo', junho: 'Junio', julho: 'Julio', agosto: 'Agosto',
+  setembro: 'Septiembre', outubro: 'Octubre', novembro: 'Noviembre', dezembro: 'Diciembre',
+  januari: 'Enero', februari: 'Febrero', maart: 'Marzo', mei: 'Mayo',
+  juni: 'Junio', juli: 'Julio', augustus: 'Agosto', september_nl: 'Septiembre',
+  oktober: 'Octubre', november_nl: 'Noviembre', december_nl: 'Diciembre',
+};
+
+function monthEs(month) {
+  return MESES_ES[String(month || '').toLowerCase()] || null;
+}
+
+function formatDateRangeEs(startsOn, endsOn) {
+  if (!startsOn || !endsOn) return null;
+  const start = new Date(`${startsOn}T00:00:00Z`);
+  const end = new Date(`${endsOn}T00:00:00Z`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+  const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const sm = months[start.getUTCMonth()];
+  const em = months[end.getUTCMonth()];
+  if (startsOn === endsOn) return `${start.getUTCDate()} ${sm} ${start.getUTCFullYear()}`;
+  if (start.getUTCFullYear() === end.getUTCFullYear() && start.getUTCMonth() === end.getUTCMonth()) {
+    return `${start.getUTCDate()}-${end.getUTCDate()} ${sm} ${start.getUTCFullYear()}`;
+  }
+  return `${start.getUTCDate()} ${sm} - ${end.getUTCDate()} ${em} ${end.getUTCFullYear()}`;
+}
+
+// Normaliza fechas a un texto que entienda `server/dateRange.js`: "23-27 Junio
+// 2027", "27-29 Agosto 2027", "Septiembre 2028". Si no se puede, conserva el
+// texto original de la página.
+function normalizeSuggestedDates(facts) {
+  if (!facts) return null;
+  if (facts.startsOn && facts.endsOn) return formatDateRangeEs(facts.startsOn, facts.endsOn);
+  const text = String(facts.datesText || '').trim();
+  if (!text) return null;
+  const monthYear = text.match(/^([A-Za-zÀ-ÿ]+)\s+(?:de\s+|of\s+)?(\d{4})$/i);
+  if (monthYear) {
+    const month = monthEs(monthYear[1]);
+    if (month) return `${month} ${monthYear[2]}`;
+  }
+  return text;
+}
+
 function factsChanged(festival, facts) {
   const reasons = [];
   const suggestion = facts && facts.suggestion;
@@ -332,6 +383,10 @@ async function analyzeFestival(festival, {
 
   usageTotal.costUsd = Number(usageTotal.costUsd.toFixed(6));
   const facts = best && best.ok ? best.facts : null;
+  if (facts && facts.suggestion) {
+    const normalized = normalizeSuggestedDates(facts);
+    if (normalized) facts.suggestion.datesText = normalized;
+  }
   const changeReasons = facts ? factsChanged(festival, facts) : [];
   const warnings = [...(best?.warnings || [])];
   if (best?.format === 'json_object') warnings.push('El proveedor no aceptó el esquema estricto: se usó json_object.');
@@ -368,6 +423,114 @@ async function analyzeFestival(festival, {
   };
 }
 
+function buildFactProposalRecord(result) {
+  const suggestion = result.suggestion || {};
+  const proposedDates = suggestion.datesText || null;
+  const proposedLineupStatus = suggestion.lineupStatus || null;
+  const proposedStartsOn = suggestion.startsOn || result.startsOn || null;
+  const proposedEndsOn = suggestion.endsOn || result.endsOn || null;
+  const signature = JSON.stringify({
+    festivalId: result.festival.id,
+    pageUrl: result.pageUrl || result.sourceUrl,
+    editionStatus: result.editionStatus,
+    editionYear: result.editionYear,
+    datesText: result.datesText,
+    startsOn: result.startsOn,
+    endsOn: result.endsOn,
+    proposedDates,
+    proposedLineupStatus,
+  });
+  return {
+    festivalId: result.festival.id,
+    sourceUrl: result.sourceUrl || result.pageUrl || '',
+    pageUrl: result.pageUrl || null,
+    seenHash: crypto.createHash('sha256').update(signature).digest('hex'),
+    model: result.model || DEFAULT_MODEL,
+    schemaVersion: FACTS_SCHEMA_VERSION,
+    proposedDates,
+    proposedLineupStatus,
+    proposedStartsOn,
+    proposedEndsOn,
+    evidence: result.evidence || [],
+    confidence: result.confidence,
+    payload: {
+      editionStatus: result.editionStatus,
+      editionYear: result.editionYear,
+      datesText: result.datesText,
+      startsOn: result.startsOn,
+      endsOn: result.endsOn,
+      matchesTarget: result.matchesTarget,
+      suggestion: result.suggestion,
+      evidence: result.evidence || [],
+      uncertainty: result.uncertainty || [],
+      confidence: result.confidence,
+      targetYear: result.targetYear,
+      pageUrl: result.pageUrl,
+      pageTitle: result.pageTitle,
+      visited: result.visited,
+    },
+  };
+}
+
+async function saveFactProposal(client, record) {
+  await client.query('BEGIN');
+  try {
+    const inserted = await client.query(
+      `INSERT INTO public.festival_fact_proposals
+         (festival_id, source_url, page_url, seen_hash, model, schema_version,
+          proposed_dates, proposed_lineup_status, proposed_starts_on,
+          proposed_ends_on, evidence, confidence, payload)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13::jsonb)
+       ON CONFLICT (festival_id, seen_hash) DO UPDATE SET
+         source_url = EXCLUDED.source_url,
+         page_url = EXCLUDED.page_url,
+         model = EXCLUDED.model,
+         schema_version = EXCLUDED.schema_version,
+         proposed_dates = EXCLUDED.proposed_dates,
+         proposed_lineup_status = EXCLUDED.proposed_lineup_status,
+         proposed_starts_on = EXCLUDED.proposed_starts_on,
+         proposed_ends_on = EXCLUDED.proposed_ends_on,
+         evidence = EXCLUDED.evidence,
+         confidence = EXCLUDED.confidence,
+         payload = EXCLUDED.payload,
+         updated_at = NOW()
+       WHERE public.festival_fact_proposals.review_status = 'pending'
+       RETURNING id, (xmax = 0) AS inserted`,
+      [
+        record.festivalId, record.sourceUrl, record.pageUrl, record.seenHash,
+        record.model, record.schemaVersion, record.proposedDates,
+        record.proposedLineupStatus, record.proposedStartsOn, record.proposedEndsOn,
+        JSON.stringify(record.evidence), record.confidence, JSON.stringify(record.payload),
+      ]
+    );
+    const row = inserted.rows[0];
+    if (!row) {
+      await client.query('COMMIT');
+      return { written: false, id: null, inserted: false };
+    }
+    // Una propuesta nueva reemplaza a las pendientes anteriores del mismo
+    // festival: no queremos dos sugerencias contradictorias en el admin.
+    await client.query(
+      `UPDATE public.festival_fact_proposals
+          SET review_status = 'superseded', reviewed_at = NOW(),
+              reviewed_by = 'radar', updated_at = NOW()
+        WHERE festival_id = $1 AND id <> $2 AND review_status = 'pending'`,
+      [record.festivalId, row.id]
+    );
+    await client.query('COMMIT');
+    return { written: true, id: Number(row.id), inserted: Boolean(row.inserted) };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  }
+}
+
+function optionsApplyLine(report) {
+  return report.mode === 'apply'
+    ? 'Las propuestas se guardaron en `festival_fact_proposals` con estado `pending`. **Ningún festival cambió**: aprobar o rechazar es una acción humana desde el panel admin.'
+    : 'Dry run: no se escribió en la base. Usá `--apply` para guardar las propuestas en el panel admin.';
+}
+
 const escapeCell = (value) => String(value ?? '').replaceAll('|', '\\|').replace(/[\r\n]+/g, ' ');
 
 function renderMarkdown(report) {
@@ -382,6 +545,8 @@ function renderMarkdown(report) {
     `- **Analizados:** ${summary.analyzed}`,
     `- **Con datos válidos:** ${summary.ok}`,
     `- **Con cambios sugeridos:** ${summary.changes}`,
+    `- **Propuestas nuevas:** ${summary.created ?? 0}`,
+    `- **Propuestas actualizadas:** ${summary.updated ?? 0}`,
     `- **Fallos:** ${summary.failed}`,
     `- **Tokens de entrada:** ${summary.promptTokens}`,
     `- **Tokens de salida:** ${summary.completionTokens}`,
@@ -422,7 +587,7 @@ function renderMarkdown(report) {
       lines.push('');
     }
   }
-  lines.push('Este chequeo **no modifica el catálogo**. Las sugerencias se revisan y corrigen desde el panel admin.');
+  lines.push(optionsApplyLine(report));
   return `${lines.join('\n')}\n`;
 }
 
@@ -465,6 +630,9 @@ async function main(argv = process.argv.slice(2)) {
       ok: 0,
       changes: 0,
       failed: 0,
+      created: 0,
+      updated: 0,
+      saveErrors: 0,
       promptTokens: 0,
       completionTokens: 0,
       costUsd: null,
@@ -492,12 +660,26 @@ async function main(argv = process.argv.slice(2)) {
         summary.completionTokens += result.usage.completionTokens;
         summary.costUsd = (summary.costUsd || 0) + result.usage.costUsd;
       }
+
+      if (options.apply && result.ok && result.changed && result.suggestion
+        && (result.suggestion.lineupStatus || result.suggestion.datesText)) {
+        try {
+          const saved = await saveFactProposal(client, buildFactProposalRecord(result));
+          result.saved = saved;
+          if (saved.inserted) summary.created += 1;
+          else if (saved.written) summary.updated += 1;
+        } catch (error) {
+          summary.saveErrors += 1;
+          result.warnings.push(`No se pudo guardar la propuesta: ${error.message}`);
+        }
+      }
+
       results.push(result);
     }
 
     summary.costUsd = summary.costUsd === null ? null : Number(summary.costUsd.toFixed(6));
     const report = {
-      mode: 'check',
+      mode: options.apply ? 'apply' : 'dry-run',
       generatedAt: new Date().toISOString(),
       model: options.model,
       schemaVersion: FACTS_SCHEMA_VERSION,
@@ -521,7 +703,7 @@ async function main(argv = process.argv.slice(2)) {
       try {
         fs.appendFileSync(
           process.env.GITHUB_OUTPUT,
-          `has_fact_changes=${summary.changes > 0}\nfacts_checked=${summary.analyzed}\nfacts_failed=${summary.failed}\n`
+          `has_fact_changes=${summary.changes > 0}\nfacts_checked=${summary.analyzed}\nfacts_failed=${summary.failed}\nfact_proposals_created=${summary.created}\n`
         );
       } catch (error) {
         console.error(`No se pudo escribir en GITHUB_OUTPUT: ${error.message}`);
@@ -546,6 +728,7 @@ if (require.main === module) {
 }
 
 module.exports = {
-  analyzeFestival, buildPageContext, discoverLinks, factsChanged, loadHiatusFestivals,
-  main, needsMoreEvidence, parseArgs, renderMarkdown, targetYearOf,
+  analyzeFestival, buildFactProposalRecord, buildPageContext, discoverLinks, factsChanged, formatDateRangeEs,
+  loadHiatusFestivals, main, needsMoreEvidence, normalizeSuggestedDates, parseArgs,
+  renderMarkdown, saveFactProposal, targetYearOf,
 };

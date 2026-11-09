@@ -50,7 +50,7 @@ Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje 
 - [x] Scanner de cambios sin IA (paso 13): `htmlToRelevantText()` descarta `nav`/`header`/`footer`/`aside`/`form`/`dialog`/`iframe` y roles de navegación; el hash **versión 2** se calcula sobre ese texto normalizado. `--observe` (requiere `--apply-state`) crea una fila en `lineup_source_observations` solo cuando el hash relevante cambió. La primera corrida con una versión nueva de hash es línea base y no genera observaciones falsas. No se llama a ningún LLM ni se publica nada.
 - [x] `migrations/018_lineup_source_observations.sql` agrega `festival_source_checks.hash_version` y crea `lineup_source_observations` (`previous_hash`, `seen_hash`, `hash_version`, `title`, `excerpt`, `detected_at`, `processed_at`, único por festival+hash, RLS y sin permisos para `anon`/`authenticated`). **Aplicada en Supabase** (08/11/2026) y validada antes con `ROLLBACK`. Las 63 fuentes quedaron en línea base con `hash_version = 2`, 0 fallos y 0 observaciones. El scanner reintenta sin condicional si un 304 trae hash de versión vieja, para no perder el primer cambio real.
 - [x] Prueba real del scanner (08/11/2026): se forzó un hash sintético en AMF y `--apply-state --observe --force` creó una observación con extracto; después se borró la fila de prueba. La corrida definitiva dejó **63/63 en `hash_version = 2`, 0 observaciones, 0 fallos**; Tomorrowland se recuperó del 403 transitorio (200, `consecutive_failures = 0`).
-- [x] Workflow `.github/workflows/lineup-scan.yml`: lunes **11:45 UTC** (unos 28 minutos después del rollover), `workflow_dispatch`, concurrencia `lineup-scan` y `timeout-minutes: 25`. Corre el barrido (`--apply-state --observe`), después el extractor (`--apply --limit=10`) y genera el reporte semanal. **Desde el 09/11/2026 abre un issue semanal en modo prueba aunque no haya novedades** (ver paso 16); el modo normal será solo con propuestas nuevas o fallos de extracción. El reporte va siempre al `$GITHUB_STEP_SUMMARY`. El cron está activo en `main` y Nelson ya lo corrió a mano. Las métricas van una por línea y las fechas se muestran `DD-MM-YYYY` (hora UTC en "Generado"/"Detectado"); el almacenamiento sigue en ISO/UTC.
+- [x] Workflow `.github/workflows/lineup-scan.yml`: lunes **11:45 UTC** (unos 28 minutos después del rollover), `workflow_dispatch`, concurrencia `lineup-scan` y `timeout-minutes: 25`. Corre el barrido (`--apply-state --observe`), el chequeo de datos de festivales en hiatus (`festival-facts.js --apply --limit=20`), el extractor (`--apply --limit=10`) y genera el reporte semanal. **Desde el 09/11/2026 abre un issue semanal en modo prueba aunque no haya novedades** (ver paso 16); el modo normal será solo con propuestas nuevas, cambios de datos o fallos de extracción. El reporte va siempre al `$GITHUB_STEP_SUMMARY`. El cron está activo en `main` y Nelson ya lo corrió a mano. Las métricas van una por línea y las fechas se muestran `DD-MM-YYYY` (hora UTC en "Generado"/"Detectado"); el almacenamiento sigue en ISO/UTC.
 ### Radar de lineups — fase 4 cerrada (pasos 14-17)
 
 **Decisión tomada (08/11/2026):** proveedor **OpenRouter** con el modelo
@@ -173,23 +173,30 @@ soporte irregular de salida estructurada), aunque sirven para una comparación p
       en `hiatus`, empiezan por la web oficial y siguen hasta 2 links del mismo dominio con el año
       objetivo o palabras como ticket/news/info. La fuente de lineup se usa como respaldo si la
       portada no alcanza (necesario para Rock in Rio, cuya home es un redirect).
-- [x] El extractor no escribe en la DB ni publica: produce `radar-facts.json` para el reporte
-      semanal. El admin sigue corrigiendo desde el panel.
+- [x] **Propuestas persistidas:** `migrations/021_festival_fact_proposals.sql` crea
+      `festival_fact_proposals` y `festival-facts.js --apply` guarda una propuesta por
+      festival/hash. Nada se publica solo.
+- [x] **Aprobación admin:** nuevo tab "Datos de festival" con comparación actual vs propuesta,
+      fechas editables, estado, fuente y evidencia. Aprobar actualiza `dates`, `lineup_status`,
+      `starts_on` y `ends_on` en una transacción; rechazar no toca `festivals`.
+- [x] Las fechas se normalizan al formato español del catálogo (`23-27 Junio 2027`,
+      `27-29 Agosto 2027`, `Septiembre 2028`) para que `dateRange.js` derive las columnas
+      estructuradas.
 - [x] El reporte semanal y el issue muestran "Datos de festivales en hiatus" con actual vs
-      detectado, sugerencia, cambios, evidencia y fuente. `has_news` también se activa con cambios
-      de datos, no solo con propuestas de lineup.
+      detectado, sugerencia, cambios, evidencia y fuente, y enlazan al tab de admin.
+      `has_news` también se activa con cambios de datos, no solo con propuestas de lineup.
 - [x] `migrations/020_resume_hiatus_checks.sql`: pone `next_check_at = NOW()` en las filas hiatus
-      que estaban en NULL. **Pendiente de aplicar en Supabase al momento de escribir esto.** El
-      chequeo de datos funciona igual sin la migración; la migración solo reactiva el scanner de
-      lineup/estado de esas 4 fuentes.
+      que estaban en NULL. **Aplicada por Nelson el 09/11/2026.**
+- [x] `migrations/021_festival_fact_proposals.sql`: tabla de propuestas de datos.
+      **Pendiente de aplicar en Supabase al momento de escribir esto.**
 - [x] Prueba real (09/11/2026, 4 festivales, USD 0,0009): **Glastonbury** 23-27 junio 2027,
       **Mysteryland** 27-29 agosto 2027, **Bonnaroo** sin edición 2027, **Rock in Rio** septiembre
       2028. El dato de Google que parecía decir Rock in Rio 2027 probablemente era Rock in Rio
       Lisboa; la web oficial de Río dice 2028. Esto refuerza que la fuente de verdad debe ser la
       web oficial.
 - [x] Tests `npm run test:facts` (contexto de página, links, validación, página de noticias,
-      `no_edition`, fechas parciales, cambios, reporte y OpenRouter) y `npm run test:radar`
-      actualizado para la sección de datos.
+      `no_edition`, fechas parciales, normalización, persistencia de propuestas y aprobación)
+      y `npm run test:radar` actualizado para la sección de datos.
 - **Expansión futura:** usar un buscador externo (Brave/Serper/DuckDuckGo) como descubrimiento
   para festivales que no están en hiatus. Se decidió no sumar otra API/secret todavía: la web
   oficial ya alcanza para los 4 hiatus y el buscador solo debería proponer URLs, nunca ser fuente.
@@ -584,8 +591,8 @@ agent-plan/           # Plan de trabajo de Nelson (plan.md + el HTML generado). 
                       # repo: está en .gitignore. No confundir con la fuente de verdad
                       # del estado del proyecto, que es este archivo
 scripts/              # generate-festivals-migration.js (genera 002_festivals.sql)
-migrations/           # Schema versionado. 001_init.sql a 019 aplicados en Supabase.
-                      # 020_resume_hiatus_checks.sql creada y pendiente de aplicar.
+migrations/           # Schema versionado. 001_init.sql a 020 aplicados en Supabase.
+                      # 021_festival_fact_proposals.sql pendiente de aplicar.
                       # 002 no se re-aplica; las demás posteriores son incrementales.
                       # 002 NO se re-aplica (su ON CONFLICT pisa el catálogo). 007+ son incrementales.
 .github/workflows/    # keepalive.yml (cron Supabase), lineup-rollover.yml (rollover semanal),

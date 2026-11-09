@@ -291,6 +291,44 @@ async function initDatabase() {
     )`);
   await pool.query('CREATE INDEX IF NOT EXISTS lineup_proposals_pending_idx ON lineup_proposals (first_seen_at DESC) WHERE review_status = \'pending\'');
   await pool.query('CREATE INDEX IF NOT EXISTS lineup_proposals_festival_idx ON lineup_proposals (festival_id, first_seen_at DESC)');
+  // Propuestas de datos de festival (migrations/021): fechas/estado detectados
+  // en la web oficial. Solo las revisa/aprueba el admin.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS festival_fact_proposals (
+      id                       BIGSERIAL PRIMARY KEY,
+      festival_id              TEXT NOT NULL REFERENCES festivals(id) ON DELETE CASCADE,
+      source_url               TEXT NOT NULL,
+      page_url                 TEXT,
+      seen_hash                TEXT NOT NULL,
+      model                    TEXT NOT NULL,
+      schema_version           INTEGER NOT NULL,
+      proposed_dates           TEXT,
+      proposed_lineup_status   TEXT CHECK (
+        proposed_lineup_status IS NULL
+        OR proposed_lineup_status IN ('confirmed', 'partial', 'unannounced', 'hiatus')
+      ),
+      proposed_starts_on       DATE,
+      proposed_ends_on         DATE,
+      evidence                 JSONB NOT NULL DEFAULT '[]'::jsonb,
+      confidence               NUMERIC(3,2) CHECK (confidence IS NULL OR (confidence >= 0 AND confidence <= 1)),
+      payload                  JSONB NOT NULL,
+      review_status            TEXT NOT NULL DEFAULT 'pending'
+                                 CHECK (review_status IN ('pending', 'approved', 'rejected', 'superseded')),
+      reviewed_at              TIMESTAMPTZ,
+      reviewed_by              TEXT,
+      first_seen_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (festival_id, seen_hash),
+      CONSTRAINT festival_fact_proposals_has_change CHECK (
+        proposed_lineup_status IS NOT NULL
+        OR proposed_dates IS NOT NULL
+        OR proposed_starts_on IS NOT NULL
+        OR proposed_ends_on IS NOT NULL
+      )
+    )`);
+  await pool.query('CREATE INDEX IF NOT EXISTS festival_fact_proposals_pending_idx ON festival_fact_proposals (first_seen_at DESC) WHERE review_status = \'pending\'');
+  await pool.query('CREATE INDEX IF NOT EXISTS festival_fact_proposals_festival_idx ON festival_fact_proposals (festival_id, first_seen_at DESC)');
 
   console.log('Base de datos PostgreSQL inicializada');
 }
@@ -1128,6 +1166,218 @@ async function rejectLineupProposal(id, { reviewedBy } = {}) {
 }
 
 // ==========================================
+// Propuestas de datos de festival (fase 4, paso 18/19)
+// ==========================================
+//
+// El radar de datos detecta fechas/estado en la web oficial. Guarda la
+// propuesta acá y el admin la confirma o rechaza. Aprobar es la única vía por
+// la que estos cambios llegan a `festivals`.
+
+const FACT_PROPOSAL_COLUMNS = `
+  p.id, p.festival_id, p.source_url, p.page_url, p.seen_hash, p.model,
+  p.schema_version, p.proposed_dates, p.proposed_lineup_status,
+  p.proposed_starts_on::text AS proposed_starts_on,
+  p.proposed_ends_on::text AS proposed_ends_on,
+  p.evidence, p.confidence, p.payload, p.review_status,
+  p.reviewed_at, p.reviewed_by, p.first_seen_at, p.created_at, p.updated_at,
+  f.name AS festival_name, f.dates AS current_dates,
+  f.lineup_status AS current_lineup_status,
+  f.starts_on::text AS current_starts_on, f.ends_on::text AS current_ends_on
+`;
+
+function rowToFactProposal(row) {
+  return {
+    id: Number(row.id),
+    festivalId: row.festival_id,
+    festivalName: row.festival_name,
+    sourceUrl: row.source_url,
+    pageUrl: row.page_url,
+    seenHash: row.seen_hash,
+    model: row.model,
+    schemaVersion: row.schema_version,
+    proposedDates: row.proposed_dates,
+    proposedLineupStatus: row.proposed_lineup_status,
+    proposedStartsOn: row.proposed_starts_on,
+    proposedEndsOn: row.proposed_ends_on,
+    currentDates: row.current_dates,
+    currentLineupStatus: row.current_lineup_status,
+    currentStartsOn: row.current_starts_on,
+    currentEndsOn: row.current_ends_on,
+    evidence: Array.isArray(row.evidence) ? row.evidence : [],
+    confidence: row.confidence === null ? null : Number(row.confidence),
+    payload: row.payload && typeof row.payload === 'object' ? row.payload : {},
+    reviewStatus: row.review_status,
+    reviewedAt: row.reviewed_at,
+    reviewedBy: row.reviewed_by,
+    firstSeenAt: row.first_seen_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+async function getFestivalFactProposals(status = 'pending') {
+  const result = await pool.query(
+    `SELECT ${FACT_PROPOSAL_COLUMNS}
+       FROM public.festival_fact_proposals p
+       JOIN public.festivals f ON f.id = p.festival_id
+      WHERE ($1::text IS NULL OR p.review_status = $1)
+      ORDER BY p.first_seen_at DESC, p.id DESC
+      LIMIT 200`,
+    [status || null]
+  );
+  return result.rows.map(rowToFactProposal);
+}
+
+async function getFestivalFactProposalCounts() {
+  const result = await pool.query(
+    `SELECT review_status, COUNT(*)::int AS count
+       FROM public.festival_fact_proposals
+      GROUP BY review_status`
+  );
+  return result.rows.reduce((counts, row) => {
+    counts[row.review_status] = row.count;
+    return counts;
+  }, { pending: 0, approved: 0, rejected: 0, superseded: 0 });
+}
+
+async function approveFestivalFactProposal(id, { reviewedBy, dates = null, lineupStatus = null } = {}) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const selected = await client.query(
+      `SELECT ${FACT_PROPOSAL_COLUMNS}
+         FROM public.festival_fact_proposals p
+         JOIN public.festivals f ON f.id = p.festival_id
+        WHERE p.id = $1
+        FOR UPDATE OF p, f`,
+      [id]
+    );
+    const row = selected.rows[0];
+    if (!row) throw proposalReviewError('NOT_FOUND', 'Propuesta de datos no encontrada.', 404);
+    if (row.review_status !== 'pending') {
+      throw proposalReviewError('ALREADY_REVIEWED', 'La propuesta de datos ya fue revisada.', 409);
+    }
+
+    const newer = await client.query(
+      `SELECT id
+         FROM public.festival_fact_proposals
+        WHERE festival_id = $1
+          AND review_status = 'pending'
+          AND id <> $2
+          AND (first_seen_at > $3 OR (first_seen_at = $3 AND id > $2))
+        LIMIT 1`,
+      [row.festival_id, row.id, row.first_seen_at]
+    );
+    if (newer.rows.length > 0) {
+      throw proposalReviewError(
+        'SUPERSEDED_BY_NEWER',
+        `Hay una propuesta de datos más nueva pendiente (id ${newer.rows[0].id}). Revisala en lugar de aprobar esta.`,
+        409
+      );
+    }
+
+    const allowedStatuses = ['confirmed', 'partial', 'unannounced', 'hiatus'];
+    const finalStatus = lineupStatus || row.proposed_lineup_status || row.current_lineup_status;
+    if (!allowedStatuses.includes(finalStatus)) {
+      throw proposalReviewError('INVALID_STATUS', 'La propuesta de datos no tiene un estado válido.', 400);
+    }
+
+    const finalDates = (typeof dates === 'string' && dates.trim())
+      ? dates.trim()
+      : (row.proposed_dates || row.current_dates);
+    if (!finalDates) {
+      throw proposalReviewError('MISSING_DATES', 'La propuesta de datos no tiene fechas para aplicar.', 409);
+    }
+
+    let startsOn = row.proposed_starts_on;
+    let endsOn = row.proposed_ends_on;
+    if (!startsOn || !endsOn || finalDates !== row.proposed_dates) {
+      const range = parseDateRange(finalDates);
+      startsOn = range.startsOn;
+      endsOn = range.endsOn;
+    }
+
+    await client.query(
+      `UPDATE public.festivals
+          SET lineup_status = $2,
+              dates = $3,
+              starts_on = $4,
+              ends_on = $5,
+              updated_at = NOW()
+        WHERE id = $1`,
+      [row.festival_id, finalStatus, finalDates, startsOn, endsOn]
+    );
+
+    await client.query(
+      `UPDATE public.festival_fact_proposals
+          SET review_status = 'superseded', reviewed_at = NOW(),
+              reviewed_by = $2, updated_at = NOW()
+        WHERE festival_id = $1 AND id <> $3 AND review_status = 'pending'`,
+      [row.festival_id, reviewedBy || null, row.id]
+    );
+
+    const approved = await client.query(
+      `UPDATE public.festival_fact_proposals
+          SET review_status = 'approved', reviewed_at = NOW(),
+              reviewed_by = $2, updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, review_status, reviewed_at, reviewed_by`,
+      [row.id, reviewedBy || null]
+    );
+
+    await client.query('COMMIT');
+    return {
+      proposal: approved.rows[0],
+      festival: {
+        id: row.festival_id,
+        name: row.festival_name,
+        dates: finalDates,
+        lineupStatus: finalStatus,
+        startsOn,
+        endsOn,
+      },
+    };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function rejectFestivalFactProposal(id, { reviewedBy } = {}) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const selected = await client.query(
+      `SELECT id, review_status FROM public.festival_fact_proposals WHERE id = $1 FOR UPDATE`,
+      [id]
+    );
+    const row = selected.rows[0];
+    if (!row) throw proposalReviewError('NOT_FOUND', 'Propuesta de datos no encontrada.', 404);
+    if (row.review_status !== 'pending') {
+      throw proposalReviewError('ALREADY_REVIEWED', 'La propuesta de datos ya fue revisada.', 409);
+    }
+
+    const rejected = await client.query(
+      `UPDATE public.festival_fact_proposals
+          SET review_status = 'rejected', reviewed_at = NOW(),
+              reviewed_by = $2, updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, review_status, reviewed_at, reviewed_by`,
+      [row.id, reviewedBy || null]
+    );
+    await client.query('COMMIT');
+    return rejected.rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// ==========================================
 // Funciones de Festivales Favoritos
 // ==========================================
 
@@ -1345,6 +1595,11 @@ module.exports = {
   getLineupProposalCounts,
   approveLineupProposal,
   rejectLineupProposal,
+  // Propuestas de datos de festival (fase 4, paso 18/19)
+  getFestivalFactProposals,
+  getFestivalFactProposalCounts,
+  approveFestivalFactProposal,
+  rejectFestivalFactProposal,
   // Festivales favoritos
   getUserFavoriteFestivals,
   addUserFestival,

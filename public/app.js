@@ -34,10 +34,12 @@ let userRole = 'user'; // Rol del usuario
 let isUserAdmin = false; // Es admin?
 let currentAdminFilter = 'pending'; // Filtro actual de sugerencias admin
 let currentProposalFilter = 'pending'; // Filtro actual de propuestas de lineup
+let currentFactFilter = 'pending'; // Filtro actual de propuestas de datos
 let currentAdminTab = 'users'; // Tab activo del admin (suggestions, proposals, festivals, users)
 let adminFestivalsData = []; // Cache de festivales para admin
 let adminUsersData = []; // Cache de usuarios para admin
 let adminProposalsData = []; // Cache de propuestas de lineup para admin
+let adminFactsData = []; // Cache de propuestas de datos para admin
 let userToDelete = null; // Usuario pendiente de eliminar
 
 // Mapeo de códigos de país a nombres con banderas
@@ -271,6 +273,9 @@ function cacheElements() {
   elements.adminProposalsSection = document.getElementById('admin-proposals-section');
   elements.adminProposals = document.getElementById('admin-proposals');
   elements.adminProposalFilterBtns = document.querySelectorAll('[data-proposal-status]');
+  elements.adminFactsSection = document.getElementById('admin-facts-section');
+  elements.adminFacts = document.getElementById('admin-facts');
+  elements.adminFactFilterBtns = document.querySelectorAll('[data-fact-status]');
   elements.adminFestivalsSection = document.getElementById('admin-festivals-section');
   elements.adminFestivalsTbody = document.getElementById('admin-festivals-tbody');
   elements.adminFestivalsCount = document.getElementById('admin-festivals-count');
@@ -516,6 +521,17 @@ function setupEventListeners() {
     });
   });
   elements.adminProposals?.addEventListener('click', handleAdminProposalClick);
+
+  // Admin - filtros y acciones de propuestas de datos
+  elements.adminFactFilterBtns?.forEach(btn => {
+    btn.addEventListener('click', () => {
+      elements.adminFactFilterBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFactFilter = btn.dataset.factStatus;
+      loadAdminFacts();
+    });
+  });
+  elements.adminFacts?.addEventListener('click', handleAdminFactClick);
 
   // Edit Festival Modal
   elements.editFestivalModalClose?.addEventListener('click', closeEditFestivalModal);
@@ -1005,6 +1021,212 @@ async function rejectLineupProposalCard(proposalId, button) {
 }
 
 // ==========================================
+// Admin - Propuestas de datos de festival (paso 18/19)
+// ==========================================
+
+function escapeAttr(value) {
+  return escapeHtml(String(value ?? '')).replace(/"/g, '&quot;');
+}
+
+async function loadAdminFacts() {
+  if (!isUserAdmin || !elements.adminFacts) return;
+
+  elements.adminFacts.innerHTML = `
+    <div class="admin-loading">
+      <div class="mini-loader"></div>
+      <span>Cargando datos de festivales...</span>
+    </div>
+  `;
+
+  const status = currentFactFilter === 'all' ? '' : currentFactFilter;
+  try {
+    const response = await fetch(`/api/admin/festival-fact-proposals?status=${encodeURIComponent(status)}`, {
+      credentials: 'include'
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error al cargar propuestas de datos');
+    adminFactsData = Array.isArray(data.proposals) ? data.proposals : [];
+    renderAdminFacts(adminFactsData, data.counts || {});
+  } catch (err) {
+    console.error('Error loading festival fact proposals:', err);
+    elements.adminFacts.innerHTML = `
+      <div class="admin-error">${escapeHtml(err.message || 'Error al cargar propuestas de datos')}</div>
+    `;
+  }
+}
+
+function renderAdminFacts(proposals, counts) {
+  if (!elements.adminFacts) return;
+  const countsText = [
+    `${counts.pending || 0} pendientes`,
+    `${counts.approved || 0} aprobadas`,
+    `${counts.rejected || 0} rechazadas`,
+    `${counts.superseded || 0} reemplazadas`
+  ].join(' · ');
+
+  if (!proposals.length) {
+    elements.adminFacts.innerHTML = `
+      <div class="admin-proposals-summary">${countsText}</div>
+      <div class="admin-empty">No hay propuestas de datos.</div>
+    `;
+    return;
+  }
+
+  elements.adminFacts.innerHTML = `
+    <div class="admin-proposals-summary">${countsText}</div>
+    ${proposals.map(renderAdminFactCard).join('')}
+  `;
+}
+
+function factStatusLabel(status) {
+  return {
+    confirmed: 'Confirmado', partial: 'Parcial', unannounced: 'Sin anunciar', hiatus: 'En pausa'
+  }[status] || status || '—';
+}
+
+function renderAdminFactCard(proposal) {
+  const isPending = proposal.reviewStatus === 'pending';
+  const reviewLabel = PROPOSAL_STATUS_LABELS[proposal.reviewStatus] || proposal.reviewStatus;
+  const confidence = proposal.confidence === null || proposal.confidence === undefined
+    ? '—'
+    : Number(proposal.confidence).toFixed(2);
+  const evidence = (proposal.evidence || []).length
+    ? `<details class="proposal-details" open><summary>Evidencia textual</summary><ul>${proposal.evidence.map((quote) => `<li>${escapeHtml(quote)}</li>`).join('')}</ul></details>`
+    : '';
+  const statusOptions = ['unannounced', 'hiatus', 'partial', 'confirmed'].map((status) => (
+    `<option value="${status}" ${proposal.proposedLineupStatus === status ? 'selected' : ''}>${factStatusLabel(status)}</option>`
+  )).join('');
+  const proposedDates = proposal.proposedDates || proposal.currentDates || '';
+
+  return `
+    <article class="admin-proposal-card" data-fact-proposal-id="${proposal.id}">
+      <div class="proposal-card-header">
+        <div>
+          <h4>${escapeHtml(proposal.festivalName || proposal.festivalId)}
+            <span class="lineup-status-badge ${escapeHtml(proposal.proposedLineupStatus || '')}">${escapeHtml(factStatusLabel(proposal.proposedLineupStatus))}</span>
+          </h4>
+          <p class="proposal-meta-line">
+            Detectada ${formatProposalDate(proposal.firstSeenAt)} · ${escapeHtml(proposal.model || 'modelo desconocido')}
+            · esquema v${escapeHtml(String(proposal.schemaVersion ?? '—'))}
+            ${isPending ? '' : ` · ${escapeHtml(reviewLabel)} ${formatProposalDate(proposal.reviewedAt)}${proposal.reviewedBy ? ` por ${escapeHtml(proposal.reviewedBy)}` : ''}`}
+          </p>
+        </div>
+        <div class="proposal-confidence">
+          <span>Confianza</span>
+          <strong>${escapeHtml(confidence)}</strong>
+        </div>
+      </div>
+
+      <div class="proposal-compare">
+        <div class="proposal-column">
+          <h5>Catálogo actual</h5>
+          <div class="proposal-facts">
+            <div><strong>Estado:</strong> ${escapeHtml(factStatusLabel(proposal.currentLineupStatus))}</div>
+            <div><strong>Fechas:</strong> ${escapeHtml(proposal.currentDates || '—')}</div>
+            <div><strong>starts_on / ends_on:</strong> ${escapeHtml(proposal.currentStartsOn || '—')} / ${escapeHtml(proposal.currentEndsOn || '—')}</div>
+          </div>
+        </div>
+        <div class="proposal-column">
+          <h5>Propuesta</h5>
+          ${isPending ? `
+            <label class="proposal-field-label">Estado
+              <select class="form-select proposal-fact-status">${statusOptions}</select>
+            </label>
+            <label class="proposal-field-label">Fechas
+              <input type="text" class="form-input proposal-fact-dates" value="${escapeAttr(proposedDates)}" placeholder="Ej: 23-27 Junio 2027">
+            </label>
+            <small>Usá un formato que entienda el parser: “23-27 Junio 2027”, “27-29 Agosto 2027”, “Septiembre 2028”.</small>
+          ` : `
+            <div class="proposal-facts">
+              <div><strong>Estado:</strong> ${escapeHtml(factStatusLabel(proposal.proposedLineupStatus))}</div>
+              <div><strong>Fechas:</strong> ${escapeHtml(proposal.proposedDates || '—')}</div>
+              <div><strong>starts_on / ends_on:</strong> ${escapeHtml(proposal.proposedStartsOn || '—')} / ${escapeHtml(proposal.proposedEndsOn || '—')}</div>
+            </div>
+          `}
+        </div>
+      </div>
+
+      <div class="proposal-facts">
+        <div><strong>Fuente:</strong> ${proposal.pageUrl || proposal.sourceUrl
+          ? `<a href="${escapeAttr(proposal.pageUrl || proposal.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(proposal.pageUrl || proposal.sourceUrl)} ↗</a>`
+          : '—'}</div>
+        ${proposal.payload?.editionStatus ? `<div><strong>Edición detectada:</strong> ${escapeHtml(proposal.payload.editionStatus)}${proposal.payload.editionYear ? ` · ${escapeHtml(String(proposal.payload.editionYear))}` : ''}</div>` : ''}
+      </div>
+      ${evidence}
+
+      ${isPending ? `
+        <div class="proposal-actions">
+          <div class="proposal-action-buttons">
+            <button type="button" class="btn-reject" data-fact-action="reject">Rechazar</button>
+            <button type="button" class="btn-approve" data-fact-action="approve">Aplicar cambios</button>
+          </div>
+        </div>` : ''}
+    </article>
+  `;
+}
+
+async function handleAdminFactClick(event) {
+  const button = event.target.closest('button[data-fact-action]');
+  if (!button || !elements.adminFacts?.contains(button)) return;
+  const card = button.closest('[data-fact-proposal-id]');
+  if (!card) return;
+  const proposalId = Number(card.dataset.factProposalId);
+  const action = button.dataset.factAction;
+  if (action === 'approve') return approveAdminFactProposal(card, proposalId, button);
+  if (action === 'reject') return rejectAdminFactProposal(proposalId, button);
+}
+
+async function approveAdminFactProposal(card, proposalId, button) {
+  if (!confirm('¿Aplicar estos datos al festival? Se actualizarán fechas y estado en el catálogo público.')) return;
+
+  const dates = card.querySelector('.proposal-fact-dates')?.value.trim() || null;
+  const lineupStatus = card.querySelector('.proposal-fact-status')?.value || null;
+  button.disabled = true;
+  const originalText = button.textContent;
+  button.textContent = 'Aplicando...';
+  try {
+    const response = await fetch(`/api/admin/festival-fact-proposals/${proposalId}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ dates, lineupStatus })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error al aplicar los datos');
+
+    adminFestivalsData = [];
+    alert(`Datos aplicados a ${data.festival?.name || 'festival'}.`);
+    await loadAdminFacts();
+  } catch (err) {
+    console.error('Error approving festival fact proposal:', err);
+    alert(err.message || 'Error al aplicar los datos');
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+}
+
+async function rejectAdminFactProposal(proposalId, button) {
+  if (!confirm('¿Rechazar esta propuesta de datos? No se modificará el catálogo.')) return;
+  button.disabled = true;
+  const originalText = button.textContent;
+  button.textContent = 'Rechazando...';
+  try {
+    const response = await fetch(`/api/admin/festival-fact-proposals/${proposalId}/reject`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error al rechazar la propuesta');
+    await loadAdminFacts();
+  } catch (err) {
+    console.error('Error rejecting festival fact proposal:', err);
+    alert(err.message || 'Error al rechazar la propuesta');
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+}
+
+// ==========================================
 // Admin - Gestion de Festivales
 // ==========================================
 
@@ -1023,6 +1245,9 @@ function switchAdminTab(tab) {
   if (elements.adminProposalsSection) {
     elements.adminProposalsSection.style.display = tab === 'proposals' ? 'block' : 'none';
   }
+  if (elements.adminFactsSection) {
+    elements.adminFactsSection.style.display = tab === 'facts' ? 'block' : 'none';
+  }
   if (elements.adminFestivalsSection) {
     elements.adminFestivalsSection.style.display = tab === 'festivals' ? 'block' : 'none';
   }
@@ -1036,6 +1261,9 @@ function switchAdminTab(tab) {
   }
   if (tab === 'proposals') {
     loadAdminProposals();
+  }
+  if (tab === 'facts') {
+    loadAdminFacts();
   }
   if (tab === 'users' && adminUsersData.length === 0) {
     loadAdminUsers();

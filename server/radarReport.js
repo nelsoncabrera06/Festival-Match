@@ -222,7 +222,10 @@ function buildRadarReport({
         const detected = `${row.editionStatus || '—'}${row.editionYear ? ` · ${row.editionYear}` : ''}${row.datesText ? ` · ${row.datesText}` : ''}`;
         lines.push(`  - Detectado: ${detected}`);
         if (row.suggestion) lines.push(`  - Sugerencia: ${row.suggestion.reason}`);
-        if (row.changeReasons?.length) lines.push(`  - Cambios: ${row.changeReasons.join('; ')}`);
+        if (row.changeReasons?.length) {
+          lines.push(`  - Cambios: ${row.changeReasons.join('; ')}`);
+          lines.push('  - Revisar y aplicar en el panel admin: Admin → Datos de festival.');
+        }
         if (row.evidence?.length) lines.push(`  - Evidencia: "${row.evidence[0]}"`);
       } else {
         lines.push(`  - Error: ${row.errors?.join(' ') || 'desconocido'}`);

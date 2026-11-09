@@ -805,6 +805,82 @@ function registerServer(app) {
   });
 
   // ==========================================
+  // ADMIN - Propuestas de datos de festival (paso 18/19)
+  // ==========================================
+  // Detectadas por el radar en la web oficial. Aprobar es la única vía por la
+  // que el radar puede cambiar `festivals.dates`/`lineup_status`.
+
+  app.get('/api/admin/festival-fact-proposals', auth.requireAuth, requireAdmin, async (req, res) => {
+    const requested = req.query.status;
+    const status = requested === undefined || requested === '' || requested === 'all'
+      ? null
+      : String(requested);
+
+    if (status !== null && !PROPOSAL_STATUSES.has(status)) {
+      return res.status(400).json({ error: 'status inválido' });
+    }
+
+    try {
+      const [proposals, counts] = await Promise.all([
+        db.getFestivalFactProposals(status),
+        db.getFestivalFactProposalCounts(),
+      ]);
+      res.json({ proposals, counts });
+    } catch (err) {
+      if (err.code === '42P01') {
+        return res.status(503).json({
+          error: 'Falta aplicar migrations/021_festival_fact_proposals.sql en la base.',
+          code: 'FACT_PROPOSALS_TABLE_MISSING',
+        });
+      }
+      console.error('Error leyendo propuestas de datos de festival:', err.message);
+      res.status(500).json({ error: 'Error al leer las propuestas de datos' });
+    }
+  });
+
+  app.post('/api/admin/festival-fact-proposals/:id/approve', auth.requireAuth, requireAdmin, async (req, res) => {
+    const proposalId = Number(req.params.id);
+    if (!Number.isInteger(proposalId) || proposalId < 1) {
+      return res.status(400).json({ error: 'id de propuesta inválido' });
+    }
+
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const dates = typeof body.dates === 'string' ? body.dates.trim() : null;
+    const lineupStatus = typeof body.lineupStatus === 'string' ? body.lineupStatus.trim() : null;
+    if (dates === '') return res.status(400).json({ error: 'Las fechas no pueden estar vacías' });
+    if (lineupStatus && !['confirmed', 'partial', 'unannounced', 'hiatus'].includes(lineupStatus)) {
+      return res.status(400).json({ error: 'lineupStatus inválido' });
+    }
+
+    try {
+      const result = await db.approveFestivalFactProposal(proposalId, {
+        reviewedBy: proposalReviewer(req),
+        dates: dates || null,
+        lineupStatus: lineupStatus || null,
+      });
+      res.json({ success: true, ...result });
+    } catch (err) {
+      sendProposalError(res, err, 'Error al aprobar la propuesta de datos');
+    }
+  });
+
+  app.post('/api/admin/festival-fact-proposals/:id/reject', auth.requireAuth, requireAdmin, async (req, res) => {
+    const proposalId = Number(req.params.id);
+    if (!Number.isInteger(proposalId) || proposalId < 1) {
+      return res.status(400).json({ error: 'id de propuesta inválido' });
+    }
+
+    try {
+      const proposal = await db.rejectFestivalFactProposal(proposalId, {
+        reviewedBy: proposalReviewer(req),
+      });
+      res.json({ success: true, proposal });
+    } catch (err) {
+      sendProposalError(res, err, 'Error al rechazar la propuesta de datos');
+    }
+  });
+
+  // ==========================================
   // ADMIN - Gestion de Usuarios
   // ==========================================
 

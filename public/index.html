@@ -412,6 +412,7 @@
               <button class="admin-tab-btn" data-admin-tab="suggestions">Sugerencias</button>
               <button class="admin-tab-btn" data-admin-tab="festivals">Festivales</button>
               <button class="admin-tab-btn" data-admin-tab="proposals">Propuestas de lineup</button>
+              <button class="admin-tab-btn" data-admin-tab="facts">Datos de festival</button>
             </div>
           </div>
 
@@ -443,6 +444,24 @@
             </p>
             <div id="admin-proposals" class="admin-proposals">
               <!-- Las propuestas se cargan dinamicamente -->
+            </div>
+          </div>
+
+          <!-- Seccion: Propuestas de datos de festival -->
+          <div id="admin-facts-section" class="admin-section" style="display: none;">
+            <div class="admin-filters">
+              <button class="admin-filter-btn active" data-fact-status="pending">Pendientes</button>
+              <button class="admin-filter-btn" data-fact-status="approved">Aprobadas</button>
+              <button class="admin-filter-btn" data-fact-status="rejected">Rechazadas</button>
+              <button class="admin-filter-btn" data-fact-status="superseded">Reemplazadas</button>
+              <button class="admin-filter-btn" data-fact-status="all">Todas</button>
+            </div>
+            <p class="admin-proposals-help">
+              Datos de fechas y estado detectados en la web oficial. <strong>Nada se publica solo</strong>:
+              revisá la comparación, ajustá las fechas si hace falta y aprobá o rechazá.
+            </p>
+            <div id="admin-facts" class="admin-proposals">
+              <!-- Las propuestas de datos se cargan dinamicamente -->
             </div>
           </div>
 

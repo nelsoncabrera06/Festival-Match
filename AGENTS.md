@@ -53,8 +53,75 @@ Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje 
 - [x] Workflow `.github/workflows/lineup-scan.yml`: lunes **11:45 UTC** (unos 28 minutos después del rollover), `workflow_dispatch`, concurrencia `lineup-scan` y `timeout-minutes: 15`. Corre `lineup-sweep.js --apply-state --observe --report-out=radar-scan.md` y escribe el reporte en `$GITHUB_STEP_SUMMARY`. **No crea issues** porque las observaciones no son accionables hasta el extractor. Ya está en `main` (fast-forward), así que el cron está activo. Nelson lo corrió a mano desde Actions y el reporte se vio bien. El reporte final muestra las métricas una por línea y fechas `DD-MM-YYYY` (hora UTC en "Generado"/"Detectado"); el almacenamiento sigue en ISO/UTC.
 ### Radar de lineups — próximo paso: fase 4 (extractor con IA)
 
-- [ ] Paso 14: construir el extractor con IA sobre `lineup_source_observations` y la tabla `lineup_proposals`. Antes de escribir código hay que decidir: **proveedor/modelo** (OpenAI, Anthropic, Gemini u otro), **API key como secret de GitHub Actions** (nunca en la DB ni en el repo), **esquema de salida estructurada** (artistas, estado, fechas explícitas, evidencia, confianza) y **presupuesto/cuota** por corrida.
-- [ ] El extractor solo crea propuestas; publicar requiere aprobación admin (paso 15). Nunca modificar `festivals` desde el extractor. Idempotencia por festival + hash de la observación; marcar `processed_at` al consumirla.
+**Decisión tomada (08/11/2026):** proveedor **OpenRouter** con el modelo
+`deepseek/deepseek-v4.1-flash-1017` (precio verificado: $0,006 por millón de tokens de entrada y
+$0,50 por millón de salida; soporta `structured_outputs` y `response_format`). La key va en
+`.env` local **y** como secret `OPENROUTER_API_KEY` del repo en GitHub Actions, con límite de
+gasto bajo en OpenRouter. Se descartaron los modelos `:free` para producción (rate limits y
+soporte irregular de salida estructurada), aunque sirven para una comparación puntual.
+
+**Código local listo, migración sin aplicar (08/11/2026):**
+
+- [x] `migrations/019_lineup_proposals.sql`: tabla `lineup_proposals` con `payload JSONB`,
+      `lineup_status`/`artists_count`/`confidence` en columnas propias para el panel admin,
+      `model` + `schema_version` para auditar, `extraction_error` para fallos visibles,
+      `review_status` (`pending`/`approved`/`rejected`/`superseded`), único por
+      `(festival_id, seen_hash)` y un `CHECK` que exige "propuesta usable **o** fallo", nunca
+      las dos cosas a medias. RLS sin políticas y sin permisos para `anon`/`authenticated`.
+      Validada contra Supabase dentro de una transacción con `ROLLBACK` (tabla, columnas, RLS,
+      privilegios, `CHECK` y `UNIQUE`), sin dejar nada escrito.
+- [x] `server/lineupExtractor.js`: esquema JSON estricto (`json_schema` + `strict`), prompt que
+      prohíbe inventar/traducir/corregir nombres, y validación de código que rechaza
+      contradicciones (`unannounced` con artistas, `confirmed` sin artistas, fechas no ISO,
+      `confidence` fuera de 0-1, propuesta con artistas sin evidencia). Si el proveedor no
+      acepta el esquema estricto, reintenta una vez con `json_object`; la validación es la
+      misma en los dos caminos.
+- [x] Campos nuevos pedidos por Nelson: `lineup_announcement` (`announced_at` + cita) para el
+      caso "todavía no hay lineup pero el sitio dice cuándo se anuncia", y `tickets`
+      (`on_sale`/`presale`/`sold_out`/`coming_soon`/`not_mentioned`, `on_sale_at` + cita) para
+      el caso "early birds a la venta sin grilla". **Van solo a la propuesta**: `festivals` no
+      tiene esas columnas y `rowToFestival()` no se toca. Publicarlas al sitio sería una
+      decisión aparte con su propia migración.
+- [x] `page_edition_year` + `edition_matches_target`: marca las propuestas que salen de una
+      edición distinta a la del catálogo (el caso Lollapalooza Chicago 2026 vs 2027).
+- [x] `scripts/lineup-extract.js`: dry run por defecto (consulta al modelo **sí**, escribe
+      **no**), `--apply`, `--retry-failed`, `--festival`, `--observation`, `--limit` (1-10,
+      default 5), `--model`, `--json-out`, `--report-out`. Marca `processed_at` solo en
+      extracciones válidas: un fallo queda visible y no se reintenta solo (para no gastar
+      tokens en una fuente rota). Reporte con tokens y costo estimado por corrida.
+- [x] `npm run test:extract` (30+ casos: argumentos, esquema, prompt, validación, parseo,
+      fallback, costo, persistencia sin interpolar valores en el SQL, reporte).
+- [x] **`019_lineup_proposals.sql` aplicada en Supabase** (09/11/2026): tabla con 19 columnas,
+      RLS activo, 0 filas al momento de aplicar.
+- [x] Key de OpenRouter creada con límite de gasto y cargada en `.env`. Falta cargarla como
+      secret `OPENROUTER_API_KEY` en GitHub Actions (Settings → Secrets and variables →
+      **Actions**, como *repository secret*: el workflow no declara `environment`).
+- [x] Primera prueba real contra OpenRouter (09/11/2026): el modelo acepta `json_schema` strict
+      sin fallback; con texto sintético copió los 6 nombres, dedujo `partial` y extrajo la fecha
+      de anuncio y el estado de tickets. Costo USD 0,0004.
+- [x] Prueba end-to-end con **texto real** de `https://sonar.es/en` (09/11/2026): 20 artistas,
+      `partial`, confianza 0,90, fechas "17th, 18th and 19th June 2027", tickets `on_sale`.
+      El modelo avisó solo de que la página dice "First 30 artists announced" pero el texto
+      visible tiene 20 (los demás están en JS/carrusel o los recorta `htmlToRelevantText()`).
+- [x] Prueba del camino de escritura (`--apply`) con una observación de prueba (id 2): la
+      propuesta quedó en `lineup_proposals` (id 1, `pending`), la observación con `processed_at`,
+      `last_processed_hash` actualizado y el catálogo **intacto** (0 artistas, `unannounced`).
+      Segunda corrida: 0 pendientes y 0 tokens. Costo total de las pruebas: USD 0,0027.
+      **Estado de datos:** quedan 1 observación y 1 propuesta de Sónar como primer caso para el
+      paso 15; se pueden borrar con `DELETE` sin efecto en el catálogo.
+- [ ] Cargar el secret en GitHub Actions.
+- [ ] Cablear el extractor al workflow semanal (hoy `lineup-scan.yml` solo escanea).
+- [ ] Paso 15: sección de propuestas en el panel admin con aprobación humana, incluyendo
+      limpieza de sufijos ("live", "DJ set", "b2b") al aprobar: el extractor los copia tal cual
+      porque así están en la página.
+- [ ] Decisión de contenido pendiente: Sónar tiene fechas oficiales (17-19 junio 2027) y 20
+      artistas publicados, pero el catálogo sigue con `dates = '2027 (fecha por anunciar)'` y
+      `unannounced`. No se tocó: publicar sigue siendo decisión humana.
+
+**Invariantes del extractor (no re-litigar):** solo crea propuestas; publicar requiere
+aprobación admin (paso 15); nunca modificar `festivals` desde el extractor; idempotencia por
+festival + hash de la observación; `processed_at` al consumirla.
+
 - [ ] Decisión humana pendiente: publicar desde el admin los lineups 2027 ya visibles de **Sónar (30 artistas), AMF, Ilosaarirock (parcial) y Time Warp**. No hay que esperar a la IA para eso, pero tampoco se hace automáticamente.
 - Nota operativa: el scanner semanal con línea base completa solo genera observaciones cuando cambia el contenido relevante. Un issue semanal todavía no aplica; cuando exista el extractor se puede evaluar publicar un issue solo si hay propuestas nuevas.
 
@@ -367,6 +434,13 @@ Supabase, y la conexión funciona: Nelson la probó con su cuenta. Docker se con
 En esta sesión se agregó un buscador de festivales a `/festivals`, con filtros por nombre,
 ciudad, ubicación y país, compatible con grilla/lista/calendario e idiomas es/en/fi. Nelson
 lo probó en producción y confirmó que funciona; quiere pulir el diseño más adelante.
+
+**Buscador sin acentos (09/11/2026):** `filterFestivals()` comparaba con
+`toLocaleLowerCase()` y no encontraba "sonar" en "Sónar Barcelona". Ahora normaliza los dos
+lados con `normalizeString()` (NFD sin diacríticos), la misma que ya usaba el buscador de
+favoritos. Vale para el catálogo y para la tabla del admin, que comparten la función. El
+término se guarda crudo en `currentFestivalSearch` y se normaliza al comparar.
+
 También se quitó `prompt: 'consent'` del OAuth de Google: Nelson confirmó que ahora el login
 va más directo. Si se necesita probar localmente Google OAuth, agregar
 `http://localhost:8080/auth/google/callback` a las URI autorizadas de Google y usarlo en

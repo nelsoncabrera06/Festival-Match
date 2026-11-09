@@ -440,7 +440,9 @@ function setupEventListeners() {
   elements.countryFilter?.addEventListener('change', handleCountryChange);
   elements.cityFilter?.addEventListener('change', handleCityChange);
   elements.festivalCatalogSearch?.addEventListener('input', (event) => {
-    currentFestivalSearch = event.target.value.trim().toLocaleLowerCase();
+    // Se guarda el texto crudo; la normalización (acentos/mayúsculas) se hace
+    // al comparar en filterFestivals(), para no perder lo que escribió el usuario.
+    currentFestivalSearch = event.target.value.trim();
     applyFiltersAndRender();
   });
 
@@ -2674,11 +2676,12 @@ function filterFestivals(festivals) {
     if (currentCountry && f.country !== currentCountry) return false;
     if (currentCity && f.city !== currentCity) return false;
     if (currentFestivalSearch) {
-      const searchableText = [f.name, f.city, f.country, f.location]
-        .filter(Boolean)
-        .join(' ')
-        .toLocaleLowerCase();
-      if (!searchableText.includes(currentFestivalSearch)) return false;
+      // Se compara normalizado (sin acentos ni mayúsculas) de los dos lados:
+      // así "sonar" encuentra "Sónar" y "Sónar" también lo encuentra.
+      const searchableText = normalizeString(
+        [f.name, f.city, f.country, f.location].filter(Boolean).join(' ')
+      );
+      if (!searchableText.includes(normalizeString(currentFestivalSearch))) return false;
     }
     return true;
   });

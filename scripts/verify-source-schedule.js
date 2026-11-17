@@ -4,7 +4,8 @@
 // Tests de la cadencia del radar y de la persistencia de estado, sin DB real.
 const assert = require('assert');
 const {
-  isCheckDue, nextCheckAt, parseDate, ACTIVE_CADENCE_DAYS, HIATUS_CADENCE_DAYS, OFF_SEASON_CADENCE_DAYS,
+  isCheckDue, nextCheckAt, parseDate, ACTIVE_CADENCE_DAYS, ACTIVE_GRACE_DAYS,
+  HIATUS_CADENCE_DAYS, OFF_SEASON_CADENCE_DAYS,
 } = require('../server/sourceSchedule');
 const {
   decideObservation, parseArgs, saveObservation, saveSourceState, scanRows,
@@ -30,6 +31,43 @@ function main() {
   assert.strictEqual(active.reason, 'active_season');
   assert.strictEqual(nextCheckAt({ now, endsOn: '2026-11-05' }).reason, 'active_season');
   assert.strictEqual(nextCheckAt({ now, startsOn: '2026-12-01', endsOn: null }).reason, 'active_season');
+
+  // Lineup completo + fecha de fin futura: no se revisa hasta después del
+  // festival. El 2027-03-28 es ends_on (2027-03-21) + la gracia de 7 días.
+  const confirmed = nextCheckAt({
+    now, startsOn: '2027-03-19', endsOn: '2027-03-21', lineupStatus: 'confirmed', lineupCount: 74,
+  });
+  assert.strictEqual(confirmed.reason, 'confirmed_lineup');
+  assert.strictEqual(confirmed.paused, false);
+  assert.strictEqual(confirmed.cadenceDays, null);
+  assert.strictEqual(
+    confirmed.at.toISOString(),
+    new Date(parseDate('2027-03-21').getTime() + ACTIVE_GRACE_DAYS * DAY).toISOString()
+  );
+
+  // Un lineup parcial sigue chequeándose seguido aunque las fechas sean futuras.
+  assert.strictEqual(nextCheckAt({
+    now, startsOn: '2027-03-19', endsOn: '2027-03-21', lineupStatus: 'partial', lineupCount: 20,
+  }).reason, 'active_season');
+
+  // Sin fecha de fin, o con cero artistas, no se puede aplicar la excepción.
+  assert.strictEqual(nextCheckAt({
+    now, startsOn: '2026-12-01', endsOn: null, lineupStatus: 'confirmed', lineupCount: 74,
+  }).reason, 'active_season');
+  assert.strictEqual(nextCheckAt({
+    now, startsOn: '2027-03-19', endsOn: '2027-03-21', lineupStatus: 'confirmed', lineupCount: 0,
+  }).reason, 'active_season');
+
+  // Si la edición confirmada ya terminó, vuelve la cadencia normal.
+  assert.strictEqual(nextCheckAt({
+    now, startsOn: '2026-10-01', endsOn: '2026-10-03', lineupStatus: 'confirmed', lineupCount: 74,
+  }).reason, 'off_season');
+
+  // Un fallo manda sobre la excepción: primero hay que recuperar la fuente.
+  assert.strictEqual(nextCheckAt({
+    now, startsOn: '2027-03-19', endsOn: '2027-03-21', lineupStatus: 'confirmed', lineupCount: 74,
+    consecutiveFailures: 1,
+  }).reason, 'backoff');
 
   // Fuera de temporada, sin fechas o con la edición terminada hace tiempo.
   const off = nextCheckAt({ now, startsOn: '2026-10-01', endsOn: '2026-10-03' });
@@ -131,6 +169,19 @@ function main() {
     assert.strictEqual(notModified[0].triage, 'not_modified');
     assert.strictEqual(notModified[0].consecutiveFailures, 0);
     assert.strictEqual(notModified[0].scheduleReason, 'off_season');
+
+    // scanRows propaga la cantidad de artistas: un confirmed con lineup y fecha
+    // futura se salta hasta después del festival.
+    const confirmedScan = await scanRows([{
+      ...rows[0], lineup: ['Björk'], startsOn: '2027-03-19', endsOn: '2027-03-21', lineupStatus: 'confirmed',
+    }], {
+      now, concurrency: 1,
+      fetch: async (url) => ({
+        status: 304, notModified: true, body: Buffer.alloc(0), etag: '"e"', lastModified: null, finalUrl: url,
+      }),
+    });
+    assert.strictEqual(confirmedScan[0].scheduleReason, 'confirmed_lineup');
+    assert.strictEqual(confirmedScan[0].nextCheckAt, '2027-03-28T00:00:00.000Z');
 
     // 304 con hash de otra versión: se reintenta sin condicional para fijar
     // línea base y no perder el primer cambio real.

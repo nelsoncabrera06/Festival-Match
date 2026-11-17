@@ -307,6 +307,7 @@ function withSchedule(result, row, now, failures) {
     startsOn: row.startsOn,
     endsOn: row.endsOn,
     lineupStatus: row.lineupStatus,
+    lineupCount: Array.isArray(row.lineup) ? row.lineup.length : 0,
     consecutiveFailures: failures,
     retryAfterMs: result.retryAfterMs || null,
   });

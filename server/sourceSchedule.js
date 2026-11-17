@@ -7,6 +7,10 @@
 // - Temporada activa (la edición todavía no terminó o terminó hace <= 7 días):
 //   revisar cada 7 días.
 // - Fuera de temporada o sin fechas estructuradas: cada 30 días.
+// - Lineup completo (`confirmed`) con fecha de fin futura: no se revisa durante
+//   la temporada. La próxima revisión queda después del festival, porque el
+//   cartel ya está cerrado y las páginas suelen cambiar por noticias/imágenes,
+//   no por la grilla. Un lineup `partial` sigue con la cadencia normal.
 // - Hiatus: cadencia larga (30 días). No se pausa para siempre: un festival
 //   en pausa puede anunciar su próxima edición, como Glastonbury 2027.
 // - Fallos consecutivos: backoff 1, 2, 4 y 7 días (tope).
@@ -41,6 +45,7 @@ function nextCheckAt({
   startsOn = null,
   endsOn = null,
   lineupStatus = null,
+  lineupCount = null,
   consecutiveFailures = 0,
   retryAfterMs = null,
 } = {}) {
@@ -80,6 +85,23 @@ function nextCheckAt({
 
   const end = parseDate(endsOn);
   const start = parseDate(startsOn);
+
+  // Un festival con lineup completo y fecha de fin conocida no necesita
+  // chequeos semanales mientras la edición todavía no terminó. Se vuelve a
+  // mirar unos días después del cierre: ahí ya importa la próxima edición.
+  // `lineupCount === null` significa "el llamador no informó cantidad"; en ese
+  // caso se confía en el estado `confirmed`. Con 0 artistas no se aplica.
+  const confirmedLineup = lineupStatus === 'confirmed'
+    && (lineupCount === null || Number(lineupCount) > 0);
+  if (confirmedLineup && end && end.getTime() > nowDate.getTime()) {
+    return {
+      at: new Date(end.getTime() + ACTIVE_GRACE_DAYS * DAY_MS),
+      cadenceDays: null,
+      paused: false,
+      reason: 'confirmed_lineup',
+    };
+  }
+
   const running = end ? end.getTime() >= nowDate.getTime() - ACTIVE_GRACE_DAYS * DAY_MS : false;
   const startingSoon = start
     ? start.getTime() >= nowDate.getTime() && start.getTime() - nowDate.getTime() <= 45 * DAY_MS

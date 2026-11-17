@@ -179,6 +179,14 @@ soporte irregular de salida estructurada), aunque sirven para una comparación p
       nuevo el 10/11/2026.** Si para el 10/11 siguen sin aparecer dos lunes seguidos de `schedule`,
       ahí sí investigar (puede ser que GitHub descarte el slot por atraso).
 
+### Radar de lineups — cadencia para festivales confirmados (17/11/2026)
+
+- [x] `server/sourceSchedule.js`: si el festival está `confirmed`, tiene `ends_on` futuro y el lineup tiene artistas, el próximo chequeo queda en **`ends_on + 7 días`** (motivo `confirmed_lineup`). No se revisa semanalmente durante la temporada. Un lineup `partial` mantiene la cadencia normal; `unannounced`, `hiatus` y los fallos/backoff no cambian.
+- [x] `scripts/lineup-sweep.js` pasa `lineupCount` a la cadencia. Tests nuevos en `npm run test:sweep` (caso confirmado, parcial, sin fecha de fin, cero artistas, edición terminada y prioridad del backoff).
+- [x] `next_check_at` actualizado en Supabase para los **8 festivales confirmados** con fecha futura: Lollapalooza Brasil pasó de 23/11/2026 a **28/03/2027**, Lollapalooza Argentina/Chile a 21/03/2027, Cosquín Rock a 14/02/2027, Corona Capital a 29/11/2026, Primavera Sound BA a 06/12/2026, Primavera Sound a 12/06/2027 y Rock am Ring a 13/06/2027.
+- [x] Prompt del extractor (`server/lineupExtractor.js`): advierte que varios **Lollapalooza muestran la grilla como imagen/flyer** y que la ausencia de nombres en el texto no prueba que el lineup no esté anunciado. Si el texto menciona la grilla sin listar nombres, el modelo debe bajar la confianza y anotar la duda en `uncertainty`. **Decisión de Nelson:** no se agrega una guarda automática que bloquee `unannounced` cuando hay lineup; se prefieren los falsos negativos visibles para corregir el código.
+- [ ] **Pendiente:** OCR/visión para lineups en imagen. Hoy el hash se calcula sobre el HTML; si cambian el flyer pero mantienen la misma URL, el scanner no detecta el cambio.
+
 ### Radar de lineups — paso 18: datos de festivales en hiatus (09/11/2026)
 
 - [x] Causa raíz encontrada: `hiatus` se usaba como pausa infinita (`next_check_at = NULL`) y el

@@ -121,6 +121,8 @@ async function main() {
   assert.strictEqual(messages.length, 2);
   assert.strictEqual(messages[0].role, 'system');
   assert.match(messages[0].content, /No traduzcas/);
+  assert.match(messages[0].content, /imagen\/flyer/);
+  assert.match(messages[0].content, /Lollapalooza/);
   assert.match(messages[1].content, /Sónar/);
   assert.match(messages[1].content, /2027/);
   assert.match(messages[1].content, /https:\/\/sonar\.es\/en/);

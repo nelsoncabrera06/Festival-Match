@@ -34,7 +34,7 @@ about you".
 
 ## Architecture
 
-![Architecture](public/img/architecture.png)
+![Architecture](public/img/arch.png)
 
 
 ## Automated data pipeline

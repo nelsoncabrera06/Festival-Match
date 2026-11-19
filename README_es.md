@@ -11,15 +11,17 @@ lineup de cada festival del catálogo y le pone un puntaje a cada uno — así, 
 ## Qué hace
 
 - **Puntaje de match** — qué porcentaje de tus artistas aparece en cada lineup, ordenado de mayor a menor.
-- **63 festivales, 1.031 artistas anunciados en lineups de 2026 y 2027** en Europa, USA y Latinoamérica. Los lineups están marcados
-  como *confirmado*, *parcial* o *sin anunciar*, así sabés cuánto confiar en cada puntaje.
+- **63 festivales, 900+ artistas anunciados** en las temporadas 2026 y 2027 en Europa, USA y
+  Latinoamérica. Los lineups están marcados como *confirmado*, *parcial* o *sin anunciar*, así
+  sabés cuánto confiar en cada puntaje.
 - **Tres formas de armar tu biblioteca** — buscando a mano, vía [MusicBrainz](https://musicbrainz.org),
   o importando tus artistas top de [Last.fm](https://last.fm).
 - **Fechas de gira** — dónde toca cada artista, como link de búsqueda (ver *Estado*).
 - **Modo demo** — probá todo el flujo antes de crear una cuenta.
 - **Tres idiomas** — español, inglés y finlandés.
-- **Panel de administración** — los usuarios pueden sugerir los festivales que faltan; un admin
-  los revisa y los aprueba al catálogo.
+- **Panel de administración** — aprobar lineups y fechas extraídas por IA, rotar ediciones
+  pasadas y revisar festivales sugeridos por usuarios. Nada llega al catálogo público sin
+  aprobación humana.
 
 ## Stack
 
@@ -38,14 +40,21 @@ lineup de cada festival del catálogo y le pone un puntaje a cada uno — así, 
 
 ## Pipeline de datos automatizado
 
-Proceso automatizado de mantenimiento y enriquecimiento de datos. 
-Esto trabaja periódicamente y utiliza IA para investigar información externa.
-
 ![pipeline](public/img/automatizado-pipeline.png)
 
+Un workflow de GitHub Actions corre todos los lunes. Revisa la web oficial de cada festival que
+toca chequear, extrae el texto visible y lo hashea, así los cambios de markup que no importan no
+cuentan como novedad. Cuando el hash cambia, un LLM (DeepSeek vía OpenRouter) convierte la página
+en JSON estricto: artistas, estado del lineup, fecha de anuncio, estado de tickets y la evidencia
+usada.
 
+El resultado **nunca se publica automáticamente**. Queda en una tabla de propuestas y lo apruebo
+o rechazo desde el panel admin, que publica dentro de una transacción y marca la propuesta
+anterior como reemplazada. El fetcher es solo HTTPS con DNS pinneado, valida cada redirect,
+limita tamaño y concurrencia, y hace backoff ante fallos. Los lineups confirmados no se vuelven
+a revisar hasta después de la edición.
 
-## Dos decisiones que vale la pena explicar
+## Tres decisiones que vale la pena explicar
 
 **El frontend llama a URLs relativas.** Todo es `fetch('/api/...')`, sin ningún dominio
 hardcodeado. Como la API y el frontend viven en el mismo dominio de Vercel, no hay CORS
@@ -69,20 +78,25 @@ en `server/db.js`, no en la URL.
 
 ## Correrlo local
 
-localhost usa el mismo `DATABASE_URL` que `.env`; en esta máquina es la base de Supabase de
-producción. **Los cambios escritos desde localhost también modifican producción.** La opción
-`ALLOW_LOCAL_PRODUCTION_DB=true` en `.env.local` confirma explícitamente que querés compartirla.
-
 ```bash
 npm install
-cp .env.local.example .env.local
-npm run dev        # http://localhost:8080, reinicia al guardar cambios
+cp .env.example .env   # completar DATABASE_URL y las credenciales de Google OAuth
+npm run dev            # http://localhost:8080, reinicia al guardar cambios
 ```
 
-`.env.local` prevalece sobre `.env` y está ignorado por Git. No hay un servidor PostgreSQL local
-corriendo. `npm start` también sirve para localhost, pero `npm run dev` reinicia el backend al
-editarlo. Google OAuth local necesita que `http://localhost:8080/auth/google/callback` esté
-autorizado en las credenciales de `.env`.
+`.env` está ignorado por Git. `.env.local` es opcional y se carga antes. Si apuntás
+`DATABASE_URL` a una base de Supabase, agregá `ALLOW_LOCAL_PRODUCTION_DB=true` en `.env.local`:
+sin ese opt-in explícito, `db.js` se niega a arrancar contra un host de Supabase fuera de Vercel,
+y en esa configuración las escrituras desde localhost modifican esa base. `npm start` también
+funciona; `npm run dev` reinicia el backend al editarlo. Google OAuth local necesita que
+`http://localhost:8080/auth/google/callback` esté autorizado en las credenciales.
+
+## Tests
+
+La capa de datos está cubierta por scripts de Node sin dependencias: `npm run test:festivals`,
+`test:sweep`, `test:extract`, `test:approval`, `test:radar`, `test:facts`, `test:dates` y
+`test:rollover`. `pg` está simulado donde haría falta una query, así que la suite corre sin
+credenciales de base de datos.
 
 ## Estructura
 

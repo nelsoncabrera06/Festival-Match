@@ -12,15 +12,17 @@ about you".
 ## What it does
 
 - **Match score** — the share of your artists that appear in each lineup, ranked best first.
-- **63 festivals, 1,031 announced lineup entries** across the 2026 and 2027 seasons in Europe, the USA and Latin America. Lineups are flagged
-  as *confirmed*, *partial* or *unannounced*, so you know how much to trust a score.
+- **63 festivals, 900+ announced artists** across the 2026 and 2027 seasons in Europe, the USA
+  and Latin America. Lineups are flagged as *confirmed*, *partial* or *unannounced*, so you
+  know how much to trust a score.
 - **Three ways to build your library** — search by hand, via [MusicBrainz](https://musicbrainz.org),
   or import your top artists from [Last.fm](https://last.fm).
 - **Tour dates** — where an artist is playing, as a search link (see *Status*).
 - **Demo mode** — try the whole flow before creating an account.
 - **Three languages** — English, Spanish and Finnish.
-- **Admin panel** — users can suggest missing festivals; an admin reviews and approves them
-  into the catalogue.
+- **Admin panel** — approve AI-extracted lineups and festival-date proposals, rotate past
+  editions, and review user-suggested festivals. Nothing reaches the public catalogue without
+  human approval.
 
 ## Stack
 
@@ -39,14 +41,20 @@ about you".
 
 ## Automated data pipeline
 
-Automated data maintenance and enrichment process. 
-This operates periodically and uses AI to research external information.
-
 ![automated-data-pipeline](public/img/automated-data-pipeline.png)
 
+A GitHub Actions workflow runs every Monday. It revisits the official site of every festival that
+is due for a check, extracts the visible text and hashes it, so unrelated markup changes don't
+count as news. When the hash changes, an LLM (DeepSeek through OpenRouter) turns the page into
+strict JSON: artists, lineup status, announcement date, ticket status and the evidence it used.
 
+The result is **never published automatically**. It lands in a proposal table and I approve or
+reject it from the admin panel, which publishes inside a transaction and supersedes the previous
+proposal. The fetcher is HTTPS-only with pinned DNS, validates every redirect, caps response
+size and concurrency, and backs off on failures. Confirmed lineups are not rechecked until
+after the edition.
 
-## Two decisions worth explaining
+## Three decisions worth explaining
 
 **The frontend calls relative URLs.** Everything is `fetch('/api/...')`, with no domain
 hardcoded anywhere. Because the API and the frontend share the same Vercel domain, there
@@ -71,20 +79,24 @@ certificate chain*. The TLS settings live in `server/db.js`, not in the URL.
 
 ## Run it locally
 
-Localhost uses the same `DATABASE_URL` as `.env`; on this machine it points to the production
-Supabase database. **Writes made from localhost also change production data.** The
-`ALLOW_LOCAL_PRODUCTION_DB=true` setting in `.env.local` explicitly confirms that choice.
-
 ```bash
 npm install
-cp .env.local.example .env.local
-npm run dev        # http://localhost:8080, restarts after edits
+cp .env.example .env   # add DATABASE_URL and the Google OAuth credentials
+npm run dev            # http://localhost:8080, restarts after edits
 ```
 
-`.env.local` takes precedence over `.env` and is ignored by Git. No local PostgreSQL server is
-running. `npm start` also runs locally, while `npm run dev` restarts the backend after edits.
-Google login needs credentials in `.env` with `http://localhost:8080/auth/google/callback` in
-the authorized redirect list.
+`.env` is ignored by Git. `.env.local` is optional and loads first. If you point `DATABASE_URL`
+at a Supabase database, set `ALLOW_LOCAL_PRODUCTION_DB=true` in `.env.local`: `db.js` refuses
+to start against a Supabase host outside Vercel without that explicit opt-in, and in that setup
+writes from localhost change that database. `npm start` also works; `npm run dev` restarts the
+backend after edits. Google login needs `http://localhost:8080/auth/google/callback` in the
+authorized redirect list.
+
+## Tests
+
+The data layer is covered by dependency-free Node scripts: `npm run test:festivals`, `test:sweep`,
+`test:extract`, `test:approval`, `test:radar`, `test:facts`, `test:dates` and `test:rollover`.
+`pg` is stubbed where a query would be needed, so the suite runs without database credentials.
 
 ## Layout
 

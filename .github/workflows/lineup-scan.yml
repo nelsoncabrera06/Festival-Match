@@ -20,7 +20,7 @@ on:
   schedule:
     # Lunes 11:45 UTC (08:45 ART). Después del rollover de las 11:17,
     # fuera de la hora en punto para no competir con otros crons.
-    - cron: '45 11 * * 1'
+    - cron: '55 05 * * 1'
   workflow_dispatch:
 
 permissions:

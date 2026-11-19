@@ -12,7 +12,7 @@ on:
   schedule:
     # Lunes a las 11:17 UTC (08:17 ART). Fuera de la hora en punto para
     # no competir con los runners de GitHub Actions acumulados.
-    - cron: '17 11 * * 1'
+    - cron: '17 05 * * 1'
   workflow_dispatch:
 
 permissions:

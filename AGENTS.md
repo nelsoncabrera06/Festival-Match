@@ -193,9 +193,9 @@ soporte irregular de salida estructurada), aunque sirven para una comparación p
       `server/festivals.json`. Después se eliminó la columna `flyer` y `flyer_images` del
       código (`db.js`, `app.js`, tests, generador de la 002) y se agregó
       `migrations/022_drop_festival_flyers.sql`. **`image` se conserva**: es la foto de portada
-      de las tarjetas y 60/63 festivales la tienen. La 022 **todavía no está aplicada**:
-      primero hay que deployar el código sin las columnas y recién después correrla, porque el
-      código viejo en producción hace `SELECT ... flyer` y devolvería 500.
+      de las tarjetas y 60/63 festivales la tienen. La 022 **se aplicó en Supabase el 19/11/2026,
+      después del deploy**: verificado con `information_schema` (0 columnas flyer), 63 festivales
+      y producción en 200. Para el futuro, el orden siempre es deploy primero y migración después.
 - [x] **Estado del radar al 19/11/2026:** 63/63 fuentes con `next_check_at` seteado, 0
       propuestas pendientes, 3 observaciones en cola para el próximo lunes y 1 fuente en backoff
       (Roskilde, 403 transitorio).
@@ -644,8 +644,7 @@ agent-plan/           # Plan de trabajo de Nelson (plan.md + el HTML generado). 
                       # repo: está en .gitignore. No confundir con la fuente de verdad
                       # del estado del proyecto, que es este archivo
 scripts/              # generate-festivals-migration.js (genera 002_festivals.sql)
-migrations/           # Schema versionado. 001_init.sql a 021 aplicados en Supabase;
-                      # 022_drop_festival_flyers.sql pendiente (aplicar después del deploy).
+migrations/           # Schema versionado. 001_init.sql a 022 aplicados en Supabase.
                       # 002 no se re-aplica; las demás posteriores son incrementales.
                       # 002 NO se re-aplica (su ON CONFLICT pisa el catálogo). 007+ son incrementales.
 .github/workflows/    # keepalive.yml (cron Supabase), lineup-rollover.yml (rollover semanal),

@@ -35,6 +35,16 @@ lineup de cada festival del catálogo y le pone un puntaje a cada uno — así, 
 
 ![arquitectura](public/img/arquitectura.png)
 
+
+## Pipeline de datos automatizado
+
+Proceso automatizado de mantenimiento y enriquecimiento de datos. 
+Esto trabaja periódicamente y utiliza IA para investigar información externa.
+
+![pipeline](public/img/automatizado-pipeline.png)
+
+
+
 ## Dos decisiones que vale la pena explicar
 
 **El frontend llama a URLs relativas.** Todo es `fetch('/api/...')`, sin ningún dominio

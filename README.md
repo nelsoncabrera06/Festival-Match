@@ -34,7 +34,17 @@ about you".
 
 ## Architecture
 
-![arquitectura](public/img/arquitectura.png)
+![Architecture](public/img/architecture.png)
+
+
+## Automated data pipeline
+
+Automated data maintenance and enrichment process. 
+This operates periodically and uses AI to research external information.
+
+![automated-data-pipeline](public/img/automated-data-pipeline.png)
+
+
 
 ## Two decisions worth explaining
 

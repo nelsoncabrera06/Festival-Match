@@ -15,9 +15,9 @@ about you".
 - **63 festivals, 900+ announced artists** across the 2026 and 2027 seasons in Europe, the USA
   and Latin America. Lineups are flagged as *confirmed*, *partial* or *unannounced*, so you
   know how much to trust a score.
-- **Three ways to build your library** — search by hand, via [MusicBrainz](https://musicbrainz.org),
-  or import your top artists from [Last.fm](https://last.fm).
-- **Tour dates** — where an artist is playing, as a search link (see *Status*).
+- **Build your library your way** — connect [Spotify](https://spotify.com) to pull your top
+  artists, import from [Last.fm](https://last.fm), search via [MusicBrainz](https://musicbrainz.org),
+  or add them by hand.
 - **Demo mode** — try the whole flow before creating an account.
 - **Three languages** — English, Spanish and Finnish.
 - **Admin panel** — approve AI-extracted lineups and festival-date proposals, rotate past
@@ -32,6 +32,7 @@ about you".
 | Frontend | Vanilla JS + CSS — **no build step, no framework, no bundler** |
 | Database | PostgreSQL on Supabase, through `pg` (raw SQL, no ORM) |
 | Auth | Google OAuth, bcrypt, cookie sessions |
+| Automation | GitHub Actions — weekly source scan, LLM extraction, admin approval |
 | Hosting | Vercel (serverless functions) + Supabase |
 
 ## Architecture
@@ -77,27 +78,6 @@ One trap that cost me an afternoon, in case it saves you one: the connection str
 overrides the pool's own `ssl` — every query then fails with *self-signed certificate in
 certificate chain*. The TLS settings live in `server/db.js`, not in the URL.
 
-## Run it locally
-
-```bash
-npm install
-cp .env.example .env   # add DATABASE_URL and the Google OAuth credentials
-npm run dev            # http://localhost:8080, restarts after edits
-```
-
-`.env` is ignored by Git. `.env.local` is optional and loads first. If you point `DATABASE_URL`
-at a Supabase database, set `ALLOW_LOCAL_PRODUCTION_DB=true` in `.env.local`: `db.js` refuses
-to start against a Supabase host outside Vercel without that explicit opt-in, and in that setup
-writes from localhost change that database. `npm start` also works; `npm run dev` restarts the
-backend after edits. Google login needs `http://localhost:8080/auth/google/callback` in the
-authorized redirect list.
-
-## Tests
-
-The data layer is covered by dependency-free Node scripts: `npm run test:festivals`, `test:sweep`,
-`test:extract`, `test:approval`, `test:radar`, `test:facts`, `test:dates` and `test:rollover`.
-`pg` is stubbed where a query would be needed, so the suite runs without database credentials.
-
 ## Layout
 
 ```
@@ -114,15 +94,12 @@ public/              # The entire frontend
 Live on Vercel, with Supabase as the database. Accounts, favourites, genres and artist
 libraries all work.
 
-Two honest notes:
+One honest note:
 
 - **Google shows an "app not verified" screen** before the login button. That is what
   happens to any app that has not gone through Google's verification process, and
   verification is not worth paying for on a project like this. Click
   *Advanced → Go to Festival Match* and it lets you through.
-- **Tour dates are a search link, not real data.** They used to come from Bandsintown,
-  which closed its public API in 2025. The endpoint is still there and falls back to a
-  search rather than pretending it has data.
 
 ---
 

@@ -31,8 +31,6 @@ function jsonToRows(festivals) {
     dates: f.dates,
     website: f.website,
     image: f.image ?? null,
-    flyer: f.flyer ?? null,
-    flyer_images: f.flyerImages ?? [],
     description: f.description ?? null,
     lineup_status: f.lineupStatus,
     lineup: f.lineup,
@@ -100,8 +98,6 @@ const check = (cond, msg) => {
   // Invariantes que el matching y el frontend dan por sentado.
   check(fromDb.every(f => Array.isArray(f.lineup)),
     'lineup es siempre array (el matching hace .map() sin chequear)');
-  check(fromDb.every(f => !f.flyerImages || f.flyerImages.length > 0),
-    'flyerImages nunca es un array vacio (undefined cuando no hay)');
   check(fromDb.every(f => ['confirmed', 'partial', 'unannounced', 'hiatus'].includes(f.lineupStatus)),
     'lineupStatus es siempre uno de los 4 valores de i18n');
   check(fromDb.every(f => f.lineup.length === 0 || f.lineupStatus !== 'unannounced'),

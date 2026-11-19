@@ -4275,9 +4275,6 @@ async function showFestivalDetail(festivalId) {
   const status = statusConfig[festival.lineupStatus] || statusConfig['unannounced'];
   const matchPercentage = festival.matchPercentage || 0;
 
-  // Priorizar flyer local sobre imagen genérica si existe
-  const imageSrc = festival.flyer || festival.image || 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=1000';
-
   elements.festivalDetailContent.innerHTML = `
     <div class="festival-hero-simple">
       <div class="festival-main-info">
@@ -4327,27 +4324,11 @@ async function showFestivalDetail(festivalId) {
         ` : ''}
       </div>
     </div>
-
-    ${festival.flyerImages && festival.flyerImages.length > 0 ? `
-    <div class="festival-footer-flyer">
-      <h4>Poster / Flyer Oficial</h4>
-      ${festival.flyerImages.map(src => `<img src="${src}" alt="Lineup ${escapeHtml(festival.name)}" class="festival-full-flyer" onerror="window.hideFlyerSection(this)">`).join('')}
-    </div>
-    ` : ''}
   `;
 
   showSection('festival-detail');
   window.scrollTo(0, 0);
 }
-
-// Función global para ocultar imagen si no carga (o toda la sección si es la única)
-window.hideFlyerSection = function (img) {
-  const container = img.closest('.festival-footer-flyer');
-  if (!container) return;
-  img.style.display = 'none';
-  const visibleImgs = container.querySelectorAll('img.festival-full-flyer:not([style*="display: none"])');
-  if (visibleImgs.length === 0) container.style.display = 'none';
-};
 
 // Escuchar clics en links de detalle (usando delegación)
 document.addEventListener('click', e => {

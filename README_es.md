@@ -14,9 +14,9 @@ lineup de cada festival del catálogo y le pone un puntaje a cada uno — así, 
 - **63 festivales, 900+ artistas anunciados** en las temporadas 2026 y 2027 en Europa, USA y
   Latinoamérica. Los lineups están marcados como *confirmado*, *parcial* o *sin anunciar*, así
   sabés cuánto confiar en cada puntaje.
-- **Tres formas de armar tu biblioteca** — buscando a mano, vía [MusicBrainz](https://musicbrainz.org),
-  o importando tus artistas top de [Last.fm](https://last.fm).
-- **Fechas de gira** — dónde toca cada artista, como link de búsqueda (ver *Estado*).
+- **Armá tu biblioteca como quieras** — conectá [Spotify](https://spotify.com) para traer tus
+  artistas top, importá desde [Last.fm](https://last.fm), buscá con
+  [MusicBrainz](https://musicbrainz.org) o agregalos a mano.
 - **Modo demo** — probá todo el flujo antes de crear una cuenta.
 - **Tres idiomas** — español, inglés y finlandés.
 - **Panel de administración** — aprobar lineups y fechas extraídas por IA, rotar ediciones
@@ -31,6 +31,7 @@ lineup de cada festival del catálogo y le pone un puntaje a cada uno — así, 
 | Frontend | JS y CSS vanilla — **sin build step, sin framework, sin bundler** |
 | Base de datos | PostgreSQL en Supabase, con `pg` (SQL crudo, sin ORM) |
 | Auth | Google OAuth, bcrypt, sesiones en cookie |
+| Automatización | GitHub Actions — barrido semanal, extracción con IA, aprobación admin |
 | Hosting | Vercel (serverless functions) + Supabase |
 
 ## Arquitectura
@@ -76,28 +77,6 @@ y como la string se parsea *después* del objeto de config, pisa el `ssl` del po
 toda query falla con *self-signed certificate in certificate chain*. La config de TLS vive
 en `server/db.js`, no en la URL.
 
-## Correrlo local
-
-```bash
-npm install
-cp .env.example .env   # completar DATABASE_URL y las credenciales de Google OAuth
-npm run dev            # http://localhost:8080, reinicia al guardar cambios
-```
-
-`.env` está ignorado por Git. `.env.local` es opcional y se carga antes. Si apuntás
-`DATABASE_URL` a una base de Supabase, agregá `ALLOW_LOCAL_PRODUCTION_DB=true` en `.env.local`:
-sin ese opt-in explícito, `db.js` se niega a arrancar contra un host de Supabase fuera de Vercel,
-y en esa configuración las escrituras desde localhost modifican esa base. `npm start` también
-funciona; `npm run dev` reinicia el backend al editarlo. Google OAuth local necesita que
-`http://localhost:8080/auth/google/callback` esté autorizado en las credenciales.
-
-## Tests
-
-La capa de datos está cubierta por scripts de Node sin dependencias: `npm run test:festivals`,
-`test:sweep`, `test:extract`, `test:approval`, `test:radar`, `test:facts`, `test:dates` y
-`test:rollover`. `pg` está simulado donde haría falta una query, así que la suite corre sin
-credenciales de base de datos.
-
 ## Estructura
 
 ```
@@ -114,15 +93,12 @@ public/              # Todo el frontend
 Vivo en Vercel, con Supabase como base de datos. Cuentas, favoritos, géneros y bibliotecas
 de artistas funcionan.
 
-Dos aclaraciones honestas:
+Una aclaración honesta:
 
 - **Google muestra un cartel de "app no verificada"** antes del botón de login. Es lo que
   le pasa a cualquier app que no pasó por el proceso de verificación de Google, y no vale
   la pena pagarlo en un proyecto así. Clickeá *Advanced → Go to Festival Match* y te deja
   pasar.
-- **Las fechas de gira son un link de búsqueda, no datos reales.** Venían de Bandsintown,
-  que cerró su API pública en 2025. El endpoint sigue ahí y cae a una búsqueda en vez de
-  fingir que tiene datos.
 
 ---
 

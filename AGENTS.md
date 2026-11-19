@@ -10,7 +10,7 @@ Instrucciones persistentes para cualquier sesión de AI (o persona) que trabaje 
 - [x] Parser de fechas en español `server/dateRange.js` con cobertura completa (37 formatos reales del catálogo + 12 casos borde). Testeado en `scripts/verify-date-range.js` (`npm run test:dates`).
 - [x] `db.createFestival()` y `db.updateFestival()` calculan automáticamente `starts_on`/`ends_on` cuando reciben `dates` en el body.
 - [x] **No expuestos en runtime**: las columnas nuevas NO se exponen en `rowToFestival()` para preservar el contrato con el frontend, no romper el test deep-equal del catálogo (`scripts/verify-festivals-roundtrip.js`), ni obligar al admin a tipear fechas normalizadas. `dates` (texto libre) sigue siendo la única fuente de verdad editable.
-- [x] **Rollover atómico e idempotente**: `db.rolloverFestival(id, nextYear)` conserva el `id` original (para no romper favoritos de usuarios en `user_festivals`), resetea `lineup = '{}'`, `lineup_status = 'unannounced'`, limpia `flyer = NULL` y `flyer_images = '{}'`, deja en `NULL` las fechas estructuradas y pasa `dates` a `'<año+1> (fecha por anunciar)'`.
+- [x] **Rollover atómico e idempotente**: `db.rolloverFestival(id, nextYear)` conserva el `id` original (para no romper favoritos de usuarios en `user_festivals`), resetea `lineup = '{}'`, `lineup_status = 'unannounced'`, deja en `NULL` las fechas estructuradas y pasa `dates` a `'<año+1> (fecha por anunciar)'`. Los flyers ya no existen como columnas (migración 022), así que no hay nada que limpiar ahí.
 - [x] Generador de reportes en Markdown (`server/rolloverReport.js`) compartido entre CLI, admin panel y workflow.
 - [x] CLI `scripts/lineup-rollover.js` con soporte para `--dry` (default), `--apply`, `--festival=<id>`, `--today=YYYY-MM-DD` y `--report-out=<path>`. Exporta variables a `$GITHUB_OUTPUT`. Testeado en `scripts/verify-rollover-report.js` (`npm run test:rollover`).
 - [x] Endpoint admin `POST /api/admin/lineup-rollover` protegido con `requireAuth` + `requireAdmin` (`?dry=1` devuelve preview sin escribir; sin `dry`, ejecuta el rollover).
@@ -160,24 +160,22 @@ soporte irregular de salida estructurada), aunque sirven para una comparación p
       llamada que actualice `festivals`; el único camino es `approveLineupProposal` desde el
       panel, con transacción y auditoría (`reviewed_at`/`reviewed_by`). El test del extractor
       verifica explícitamente que su SQL no incluya `UPDATE public.festivals`.
-- [ ] **Seguimiento operativo normal:** revisar la primera corrida programada del lunes 11:45 UTC
-      y, después de unas semanas, decidir si el modo prueba de issues se vuelve a condicionar a
+- [x] **Seguimiento operativo normal:** las corridas programadas ya se verificaron (ver abajo).
+      Queda una sola decisión abierta: si el modo prueba de issues se vuelve a condicionar a
       `has_news == 'true'`.
-- [ ] **Crons programados: primera verificación (09/11/2026) — sin corrida todavía, causa = atraso
-      de GitHub, no un bug nuestro.** A las 17:42 UTC del primer lunes no había ninguna corrida con
-      `event: schedule` en `lineup-rollover.yml` (slot 11:17 UTC) ni en `lineup-scan.yml` (slot
-      11:45 UTC). **El keepalive, que corre a las 11:17 UTC desde hace 30 días, tampoco tenía corrida
-      ese día**, así que la cola de `schedule` de GitHub estaba atrasada en bloque.
-      Historial medido de keepalive: entre **4,5 y 9,5 horas de atraso** (slots de 11:17 UTC
-      ejecutados a las 14:34–20:47 UTC, con un caso de 20:47). Conclusión: los `schedule` de este
-      repo no se pueden leer como "a las 08:17 ART"; llegan a la tarde.
-      Configuración, verificada el 09/11 y **no tocar**: `cron: '17 11 * * 1'` y `cron: '45 11 * * 1'`
-      son correctos (lunes en UTC, `1` = lunes); ambos workflows están `active`, en `main` (rama por
-      defecto, requisito de GitHub) y con `workflow_dispatch` como respaldo. Los dos workflows
-      llegaron a `main` el 07/11 22:19 UTC y el 08/11, así que el 09/11 era el primer lunes posible.
-      **Decisión de Nelson (09/11/2026): no disparar a mano; esperar a que salga solo y controlar de
-      nuevo el 10/11/2026.** Si para el 10/11 siguen sin aparecer dos lunes seguidos de `schedule`,
-      ahí sí investigar (puede ser que GitHub descarte el slot por atraso).
+- [x] **Crons programados: primera verificación — RESUELTA.** El 09/11/2026 no había corridas
+      con `event: schedule` (causa: atraso en bloque de la cola de GitHub, no un bug nuestro).
+      El `lineup-scan.yml` programado corrió con éxito el **09/11/2026** y el **16/11/2026**,
+      ambos con atraso de ~9,5 h respecto del slot de 11:45 UTC (ejecutados ~21:15 UTC), igual
+      que el keepalive. Los `schedule` de este repo llegan a la tarde; no se tocan los cron.
+      Configuración, verificada y **no tocar**: `cron: '17 11 * * 1'` y `cron: '45 11 * * 1'`
+      son correctos (lunes en UTC, `1` = lunes); ambos workflows están `active`, en `main` (rama
+      por defecto, requisito de GitHub) y con `workflow_dispatch` como respaldo.
+- [x] **Nota operativa del 16/11/2026:** la corrida generó 10 propuestas nuevas (9 aprobadas,
+      1 rechazada por respuesta vacía del modelo) y dejó **3 observaciones en cola** (NOS Alive,
+      Steelfest y Ultra Buenos Aires) porque `--limit=10` acota las observaciones procesadas por
+      corrida. No es un bug: se procesan en el próximo lunes. Roskilde quedó con un 403
+      transitorio (1 fallo consecutivo); el backoff lo resuelve solo.
 
 ### Radar de lineups — cadencia para festivales confirmados (17/11/2026)
 
@@ -186,6 +184,32 @@ soporte irregular de salida estructurada), aunque sirven para una comparación p
 - [x] `next_check_at` actualizado en Supabase para los **8 festivales confirmados** con fecha futura: Lollapalooza Brasil pasó de 23/11/2026 a **28/03/2027**, Lollapalooza Argentina/Chile a 21/03/2027, Cosquín Rock a 14/02/2027, Corona Capital a 29/11/2026, Primavera Sound BA a 06/12/2026, Primavera Sound a 12/06/2027 y Rock am Ring a 13/06/2027.
 - [x] Prompt del extractor (`server/lineupExtractor.js`): advierte que varios **Lollapalooza muestran la grilla como imagen/flyer** y que la ausencia de nombres en el texto no prueba que el lineup no esté anunciado. Si el texto menciona la grilla sin listar nombres, el modelo debe bajar la confianza y anotar la duda en `uncertainty`. **Decisión de Nelson:** no se agrega una guarda automática que bloquee `unannounced` cuando hay lineup; se prefieren los falsos negativos visibles para corregir el código.
 - [ ] **Pendiente:** OCR/visión para lineups en imagen. Hoy el hash se calcula sobre el HTML; si cambian el flyer pero mantienen la misma URL, el scanner no detecta el cambio.
+
+### Cierre de proyecto (19/11/2026)
+
+- [x] **Flyers eliminados del esquema (19/11/2026).** Primero se vaciaron los datos de los
+      ocho festivales que todavía apuntaban a assets 2026 (Flow, Mad Cool, NOS Alive, Primavera
+      Sound, Rock in Seine, Sziget, Tuska y Ultra Europe) y se quitaron las claves de
+      `server/festivals.json`. Después se eliminó la columna `flyer` y `flyer_images` del
+      código (`db.js`, `app.js`, tests, generador de la 002) y se agregó
+      `migrations/022_drop_festival_flyers.sql`. **`image` se conserva**: es la foto de portada
+      de las tarjetas y 60/63 festivales la tienen. La 022 **todavía no está aplicada**:
+      primero hay que deployar el código sin las columnas y recién después correrla, porque el
+      código viejo en producción hace `SELECT ... flyer` y devolvería 500.
+- [x] **Estado del radar al 19/11/2026:** 63/63 fuentes con `next_check_at` seteado, 0
+      propuestas pendientes, 3 observaciones en cola para el próximo lunes y 1 fuente en backoff
+      (Roskilde, 403 transitorio).
+- [ ] **Decisión pendiente:** restaurar `if: steps.report.outputs.has_news == 'true'` en
+      `lineup-scan.yml` para que el issue semanal se abra solo cuando haya novedades. Hoy sigue en
+      modo prueba (issue todas las semanas). Se ofreció el 19/11/2026 y Nelson decidió no tocarlo
+      todavía.
+- [ ] **Mejoras de producto no empezadas (no bloquean el cierre):**
+      - Exponer en el sitio los datos de tickets (`on_sale`/`presale`/`sold_out` + fecha) y la
+        fecha de anuncio del lineup. Hoy solo viven en `lineup_proposals`; requieren migración
+        propia y decisión de UI.
+      - OCR/visión para lineups publicados solo como imagen.
+      - Revisión formal de la versión mobile.
+      - Monetización por comisión de links de tickets.
 
 ### Radar de lineups — paso 18: datos de festivales en hiatus (09/11/2026)
 
@@ -211,7 +235,8 @@ soporte irregular de salida estructurada), aunque sirven para una comparación p
 - [x] `migrations/020_resume_hiatus_checks.sql`: pone `next_check_at = NOW()` en las filas hiatus
       que estaban en NULL. **Aplicada por Nelson el 09/11/2026.**
 - [x] `migrations/021_festival_fact_proposals.sql`: tabla de propuestas de datos.
-      **Pendiente de aplicar en Supabase al momento de escribir esto.**
+      **Aplicada en Supabase** (verificado el 19/11/2026: la tabla existe y tiene 3 propuestas
+      aprobadas).
 - [x] Prueba real (09/11/2026, 4 festivales, USD 0,0009): **Glastonbury** 23-27 junio 2027,
       **Mysteryland** 27-29 agosto 2027, **Bonnaroo** sin edición 2027, **Rock in Rio** septiembre
       2028. El dato de Google que parecía decir Rock in Rio 2027 probablemente era Rock in Rio
@@ -226,12 +251,10 @@ soporte irregular de salida estructurada), aunque sirven para una comparación p
 - [x] Tests `npm run test:radar`: CLI, semana sin novedades, propuesta nueva, pendiente sin
       anuncio explícito, fallo del extractor, fallo por propuesta, aprobaciones recientes y
       fuentes con error.
-- [ ] **Decisión de contenido pendiente:** Sónar sigue con 1 propuesta `pending` (20 artistas
-      extraídos, 21 tras separar b2b), `dates = '2027 (fecha por anunciar)'` y `unannounced`.
-      No se aprobó: publicar desde el panel sigue siendo una decisión humana. La fecha extraída
-      ("17th, 18th and 19th June 2027") no se interpreta automáticamente porque
-      `server/dateRange.js` espera el formato en español; la checkbox de fechas arranca
-      desmarcada en ese caso.
+- [x] **Decisión de contenido resuelta (19/11/2026):** Sónar se aprobó el 09/11/2026 con
+      20 artistas y quedó `partial`. `lineup_proposals` no tiene pendientes: 9 aprobadas y
+      2 rechazadas (NOS Alive por respuesta vacía del modelo y Lollapalooza Brasil por edición
+      equivocada).
 
 **Invariantes del extractor (no re-litigar):** solo crea propuestas; publicar requiere
 aprobación admin (paso 15); nunca modificar `festivals` desde el extractor; idempotencia por
@@ -599,7 +622,7 @@ Cada usuario carga sus artistas (a mano, MusicBrainz o Last.fm) y la app calcula
 - **El frontend usa rutas relativas** (`fetch('/api/...')`). Está bien y hay que mantenerlo:
   si el front y la API viven en el mismo dominio de Vercel, no hay CORS y las cookies funcionan sin tocar nada.
   **Nunca hardcodear un dominio en `public/`.**
-- **La forma de los objetos festival no cambia** al mover los datos a la DB. `{ id, name, city, location, country, dates, website, image, flyer, flyerImages[], lineupStatus, lineup[], description, note }`
+- **La forma de los objetos festival no cambia** al mover los datos a la DB. `{ id, name, city, location, country, dates, website, image, lineupStatus, lineup[], description, note }`
   Es la clave de que el matching no requiera refactor.
 - **Supabase se usa como Postgres plano** vía `pg`, no el SDK de Supabase. El SQL actual sigue válido.
 - **Vercel sirve `public/` como estático por CDN.** `express.static()` está ignorado por Vercel y se puede borrar.
@@ -621,8 +644,8 @@ agent-plan/           # Plan de trabajo de Nelson (plan.md + el HTML generado). 
                       # repo: está en .gitignore. No confundir con la fuente de verdad
                       # del estado del proyecto, que es este archivo
 scripts/              # generate-festivals-migration.js (genera 002_festivals.sql)
-migrations/           # Schema versionado. 001_init.sql a 020 aplicados en Supabase.
-                      # 021_festival_fact_proposals.sql pendiente de aplicar.
+migrations/           # Schema versionado. 001_init.sql a 021 aplicados en Supabase;
+                      # 022_drop_festival_flyers.sql pendiente (aplicar después del deploy).
                       # 002 no se re-aplica; las demás posteriores son incrementales.
                       # 002 NO se re-aplica (su ON CONFLICT pisa el catálogo). 007+ son incrementales.
 .github/workflows/    # keepalive.yml (cron Supabase), lineup-rollover.yml (rollover semanal),
@@ -639,8 +662,9 @@ a propósito (portfolio: el que llega a un recruiter es el inglés). Son cortos 
 ~75 líneas, escaneables de un pantallazo. No convertirlos en documentación técnica.
 
 Números que aparecen en los README y hay que mantener al día si cambian: **63**
-festivales, **751 entradas de artistas anunciados en lineups 2026/2027**, **3 regiones** (europe / usa / latam),
-**3 idiomas** (es/en/fi), `npm start` en el **:8080**.
+festivales, **900+ artistas anunciados** en lineups 2026/2027 (la cifra exacta en la DB al
+19/11/2026 era 907; se publica aproximada para que no envejezca con cada propuesta aprobada),
+**3 regiones** (europe / usa / latam), **3 idiomas** (es/en/fi), `npm start` en el **:8080**.
 
 ---
 
@@ -770,8 +794,8 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
   **Decisiones de schema, y por qué:**
   - `id TEXT PRIMARY KEY`, no `SERIAL`: el id es un slug legible que ya se usaba, sale en
     las URLs del frontend y es la referencia de `user_festivals.festival_id`.
-  - `lineup` / `flyer_images` como `TEXT[]`, no `jsonb`: son listas de strings planos, y el
-    matching los recibe como array de JS sin parsear nada.
+  - `lineup` como `TEXT[]`, no `jsonb`: son listas de strings planos, y el
+    matching lo recibe como array de JS sin parsear nada.
   - **Sin columna `region`**: se deriva de `country` con `REGIONS[region].countryCodes`.
     Con columna habría dos definiciones de región peleándose.
   - `sort_order INTEGER NOT NULL`: preserva el orden curado del JSON (los festivals gemelos
@@ -799,7 +823,7 @@ Eso rompe 3 cosas del código actual. Nada más necesita cambiar.
     `$N` coincida con los parámetros, que las columnas del `SET` salgan del whitelist, y que
     `id`/`sort_order` no sean escribibles.
   - El seed en sí se verificó parseando el `.sql`: 58 filas × 15 valores, 648 artistas,
-    3 `image` NULL, 55 `flyer` NULL, 2 `hiatus`, `sort_order` 1..58, apostrophes escapados
+    3 `image` NULL, 2 `hiatus`, `sort_order` 1..58, apostrophes escapados
     (`Open''er`, `Parque O''Higgins`).
   - **Y después contra la base real**: seed aplicado con `psql` (ver "Seed APLICADO" arriba),
     los 6 números verificados con `SELECT` directo contra Supabase.

@@ -158,8 +158,6 @@ async function initDatabase() {
       dates         TEXT NOT NULL,
       website       TEXT NOT NULL DEFAULT '',
       image         TEXT,
-      flyer         TEXT,
-      flyer_images  TEXT[] NOT NULL DEFAULT '{}',
       description   TEXT,
       lineup_status TEXT NOT NULL DEFAULT 'unannounced',
       lineup        TEXT[] NOT NULL DEFAULT '{}',
@@ -639,12 +637,12 @@ async function removeUserGenre(userId, genreId) {
 //
 // El mapeo es explicito y no `SELECT *` por dos razones:
 //  1. El frontend (public/app.js) consume claves camelCase: lineup_status ->
-//     lineupStatus, flyer_images -> flyerImages.
+//     lineupStatus.
 //  2. Las claves opcionales se OMITEN, no se devuelven como undefined. En el
-//     JSON original un festival sin flyer no tenia la clave `flyer`; 3 de los 58
-//     no tienen `image`. Devolverlas en undefined daria el mismo JSON en la
-//     respuesta (JSON.stringify las dropea) pero un objeto distinto: aparecerian
-//     en Object.keys(). Omitirlas deja el round-trip exacto.
+//     JSON original 3 de los 58 festivales no tienen `image`. Devolverla en
+//     undefined daria el mismo JSON en la respuesta (JSON.stringify la dropea)
+//     pero un objeto distinto: apareceria en Object.keys(). Omitirla deja el
+//     round-trip exacto.
 function rowToFestival(row) {
   const festival = {
     id: row.id,
@@ -658,8 +656,6 @@ function rowToFestival(row) {
 
   // Orden de las claves opcionales: el que tenian en el JSON, no el de la tabla.
   if (row.image) festival.image = row.image;
-  if (row.flyer) festival.flyer = row.flyer;
-  if (row.flyer_images.length > 0) festival.flyerImages = row.flyer_images;
 
   festival.lineupStatus = row.lineup_status;
   festival.lineup = row.lineup;
@@ -672,7 +668,7 @@ function rowToFestival(row) {
 
 const FESTIVAL_COLUMNS = `
   id, name, city, location, country, dates, website,
-  image, flyer, flyer_images, description, lineup_status, lineup, note,
+  image, description, lineup_status, lineup, note,
   sort_order
 `;
 
@@ -719,11 +715,10 @@ async function createFestival(festival) {
 
   const result = await pool.query(
     `INSERT INTO festivals
-       (id, name, city, location, country, dates, website, image, flyer,
-        flyer_images, description, lineup_status, lineup, note,
+       (id, name, city, location, country, dates, website, image,
+        description, lineup_status, lineup, note,
         starts_on, ends_on, sort_order)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-             $15, $16,
              (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM festivals))
      RETURNING ${FESTIVAL_COLUMNS}`,
     [
@@ -735,8 +730,6 @@ async function createFestival(festival) {
       festival.dates,
       festival.website || '',
       festival.image || null,
-      festival.flyer || null,
-      festival.flyerImages || [],
       festival.description || null,
       festival.lineupStatus || 'unannounced',
       festival.lineup || [],
@@ -769,8 +762,6 @@ const UPDATABLE_FESTIVAL_FIELDS = {
   website: 'website',
   lineupSourceUrl: 'lineup_source_url',
   image: 'image',
-  flyer: 'flyer',
-  flyerImages: 'flyer_images',
   description: 'description',
   lineupStatus: 'lineup_status',
   lineup: 'lineup',
@@ -896,10 +887,6 @@ async function rolloverFestival(id, nextYear) {
     `UPDATE festivals
         SET lineup        = '{}',
             lineup_status = 'unannounced',
-            -- Los flyers son la portada de la edicion que termino. Si no se
-            -- limpian, el festival rolado sigue mostrando el poster viejo.
-            flyer         = NULL,
-            flyer_images  = '{}',
             starts_on     = NULL,
             ends_on       = NULL,
             dates         = $2,

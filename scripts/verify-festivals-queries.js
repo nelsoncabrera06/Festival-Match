@@ -39,8 +39,8 @@ const db = require(path.join(__dirname, '..', 'server', 'db.js'));
 // en vez de "N" o "ES" porque esas letras SÍ aparecen (lineup, COUNT, ...).
 const MARK = {
   name: 'ZQXNAME', city: 'ZQX7CITY', location: 'ZQX8LOC', dates: 'ZQX9DATE',
-  website: 'ZQX10WEB', image: 'ZQX11IMG', flyer: 'ZQX12FLY',
-  flyerImage: 'ZQX13FI', description: 'ZQX14DESC', lineup: 'ZQX15ART', note: 'ZQX16NOTE',
+  website: 'ZQX10WEB', image: 'ZQX11IMG', description: 'ZQX12DESC',
+  lineup: 'ZQX13ART', note: 'ZQX14NOTE',
 };
 
 let fail = 0;
@@ -56,8 +56,8 @@ const check = (cond, msg) => {
   // 2. Update con TODOS los campos escribibles, con valores marcador
   await db.updateFestival('primavera-sound', {
     name: MARK.name, city: MARK.city, location: MARK.location, country: 'ES',
-    dates: MARK.dates, website: MARK.website, image: MARK.image, flyer: MARK.flyer,
-    flyerImages: [MARK.flyerImage], description: MARK.description,
+    dates: MARK.dates, website: MARK.website, image: MARK.image,
+    description: MARK.description,
     lineupStatus: 'partial', lineup: [MARK.lineup], note: MARK.note,
   });
 
@@ -132,8 +132,6 @@ const check = (cond, msg) => {
     'getFestivalsEndedBefore: ends_on sale como texto (sin corrimiento de TZ)');
   check(roll.includes("lineup = '{}'") && roll.includes("lineup_status = 'unannounced'"),
     'rollover: la edicion nueva queda sin lineup y sin anunciar');
-  check(roll.includes('flyer = NULL') && roll.includes("flyer_images = '{}'"),
-    'rollover: limpia los flyers de la edicion que termino');
   check(roll.includes('dates = $2'),
     'rollover: el texto de fechas va como parametro, no interpolado');
   check(roll.includes('ends_on < CURRENT_DATE'),

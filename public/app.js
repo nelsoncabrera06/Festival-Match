@@ -793,12 +793,12 @@ function updateProposalPendingBadge(counts) {
 
   const pending = Number(counts && counts.pending);
   if (!Number.isFinite(pending) || pending <= 0) {
-    badge.textContent = '(0)';
+    badge.textContent = '0';
     badge.hidden = true;
     return;
   }
 
-  badge.textContent = `(${pending})`;
+  badge.textContent = String(pending);
   badge.hidden = false;
 }
 

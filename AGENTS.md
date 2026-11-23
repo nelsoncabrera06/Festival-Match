@@ -213,9 +213,9 @@ soporte irregular de salida estructurada), aunque sirven para una comparación p
 
 ### Contador de propuestas pendientes en el tab del admin (23/11/2026)
 
-- [x] El tab **"Propuestas de lineup"** del panel admin muestra un contador `(N)` con las propuestas
-      pendientes, en una píldora con `var(--accent)` (el mismo lima del botón activo "Pendientes").
-      Se oculta cuando el número es 0 para no dejar ruido.
+- [x] El tab **"Propuestas de lineup"** del panel admin muestra un contador con las propuestas
+      pendientes (solo el número, en una píldora con `var(--accent)`, el mismo lima del botón activo
+      "Pendientes"). Se oculta cuando el número es 0 para no dejar ruido.
 - [x] El número es global (no depende del filtro activo) y se actualiza al abrir el panel, al entrar
       al tab, al cambiar de filtro y después de aprobar o rechazar una propuesta.
 - [x] `GET /api/admin/lineup-proposals?counts=1` devuelve solo `{ counts }`, sin traer las propuestas

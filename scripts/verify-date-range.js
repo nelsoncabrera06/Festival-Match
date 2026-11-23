@@ -93,6 +93,42 @@ const CASOS_BORDE = [
   ['Mayo 2026', '2026-05-01', '2026-05-31'],
 ];
 
+// Textos que hoy llegan desde `dates_text` de una propuesta de lineup: son
+// copia textual de la pagina oficial, en su idioma y con su formato. Si el
+// parser no los entiende, el panel muestra "no se pudo interpretar" y el admin
+// no puede comparar contra las fechas del catalogo.
+const CASOS_PROPUESTAS = [
+  // Numerico (Steelfest, Ultra): el formato que motivo este bloque.
+  ['13-15.05.2027', '2027-05-13', '2027-05-15'],
+  ['13.-15.05.2027', '2027-05-13', '2027-05-15'],
+  ['13–15.05.2027', '2027-05-13', '2027-05-15'],
+  ['13-15/05/2027', '2027-05-13', '2027-05-15'],
+  ['13.05.2027 - 15.05.2027', '2027-05-13', '2027-05-15'],
+  ['13.05. - 15.05.2027', '2027-05-13', '2027-05-15'],
+  ['13.05.2027', '2027-05-13', '2027-05-13'],
+  ['13/05/2027', '2027-05-13', '2027-05-13'],
+  ['30.06.2027 - 02.07.2027', '2027-06-30', '2027-07-02'],
+  ['31.04.2027', null, null],
+  ['13-15.13.2027', null, null],
+  ['STEELFEST XV 13-15.05.2027 BLACK MAGICK SS', '2027-05-13', '2027-05-15'],
+  // El año suelto no se lee como dia: "2027." no es el 27 de diciembre.
+  ['Lineup 2027. 13-15.05.2027', '2027-05-13', '2027-05-15'],
+  // ISO.
+  ['2027-05-13', '2027-05-13', '2027-05-13'],
+  ['2027-05-13 - 2027-05-15', '2027-05-13', '2027-05-15'],
+  // Ingles, mes primero y sufijos ordinales.
+  ['June 11-13, 2027', '2027-06-11', '2027-06-13'],
+  ['August 20 - 22, 2027', '2027-08-20', '2027-08-22'],
+  ['June 11, 2027', '2027-06-11', '2027-06-11'],
+  ['11th-13th June 2027', '2027-06-11', '2027-06-13'],
+  ['13-15 May 2027', '2027-05-13', '2027-05-15'],
+  // Aleman, portugues, neerlandes y frances.
+  ['13.-15. Mai 2027', '2027-05-13', '2027-05-15'],
+  ['20-22 novembro 2026', '2026-11-20', '2026-11-22'],
+  ['20-22 augustus 2026', '2026-08-20', '2026-08-22'],
+  ['11-13 juin 2027', '2027-06-11', '2027-06-13'],
+];
+
 console.log('--- catalogo (' + CASOS_CATALOGO.length + ' cadenas) ---');
 for (const [texto, startsOn, endsOn] of CASOS_CATALOGO) {
   const got = parseDateRange(texto);
@@ -103,6 +139,14 @@ for (const [texto, startsOn, endsOn] of CASOS_CATALOGO) {
 
 console.log('--- casos de borde (' + CASOS_BORDE.length + ') ---');
 for (const [texto, startsOn, endsOn] of CASOS_BORDE) {
+  const got = parseDateRange(texto);
+  const ok = got.startsOn === startsOn && got.endsOn === endsOn;
+  check(ok, `${JSON.stringify(texto)} -> ${startsOn || 'null'} .. ${endsOn || 'null'}` +
+    (ok ? '' : `  (obtenido: ${got.startsOn || 'null'} .. ${got.endsOn || 'null'})`));
+}
+
+console.log('--- dates_text de propuestas (' + CASOS_PROPUESTAS.length + ') ---');
+for (const [texto, startsOn, endsOn] of CASOS_PROPUESTAS) {
   const got = parseDateRange(texto);
   const ok = got.startsOn === startsOn && got.endsOn === endsOn;
   check(ok, `${JSON.stringify(texto)} -> ${startsOn || 'null'} .. ${endsOn || 'null'}` +

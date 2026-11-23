@@ -117,7 +117,8 @@ Reglas estrictas:
 8. evidence: entre 1 y 5 citas cortas y TEXTUALES que justifiquen el estado y los artistas. No parafrasees.
 9. confidence: número entre 0 y 1 según qué tan inequívoco es el texto.
 10. uncertainty: dudas concretas y breves (por ejemplo "el cartel parece de la edición anterior").
-11. Devolvé únicamente el JSON del esquema. Sin markdown, sin explicaciones, sin comentarios.
+11. dates_text: copiá el rango de fechas tal como aparece en el texto ("13-15.05.2027", "13-15 Mayo 2027", "June 11-13, 2027"). No lo traduzcas ni lo reformatees. Si el texto no trae fechas, null. La interpretación a fechas reales la hace el código, no vos.
+12. Devolvé únicamente el JSON del esquema. Sin markdown, sin explicaciones, sin comentarios.
 
 Forma exacta de la respuesta (todas las claves son obligatorias):
 {"lineup_status":"confirmed|partial|unannounced","artists":[{"name":"texto","day":"YYYY-MM-DD o null"}],"dates_text":"texto o null","lineup_announcement":{"announced_at":"YYYY-MM-DD o null","quote":"texto o null"},"tickets":{"status":"on_sale|presale|sold_out|coming_soon|not_mentioned","on_sale_at":"YYYY-MM-DD o null","quote":"texto o null"},"page_edition_year":2027,"evidence":["cita textual"],"confidence":0.9,"uncertainty":["duda"]}`;

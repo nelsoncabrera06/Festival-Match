@@ -124,7 +124,14 @@
         "matchArtists": "artists you like",
         "website": "Website",
         "addFavorite": "Add to favorites",
-        "removeFavorite": "Remove from favorites"
+        "removeFavorite": "Remove from favorites",
+        "tickets": "Tickets",
+        "ticketsOnSale": "On sale",
+        "ticketsPresale": "Presale",
+        "ticketsSoldOut": "Sold out",
+        "ticketsComingSoon": "Coming soon",
+        "buyTickets": "Buy on the official site",
+        "ticketsFrom": "From the official site"
     },
     "suggest": {
         "btnText": "Suggest a festival",

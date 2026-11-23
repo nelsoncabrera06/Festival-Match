@@ -710,6 +710,19 @@
             <small>URL específica donde el festival publica artistas o anuncios oficiales. Se usa para el radar.</small>
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-festival-tickets">Estado de las entradas</label>
+            <select id="edit-festival-tickets" class="form-select">
+              <option value="">Sin datos</option>
+              <option value="on_sale">A la venta</option>
+              <option value="presale">Preventa</option>
+              <option value="sold_out">Agotadas</option>
+              <option value="coming_soon">Próximamente</option>
+            </select>
+            <small>Se publica en la ficha del festival. El radar lo propone y se guarda al aprobar; acá se puede corregir o borrar.</small>
+          </div>
+        </div>
         <div class="modal-actions">
           <button type="button" class="btn-secondary" id="edit-festival-cancel">Cancelar</button>
           <button type="submit" class="btn-primary">Guardar cambios</button>

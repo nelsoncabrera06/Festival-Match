@@ -175,6 +175,61 @@ function festivalUpdate() {
     ['A', 'B', 'C']
   );
 
+  // ---------- mapeo de la propuesta: fechas y comparación con el catálogo ----------
+  // La fuente escribe "13-15.05.2027" y el catálogo "13-15 Mayo 2027": es la
+  // misma fecha, así que el panel no debe mostrar "no se pudo interpretar" ni
+  // ofrecer pisar las fechas.
+  const mismaFecha = db.rowToProposal(proposalRow({
+    payload: { ...proposalRow().payload, datesText: '13-15.05.2027' },
+    festival_dates: '13-15 Mayo 2027',
+  }));
+  assert.strictEqual(mismaFecha.proposalDates.startsOn, '2027-05-13');
+  assert.strictEqual(mismaFecha.proposalDates.endsOn, '2027-05-15');
+  assert.strictEqual(mismaFecha.datesChanged, false, 'misma fecha con otro formato: datesChanged false');
+
+  const fechaDistinta = db.rowToProposal(proposalRow({
+    payload: { ...proposalRow().payload, datesText: '14-16.05.2027' },
+    festival_dates: '13-15 Mayo 2027',
+  }));
+  assert.strictEqual(fechaDistinta.datesChanged, true);
+
+  const catalogoSinFecha = db.rowToProposal(proposalRow({
+    payload: { ...proposalRow().payload, datesText: '13-15.05.2027' },
+    festival_dates: '2027 (fecha por anunciar)',
+  }));
+  assert.strictEqual(catalogoSinFecha.proposalDates.startsOn, '2027-05-13');
+  assert.strictEqual(catalogoSinFecha.datesChanged, null, 'sin fecha en el catálogo no hay nada que comparar');
+
+  const propuestaSinInterpretar = db.rowToProposal(proposalRow({
+    payload: { ...proposalRow().payload, datesText: 'TBA' },
+    festival_dates: '13-15 Mayo 2027',
+  }));
+  assert.strictEqual(propuestaSinInterpretar.proposalDates.startsOn, null);
+  assert.strictEqual(propuestaSinInterpretar.datesChanged, null);
+
+  // ---------- mapeo del catálogo: entradas ----------
+  // `rowToFestival` tiene que exponer `tickets` solo cuando hay dato, y omitir
+  // la clave cuando la columna es NULL (mismo criterio que `image`, para no
+  // romper el round-trip con el seed).
+  const conTickets = db.rowToFestival({
+    id: 'ultra-buenos-aires', name: 'Ultra Buenos Aires', city: 'Buenos Aires',
+    location: 'Buenos Aires, Argentina', country: 'AR', dates: '2-3 Abril 2027',
+    website: 'https://ultra.com.ar', lineup_status: 'partial', lineup: ['A'],
+    tickets_status: 'on_sale', tickets_on_sale_at: null, tickets_updated_at: '2026-11-22T10:00:00Z',
+  });
+  assert.deepStrictEqual(conTickets.tickets, {
+    status: 'on_sale',
+    onSaleAt: null,
+    updatedAt: '2026-11-22T10:00:00Z',
+  });
+
+  const sinTickets = db.rowToFestival({
+    id: 'x', name: 'X', city: 'X', location: 'X, X', country: 'AR', dates: '2027',
+    website: '', lineup_status: 'unannounced', lineup: [],
+    tickets_status: null, tickets_on_sale_at: null, tickets_updated_at: null,
+  });
+  assert.ok(!('tickets' in sinTickets), 'sin dato de entradas la clave no existe');
+
   // ---------- aprobación exitosa ----------
   reset(proposalRow());
   const approved = await db.approveLineupProposal(7, {
@@ -205,7 +260,38 @@ function festivalUpdate() {
   reset(proposalRow());
   await db.approveLineupProposal(7, { reviewedBy: 'admin' });
   const updateSinFechas = festivalUpdate();
-  assert.strictEqual(updateSinFechas.params.length, 3, 'sin applyDates no toca dates/starts_on/ends_on');
+  // Se asserta sobre las columnas del SET y no sobre params.length: la cantidad
+  // de parámetros cambia si se agrega un campo (entradas, migración 023) y el
+  // test tiene que verificar la intención, no un número que se rompe solo.
+  for (const columna of ['dates =', 'starts_on =', 'ends_on =']) {
+    assert.ok(
+      !updateSinFechas.sql.includes(columna),
+      `sin applyDates no toca ${columna.trim()}`
+    );
+  }
+
+  // ---------- las entradas se publican al aprobar ----------
+  // El estado de tickets vivía solo en `lineup_proposals.payload` y no llegaba a
+  // la ficha pública. Ahora se escribe en `festivals` en la misma transacción.
+  assert.ok(updateSinFechas.sql.includes('tickets_status ='), 'aprobación: publica el estado de entradas');
+  assert.ok(updateSinFechas.sql.includes('tickets_on_sale_at ='));
+  assert.ok(updateSinFechas.sql.includes('tickets_updated_at = NOW()'));
+  assert.ok(updateSinFechas.params.includes('on_sale'));
+
+  // "not_mentioned" no pisa el catálogo: que una página deje de hablar de
+  // entradas no significa que se agotaron.
+  reset(proposalRow({
+    payload: {
+      ...proposalRow().payload,
+      tickets: { status: 'not_mentioned', onSaleAt: null, quote: null },
+    },
+  }));
+  await db.approveLineupProposal(7, { reviewedBy: 'admin' });
+  const updateSinTickets = festivalUpdate();
+  assert.ok(
+    !updateSinTickets.sql.includes('tickets_status ='),
+    'not_mentioned: no borra el estado de entradas ya publicado'
+  );
 
   // ---------- una propuesta con error no se aprueba ----------
   reset(proposalRow({ extraction_error: 'JSON inválido', lineup_status: null }));

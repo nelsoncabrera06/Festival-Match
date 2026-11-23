@@ -298,6 +298,7 @@ function cacheElements() {
   elements.editFestivalLineupSource = document.getElementById('edit-festival-lineup-source');
   elements.editFestivalLineupSourcePreview = document.getElementById('edit-festival-lineup-source-preview');
   elements.editFestivalStatus = document.getElementById('edit-festival-status');
+  elements.editFestivalTickets = document.getElementById('edit-festival-tickets');
 
   // Lineup Rollover Modal (Admin)
   elements.lineupRolloverBtn = document.getElementById('admin-lineup-rollover-btn');
@@ -777,6 +778,14 @@ const PROPOSAL_STATUS_LABELS = {
   superseded: 'Reemplazada'
 };
 
+// Mismos códigos que guarda `festivals.tickets_status` (migración 023).
+const TICKET_STATUS_LABELS = {
+  on_sale: 'A la venta',
+  presale: 'Preventa',
+  sold_out: 'Agotadas',
+  coming_soon: 'Próximamente'
+};
+
 function formatProposalDate(value) {
   if (!value) return '—';
   const date = new Date(value);
@@ -896,6 +905,11 @@ function renderAdminProposalCard(proposal) {
     confirmed: 'Confirmado', partial: 'Parcial', unannounced: 'Sin anunciar'
   }[proposal.lineupStatus] || (proposal.lineupStatus || '—');
   const proposalDates = proposal.proposalDates;
+  // `datesChanged` lo calcula el backend comparando los rangos ya interpretados:
+  // "13-15.05.2027" y "13-15 Mayo 2027" son la misma fecha. Si es false, no hay
+  // nada que actualizar y no se ofrece el checkbox de fechas.
+  const datesChanged = proposal.datesChanged;
+  const sameDates = Boolean(proposalDates && proposalDates.startsOn && datesChanged === false);
   const announcement = proposal.lineupAnnouncement || {};
   const tickets = proposal.tickets || {};
   const confidenceClass = Number(proposal.confidence) < 0.6 ? ' low' : '';
@@ -906,13 +920,15 @@ function renderAdminProposalCard(proposal) {
       : '—'}</div>`,
     `<div><strong>Fechas actuales del catálogo:</strong> ${escapeHtml(proposal.festivalDates || '—')}</div>`,
     `<div><strong>Fechas propuestas:</strong> ${proposalDates && proposalDates.text
-      ? `${escapeHtml(proposalDates.text)}${proposalDates.startsOn ? '' : ' <span class="proposal-warning">(no se pudo interpretar automáticamente)</span>'}`
+      ? `${escapeHtml(proposalDates.text)}${proposalDates.startsOn
+        ? (sameDates ? ' <span class="proposal-same">iguales a las del catálogo</span>' : '')
+        : ' <span class="proposal-warning">(no se pudo interpretar automáticamente)</span>'}`
       : '—'}</div>`,
     announcement.announcedAt
       ? `<div><strong>El sitio anuncia el lineup el:</strong> ${escapeHtml(announcement.announcedAt)}</div>`
       : '',
     tickets.status && tickets.status !== 'not_mentioned'
-      ? `<div><strong>Tickets:</strong> ${escapeHtml(tickets.status)}${tickets.onSaleAt ? ` (${escapeHtml(tickets.onSaleAt)})` : ''}</div>`
+      ? `<div><strong>Entradas:</strong> ${escapeHtml(TICKET_STATUS_LABELS[tickets.status] || tickets.status)}${tickets.onSaleAt ? ` (${escapeHtml(tickets.onSaleAt)})` : ''}${isPending ? ' <span class="proposal-publish-note">se publica en la ficha al aprobar</span>' : ''}</div>`
       : '',
     proposal.pageEditionYear !== null && proposal.pageEditionYear !== undefined
       ? `<div><strong>Edición de la página:</strong> ${escapeHtml(String(proposal.pageEditionYear))}${proposal.editionMatchesTarget === false ? ' <span class="proposal-warning">⚠ no coincide con el catálogo</span>' : ''}</div>`
@@ -928,9 +944,9 @@ function renderAdminProposalCard(proposal) {
 
   const actions = isPending && !hasError ? `
     <div class="proposal-actions">
-      ${proposalDates && proposalDates.text ? `
+      ${proposalDates && proposalDates.startsOn && !sameDates ? `
         <label class="proposal-date-option">
-          <input type="checkbox" class="proposal-apply-dates" ${proposalDates.startsOn && proposal.editionMatchesTarget !== false ? 'checked' : ''}>
+          <input type="checkbox" class="proposal-apply-dates" ${proposal.editionMatchesTarget !== false ? 'checked' : ''}>
           Actualizar también las fechas del catálogo
         </label>` : ''}
       <div class="proposal-action-buttons">
@@ -1409,6 +1425,7 @@ function openEditFestivalModal(festivalId) {
   elements.editFestivalLineupSource.value = festival.lineupSourceUrl || '';
   updateLineupSourcePreview();
   elements.editFestivalStatus.value = festival.lineupStatus || 'unannounced';
+  elements.editFestivalTickets.value = festival.tickets?.status || '';
 
   // Mostrar modal
   elements.editFestivalModal.style.display = 'flex';
@@ -1454,7 +1471,9 @@ async function saveEditFestival(e) {
     dates: elements.editFestivalDates.value,
     website: elements.editFestivalWebsite.value,
     lineupSourceUrl: elements.editFestivalLineupSource.value.trim() || null,
-    lineupStatus: elements.editFestivalStatus.value
+    lineupStatus: elements.editFestivalStatus.value,
+    // '' = "sin datos" en el select: se manda null para borrar el estado.
+    ticketsStatus: elements.editFestivalTickets.value || null
   };
 
   try {
@@ -4302,6 +4321,56 @@ function normalizeString(str) {
   return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 }
 
+// Bloque "Entradas" de la ficha del festival.
+//
+// `festival.tickets` viene de `festivals.tickets_status` (migración 023) y solo
+// existe cuando el admin aprobó una propuesta del radar o lo cargó a mano. Si no
+// hay dato, no se renderiza nada: mejor no decir nada que inventar "consultar
+// disponibilidad".
+function renderFestivalTickets(festival) {
+  const tickets = festival && festival.tickets;
+  if (!tickets || !tickets.status) return '';
+
+  const label = {
+    on_sale: t('festival.ticketsOnSale'),
+    presale: t('festival.ticketsPresale'),
+    sold_out: t('festival.ticketsSoldOut'),
+    coming_soon: t('festival.ticketsComingSoon')
+  }[tickets.status];
+  if (!label) return '';
+
+  // El link a la venta solo tiene sentido cuando se puede comprar; en "agotadas"
+  // o "próximamente" manda al sitio oficial sin prometer nada.
+  const canBuy = tickets.status === 'on_sale' || tickets.status === 'presale';
+  const buyLink = festival.website
+    ? `<a class="festival-tickets-link" href="${escapeHtml(festival.website)}" target="_blank" rel="noopener noreferrer">
+         ${escapeHtml(canBuy ? t('festival.buyTickets') : t('festival.website'))} ↗
+       </a>`
+    : '';
+
+  const updated = tickets.updatedAt
+    ? `<span class="festival-tickets-source">${escapeHtml(t('festival.ticketsFrom'))} · ${formatShortDate(tickets.updatedAt)}</span>`
+    : '';
+
+  return `
+    <div class="info-block info-block-tickets">
+      <h4>${escapeHtml(t('festival.tickets'))}</h4>
+      <span class="ticket-status ticket-status-${escapeHtml(tickets.status)}">${escapeHtml(label)}</span>
+      ${buyLink}
+      ${updated}
+    </div>
+  `;
+}
+
+// Fecha corta (DD/MM/YYYY) para metadatos. `updatedAt` viene del backend como
+// ISO de Postgres; si no parsea, se omite en vez de mostrar "Invalid Date".
+function formatShortDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 async function showFestivalDetail(festivalId) {
   const festival = festivalsData.find(f => f.id === festivalId);
   if (!festival) return;
@@ -4315,6 +4384,11 @@ async function showFestivalDetail(festivalId) {
 
   const status = statusConfig[festival.lineupStatus] || statusConfig['unannounced'];
   const matchPercentage = festival.matchPercentage || 0;
+
+  // Entradas: `festival.tickets` solo existe si el admin aprobó una propuesta
+  // del radar o lo cargó a mano (migración 023). Nunca sale de un dato sin
+  // revisar.
+  const ticketsBlock = renderFestivalTickets(festival);
 
   elements.festivalDetailContent.innerHTML = `
     <div class="festival-hero-simple">
@@ -4363,6 +4437,7 @@ async function showFestivalDetail(festivalId) {
           <p>${escapeHtml(festival.city)}</p>
         </div>
         ` : ''}
+        ${ticketsBlock}
       </div>
     </div>
   `;

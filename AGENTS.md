@@ -204,9 +204,8 @@ soporte irregular de salida estructurada), aunque sirven para una comparación p
       modo prueba (issue todas las semanas). Se ofreció el 19/11/2026 y Nelson decidió no tocarlo
       todavía.
 - [ ] **Mejoras de producto no empezadas (no bloquean el cierre):**
-      - Exponer en el sitio los datos de tickets (`on_sale`/`presale`/`sold_out` + fecha) y la
-        fecha de anuncio del lineup. Hoy solo viven en `lineup_proposals`; requieren migración
-        propia y decisión de UI.
+      - Exponer la fecha de anuncio del lineup en el sitio (los tickets ya se publican, ver
+        "Entradas en la ficha del festival" más abajo).
       - OCR/visión para lineups publicados solo como imagen.
       - Revisión formal de la versión mobile.
       - Monetización por comisión de links de tickets.
@@ -222,6 +221,79 @@ soporte irregular de salida estructurada), aunque sirven para una comparación p
       completas: el badge se pinta al entrar al panel sin pagar ese costo. Sigue protegido con
       `requireAuth` + `requireAdmin`.
 - [x] Solo UI: no toca la base, el extractor ni el flujo de aprobación.
+
+### Fechas de propuestas: formato numérico y comparación con el catálogo (23/11/2026)
+
+- [x] **Problema real:** Steelfest publica `13-15.05.2027` y el panel mostraba
+      "(no se pudo interpretar automáticamente)" aunque el catálogo ya decía `13-15 Mayo 2027`.
+      La IA no estaba equivocada: `dates_text` es copia textual de la página (la regla del prompt es
+      no traducir ni reformatear, para no inventar fechas) y el intérprete determinístico
+      `server/dateRange.js` solo entendía meses en español (`3-5 Junio 2027`).
+- [x] `server/dateRange.js` ahora entiende formatos numéricos independientes del idioma:
+      `13-15.05.2027`, `13.-15.05.2027`, `13–15.05.2027`, `13-15/05/2027`,
+      `13.05.2027 - 15.05.2027`, `13.05. - 15.05.2027`, `13.05.2027`, `13/05/2027`, ISO
+      `2027-05-13` / `2027-05-13 - 2027-05-15`, y rangos que cruzan mes o año. Un año suelto
+      (`Lineup 2027. 13-15.05.2027`) no se lee como día, y `31.04.2027` sigue dando `null`.
+- [x] También se aceptan meses en inglés, alemán, portugués, neerlandés y francés, y el orden
+      "mes primero" de EE. UU. (`June 11-13, 2027`) con sufijos ordinales (`11th-13th June 2027`).
+      Motivo: `dates_text` viene en el idioma de la fuente (Rock am Ring EN, Hurricane, Rock in Rio).
+- [x] `rowToProposal()` calcula `datesChanged` comparando los rangos ya interpretados de la
+      propuesta y del catálogo: `null` si falta interpretar alguno, `false` si es la misma fecha con
+      otro formato. Exportado para test. Con `false` el panel muestra "iguales a las del catálogo" y
+      **oculta el checkbox de actualizar fechas**: no hay nada que escribir.
+- [x] Prompt del extractor: regla explícita para `dates_text` (copiar el texto tal cual, sin traducir
+      ni reformatear; la interpretación la hace el código).
+- [x] Tests: 26 casos nuevos en `npm run test:dates` (`CASOS_PROPUESTAS`) y 4 casos de `datesChanged`
+      en `npm run test:approval`. Las 37 cadenas del catálogo siguen dando lo mismo.
+- [ ] **Nit conocido:** si el admin aprueba con fechas distintas, `approveLineupProposal` escribe
+      `dates_text` verbatim. Con fuentes numéricas el catálogo mostraría `14-16.05.2027` en vez de
+      `14-16 Mayo 2027`. No urge porque las fechas iguales ya no ofrecen el checkbox; el formateador
+      en español vive en `scripts/festival-facts.js` y compartirlo sería un refactor aparte.
+
+### Entradas en la ficha del festival (23/11/2026)
+
+- [x] **Problema real:** el estado de tickets que detecta el radar quedaba solo dentro de
+      `lineup_proposals.payload`. El admin lo veía al revisar la propuesta (Ultra Buenos Aires y
+      Steelfest mostraban `on_sale`) y después desaparecía: la ficha pública
+      `/festival/ultra-buenos-aires` no decía nada. Un dato que no se muestra es un dato muerto.
+- [x] `migrations/023_festival_tickets.sql` agrega a `festivals` tres columnas:
+      `tickets_status` (CHECK con `on_sale`/`presale`/`sold_out`/`coming_soon`),
+      `tickets_on_sale_at` (DATE) y `tickets_updated_at` (TIMESTAMPTZ). NULL = sin dato.
+- [x] **Orden de despliegue: al revés que la 022.** `FESTIVAL_COLUMNS` ahora hace
+      `SELECT ... tickets_status`, así que esta migración se aplica **antes** de deployar. Al revés
+      (deploy primero) las queries del catálogo dan 500 por columna inexistente. Aplicarla antes es
+      inofensivo para el código viejo, que ignora columnas nuevas.
+- [x] **Backfill de propuestas ya aprobadas:** sin esto, Ultra Buenos Aires (aprobada el 22/11,
+      antes de existir la columna) seguiría sin mostrar entradas. Se toma la propuesta aprobada más
+      reciente por festival con estado publicable: son **3** (`ultra-buenos-aires`, `sonar`,
+      `ilosaarirock`). Las pendientes no se tocan.
+- [x] `db.approveLineupProposal` publica `tickets_status`/`tickets_on_sale_at` en la misma
+      transacción que el lineup, y **`not_mentioned` nunca pisa el catálogo**: que una página deje
+      de hablar de entradas no significa que se agotaron.
+- [x] `rowToFestival` expone `tickets: { status, onSaleAt, updatedAt }` y **omite la clave** cuando
+      no hay dato, con el mismo criterio que `image` (no rompe el round-trip del seed). Exportados
+      `rowToFestival` y `rowToProposal` para testear sin base.
+- [x] Panel admin: el modal de edición de festival tiene un select "Estado de las entradas"
+      (Sin datos / A la venta / Preventa / Agotadas / Próximamente) para corregir a mano lo que
+      propone el radar. `updateFestival` marca `tickets_updated_at` cuando cambia.
+- [x] Tarjeta de propuesta: el estado se muestra traducido (`A la venta`) y con el aviso
+      "se publica en la ficha al aprobar" mientras está pendiente.
+- [x] **Steelfest** sigue en `pending` (id 13): al aprobarla se publican sus entradas. Las que ya
+      estaban aprobadas antes de la 023 las recupera el backfill, no hace falta re-aprobar nada.
+- [x] Ficha pública: bloque **Entradas** en la barra lateral con píldora de color por estado
+      (verde a la venta, celeste preventa, ámbar próximamente, rojo agotadas), link al sitio
+      oficial para comprar y la fecha del dato. Si no hay estado, el bloque no se renderiza.
+- [x] i18n en los tres idiomas (`festival.tickets`, `ticketsOnSale`, `ticketsPresale`,
+      `ticketsSoldOut`, `ticketsComingSoon`, `buyTickets`, `ticketsFrom`).
+- [x] Tests: `npm run test:approval` cubre publicación de tickets al aprobar, que `not_mentioned`
+      no borre el estado y el mapeo de `rowToFestival`. La aserción de "sin applyDates" pasó de
+      contar parámetros a mirar las columnas del `SET` (el número se rompía al agregar campos).
+- [x] **Aplicada en Supabase el 23/11/2026** (por el agente, con autorización de Nelson):
+      3 columnas, CHECK correcto y backfill de 3 festivales. Verificado después:
+      `ultra-buenos-aires`, `sonar` e `ilosaarirock` en `on_sale`; `/api/festivals` las expone y
+      el resto (60) omite la clave `tickets`.
+- [ ] **Fuera de alcance:** mostrar "próximo anuncio del lineup" (`lineup_announcement`) sigue
+      solo en la propuesta. Es el mismo patrón y se puede resolver igual cuando se decida.
 
 ### Radar de lineups — paso 18: datos de festivales en hiatus (09/11/2026)
 

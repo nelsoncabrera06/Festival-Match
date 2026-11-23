@@ -125,7 +125,14 @@
         "matchArtists": "artistia, joista pidät",
         "website": "Verkkosivusto",
         "addFavorite": "Lisää suosikkeihin",
-        "removeFavorite": "Poista suosikeista"
+        "removeFavorite": "Poista suosikeista",
+        "tickets": "Liput",
+        "ticketsOnSale": "Myynnissä",
+        "ticketsPresale": "Ennakkomyynti",
+        "ticketsSoldOut": "Loppuunmyyty",
+        "ticketsComingSoon": "Tulossa pian",
+        "buyTickets": "Osta viralliselta sivustolta",
+        "ticketsFrom": "Viralliselta sivustolta"
     },
     "suggest": {
         "btnText": "Ehdota festivaalia",

@@ -663,12 +663,24 @@ function rowToFestival(row) {
   if (row.description) festival.description = row.description;
   if (row.note) festival.note = row.note;
 
+  // Entradas: se publica en la ficha del festival recien cuando el admin aprueba
+  // una propuesta del radar (o lo corrige a mano). Igual que `image`, la clave
+  // se OMITE cuando no hay dato para no romper el round-trip con el seed.
+  if (row.tickets_status) {
+    festival.tickets = {
+      status: row.tickets_status,
+      onSaleAt: row.tickets_on_sale_at || null,
+      updatedAt: row.tickets_updated_at || null,
+    };
+  }
+
   return festival;
 }
 
 const FESTIVAL_COLUMNS = `
   id, name, city, location, country, dates, website,
   image, description, lineup_status, lineup, note,
+  tickets_status, tickets_on_sale_at::text AS tickets_on_sale_at, tickets_updated_at,
   sort_order
 `;
 
@@ -766,6 +778,11 @@ const UPDATABLE_FESTIVAL_FIELDS = {
   lineupStatus: 'lineup_status',
   lineup: 'lineup',
   note: 'note',
+  // Entradas. `ticketsOnSaleAt` es una fecha ISO o null; `updateFestival` marca
+  // `tickets_updated_at` cuando alguno de los dos viene en el body, para que la
+  // ficha pueda mostrar desde cuándo vale ese estado.
+  ticketsStatus: 'tickets_status',
+  ticketsOnSaleAt: 'tickets_on_sale_at',
 };
 
 async function updateFestival(id, updates) {
@@ -792,6 +809,12 @@ async function updateFestival(id, updates) {
     sets.push(`starts_on = $${values.length}`);
     values.push(rango.endsOn);
     sets.push(`ends_on = $${values.length}`);
+  }
+
+  // Cualquier cambio de tickets reinicia la marca de actualización: es lo que la
+  // ficha pública usa para avisar desde cuándo vale el estado.
+  if (updates.ticketsStatus !== undefined || updates.ticketsOnSaleAt !== undefined) {
+    sets.push('tickets_updated_at = NOW()');
   }
 
   if (sets.length === 0) {
@@ -911,6 +934,11 @@ async function rolloverFestival(id, nextYear) {
 // el extractor nunca publica. Las consultas de lectura exponen el catálogo
 // actual junto a la propuesta para que el admin compare antes de decidir.
 
+// Estados de entradas que se publican en la ficha del festival. Son los mismos
+// códigos que valida migrations/023_festival_tickets.sql y que entrega el
+// extractor; "not_mentioned" no se publica nunca.
+const TICKET_STATUSES_PUBLIC = new Set(['on_sale', 'presale', 'sold_out', 'coming_soon']);
+
 const PROPOSAL_COLUMNS = `
   p.id, p.festival_id, p.source_url, p.seen_hash, p.model, p.schema_version,
   p.lineup_status, p.artists_count, p.confidence, p.payload, p.extraction_error,
@@ -933,6 +961,15 @@ function rowToProposal(row) {
     ? { text: payload.datesText.trim(), ...parseDateRange(payload.datesText.trim()) }
     : null;
 
+  // Comparacion con el catalogo: la propuesta trae el texto tal cual lo publica
+  // la fuente ("13-15.05.2027") mientras el catalogo dice "13-15 Mayo 2027". Son
+  // la misma fecha, asi que se comparan los rangos ya interpretados y no el
+  // texto. `null` = no se pudo comparar (falta interpretar alguno de los dos).
+  const catalogRange = parseDateRange(row.festival_dates || '');
+  const datesChanged = proposalDates && proposalDates.startsOn && catalogRange.startsOn
+    ? proposalDates.startsOn !== catalogRange.startsOn || proposalDates.endsOn !== catalogRange.endsOn
+    : null;
+
   return {
     id: Number(row.id),
     festivalId: row.festival_id,
@@ -949,6 +986,7 @@ function rowToProposal(row) {
     festivalDates: row.festival_dates,
     proposedArtists: prepareArtists(payload.artists || []),
     proposalDates,
+    datesChanged,
     lineupAnnouncement: payload.lineupAnnouncement || null,
     tickets: payload.tickets || null,
     evidence: Array.isArray(payload.evidence) ? payload.evidence : [],
@@ -1074,6 +1112,19 @@ async function approveLineupProposal(id, { reviewedBy, applyDates = false, artis
       sets.push(`starts_on = $${values.length}`);
       values.push(range.endsOn);
       sets.push(`ends_on = $${values.length}`);
+    }
+
+    // Estado de entradas: se publica al aprobar porque es parte de lo que el
+    // admin esta revisando (la tarjeta lo muestra con la cita textual). No se
+    // pisa el catalogo cuando la fuente no menciona entradas ("not_mentioned"):
+    // que una pagina deje de hablar de tickets no significa que se agotaron.
+    const tickets = payload.tickets && typeof payload.tickets === 'object' ? payload.tickets : {};
+    if (TICKET_STATUSES_PUBLIC.has(tickets.status)) {
+      values.push(tickets.status);
+      sets.push(`tickets_status = $${values.length}`);
+      values.push(tickets.onSaleAt || null);
+      sets.push(`tickets_on_sale_at = $${values.length}`);
+      sets.push('tickets_updated_at = NOW()');
     }
 
     await client.query(
@@ -1567,6 +1618,9 @@ module.exports = {
   getFestivals,
   getAdminFestivals,
   getFestivalById,
+  // Mapeo fila -> festival. Exportado para testear el contrato público (claves
+  // opcionales omitidas, `tickets` derivado de las columnas de la 023).
+  rowToFestival,
   createFestival,
   updateFestival,
   deleteFestival,
@@ -1580,6 +1634,9 @@ module.exports = {
   // Propuestas del radar de lineups (paso 15)
   getLineupProposals,
   getLineupProposalCounts,
+  // Mapeo fila -> propuesta. Exportado para testear `proposalDates`/`datesChanged`
+  // sin una base real.
+  rowToProposal,
   approveLineupProposal,
   rejectLineupProposal,
   // Propuestas de datos de festival (fase 4, paso 18/19)

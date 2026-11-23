@@ -123,6 +123,7 @@ async function main() {
   assert.match(messages[0].content, /No traduzcas/);
   assert.match(messages[0].content, /imagen\/flyer/);
   assert.match(messages[0].content, /Lollapalooza/);
+  assert.match(messages[0].content, /dates_text/);
   assert.match(messages[1].content, /Sónar/);
   assert.match(messages[1].content, /2027/);
   assert.match(messages[1].content, /https:\/\/sonar\.es\/en/);

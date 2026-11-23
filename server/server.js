@@ -670,6 +670,25 @@ function registerServer(app) {
       }
     }
 
+    // Instagram: mismo criterio que la fuente del lineup (URL HTTP/HTTPS, sin
+    // credenciales). Vacío borra el enlace: la ficha deja de mostrarlo.
+    if (Object.prototype.hasOwnProperty.call(updates, 'instagram')) {
+      const value = typeof updates.instagram === 'string' ? updates.instagram.trim() : '';
+      if (!value) {
+        updates.instagram = null;
+      } else {
+        try {
+          const parsed = new URL(value);
+          if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
+            return res.status(400).json({ error: 'El Instagram debe ser una URL HTTP/HTTPS válida' });
+          }
+          updates.instagram = parsed.toString();
+        } catch {
+          return res.status(400).json({ error: 'El Instagram debe ser una URL HTTP/HTTPS válida' });
+        }
+      }
+    }
+
     try {
       // El whitelist de campos vive en db.updateFestival (UPDATABLE_FESTIVAL_FIELDS),
       // junto con la query: asi no puede quedar desincronizado con las columnas.

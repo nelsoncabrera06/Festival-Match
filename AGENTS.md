@@ -250,6 +250,39 @@ soporte irregular de salida estructurada), aunque sirven para una comparación p
       `14-16 Mayo 2027`. No urge porque las fechas iguales ya no ofrecen el checkbox; el formateador
       en español vive en `scripts/festival-facts.js` y compartirlo sería un refactor aparte.
 
+### Instagram oficial del festival (23/11/2026)
+
+- [x] **Motivo:** Quilmes Rock 2027 anunció el lineup primero en Instagram (02/11/2026) mientras su
+      web oficial sigue diciendo "antes de que se devele el lineup oficial". El radar no puede leer
+      esa red: los nombres están en la imagen del carrusel y el CDN responde **403** a la descarga
+      directa. Así que por ahora es un enlace para el usuario, no una fuente automática.
+- [x] `migrations/024_festival_instagram.sql`: columna `instagram TEXT` en `festivals`. **NULL en 62
+      de 63** a propósito: se carga de a uno cuando se confirma la cuenta oficial. Aplicada en
+      Supabase el 23/11/2026; el único valor es `quilmes-rock →
+      https://www.instagram.com/quilmesrock/` (cuenta oficial verificada).
+- [x] **Orden de despliegue:** aplicar antes de deployar (igual que la 023): el código hace
+      `SELECT ... instagram`. Incremental y sin backfill: no toca otras columnas.
+- [x] `rowToFestival` expone `instagram` y **omite la clave** cuando es NULL (mismo criterio que
+      `image`), así el contrato público del catálogo no cambia para los 62 restantes.
+- [x] Panel admin: campo "Instagram" en el modal de edición, validado como URL HTTP/HTTPS sin
+      credenciales. Vacío = borra el enlace.
+- [x] Ficha pública: los enlaces van **debajo del título**, no pegados a él. `Sitio oficial ↗` como
+      link de texto chico y el icono de Instagram al lado (18px, mismo trazo que el resto de los
+      iconos). El título queda limpio, solo el nombre.
+- [x] **Sin Instagram no se renderiza nada:** la columna es NULL en 62 festivales,
+      `rowToFestival` **omite la clave** en vez de devolver `null` y el template corta con
+      `festival.instagram ? ... : ''`. No queda un link vacío ni un icono roto. Al cargar el dato
+      más adelante (campo del admin o migración) aparece solo, sin tocar código.
+- [x] **Decisión de Nelson (23/11/2026): NO agregar un editor de lineup en el panel.** La carga de
+      lineups tiene que ser automática; si alguna vez hace falta, lo edita a mano en la base. No
+      proponer el textarea de nuevo.
+- [ ] **Pendiente, decisión de Nelson:** completar el Instagram oficial de los otros 62 festivales.
+      El campo ya existe y está vacío; no hay backfill automático porque el riesgo de asociar la
+      cuenta equivocada es alto.
+- [ ] **Pendiente de seguimiento (30/11/2026):** ver si la web oficial de Quilmes Rock publicó el
+      lineup. Si sí, el radar lo detecta solo; si no, sigue `unannounced` en el catálogo aunque el
+      lineup ya esté anunciado en redes.
+
 ### Contadores en los tabs del admin: Usuarios y Sugerencias (23/11/2026)
 
 - [x] `Usuarios` muestra la cantidad en texto plano (`Usuarios: 5`), sin color ni píldora: es un

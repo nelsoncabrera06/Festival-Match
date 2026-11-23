@@ -931,6 +931,37 @@ body {
   color: var(--spotify-green);
 }
 
+/* Enlaces del festival (sitio oficial, Instagram) debajo del título.
+   Van en una línea propia, más chicos que el título: el enlace de texto imita
+   el tamaño de los metadatos de la ficha y el icono de Instagram mantiene el
+   trazo del resto de los iconos del sitio. */
+.festival-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.festival-link-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.festival-link-text:hover {
+  color: var(--spotify-green);
+  text-decoration: underline;
+}
+
+.festival-links .festival-link-icon {
+  color: var(--text-secondary);
+}
+
+.festival-links .festival-link-icon:hover {
+  color: var(--spotify-green);
+}
+
 
 .festival-hero-simple .festival-location-date {
   font-size: 16px;

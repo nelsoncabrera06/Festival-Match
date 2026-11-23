@@ -300,6 +300,7 @@ function cacheElements() {
   elements.editFestivalLineupSource = document.getElementById('edit-festival-lineup-source');
   elements.editFestivalLineupSourcePreview = document.getElementById('edit-festival-lineup-source-preview');
   elements.editFestivalStatus = document.getElementById('edit-festival-status');
+  elements.editFestivalInstagram = document.getElementById('edit-festival-instagram');
   elements.editFestivalTickets = document.getElementById('edit-festival-tickets');
 
   // Lineup Rollover Modal (Admin)
@@ -1466,6 +1467,7 @@ function openEditFestivalModal(festivalId) {
   elements.editFestivalLineupSource.value = festival.lineupSourceUrl || '';
   updateLineupSourcePreview();
   elements.editFestivalStatus.value = festival.lineupStatus || 'unannounced';
+  elements.editFestivalInstagram.value = festival.instagram || '';
   elements.editFestivalTickets.value = festival.tickets?.status || '';
 
   // Mostrar modal
@@ -1513,6 +1515,7 @@ async function saveEditFestival(e) {
     website: elements.editFestivalWebsite.value,
     lineupSourceUrl: elements.editFestivalLineupSource.value.trim() || null,
     lineupStatus: elements.editFestivalStatus.value,
+    instagram: elements.editFestivalInstagram.value.trim() || null,
     // '' = "sin datos" en el select: se manda null para borrar el estado.
     ticketsStatus: elements.editFestivalTickets.value || null
   };
@@ -4438,19 +4441,24 @@ async function showFestivalDetail(festivalId) {
   elements.festivalDetailContent.innerHTML = `
     <div class="festival-hero-simple">
       <div class="festival-main-info">
-        <h1>
-          ${escapeHtml(festival.name)}
-          <a href="${festival.website}" target="_blank" rel="noopener" class="festival-link-icon" title="Ir al sitio oficial">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-              <polyline points="15 3 21 3 21 9"></polyline>
-              <line x1="10" y1="14" x2="21" y2="3"></line>
-            </svg>
-          </a>
-        </h1>
+        <h1>${escapeHtml(festival.name)}</h1>
         <p class="festival-location-date">
           <span>${getCountryFlag(festival.country)}</span> ${escapeHtml(festival.location)} | ${escapeHtml(festival.dates)}
         </p>
+        <div class="festival-links">
+          ${festival.website ? `
+          <a href="${escapeHtml(festival.website)}" target="_blank" rel="noopener noreferrer" class="festival-link-text">
+            ${escapeHtml(t('festival.officialSite'))} ↗
+          </a>` : ''}
+          ${festival.instagram ? `
+          <a href="${escapeHtml(festival.instagram)}" target="_blank" rel="noopener noreferrer" class="festival-link-icon" title="Instagram del festival">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+              <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+              <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+            </svg>
+          </a>` : ''}
+        </div>
       </div>
       <div class="festival-match-badge">
         ${matchPercentage}% Match

@@ -657,6 +657,11 @@ function rowToFestival(row) {
   // Orden de las claves opcionales: el que tenian en el JSON, no el de la tabla.
   if (row.image) festival.image = row.image;
 
+  // Instagram oficial (migracion 024). Opcional: se omite cuando no hay cuenta
+  // cargada, igual que `image`, para no agregar una clave vacia en 62 de los 63
+  // festivales.
+  if (row.instagram) festival.instagram = row.instagram;
+
   festival.lineupStatus = row.lineup_status;
   festival.lineup = row.lineup;
 
@@ -680,6 +685,7 @@ function rowToFestival(row) {
 const FESTIVAL_COLUMNS = `
   id, name, city, location, country, dates, website,
   image, description, lineup_status, lineup, note,
+  instagram,
   tickets_status, tickets_on_sale_at::text AS tickets_on_sale_at, tickets_updated_at,
   sort_order
 `;
@@ -773,6 +779,7 @@ const UPDATABLE_FESTIVAL_FIELDS = {
   dates: 'dates',
   website: 'website',
   lineupSourceUrl: 'lineup_source_url',
+  instagram: 'instagram',
   image: 'image',
   description: 'description',
   lineupStatus: 'lineup_status',

@@ -283,6 +283,8 @@ function cacheElements() {
   elements.adminUsersSection = document.getElementById('admin-users-section');
   elements.adminUsersTbody = document.getElementById('admin-users-tbody');
   elements.adminUsersCount = document.getElementById('admin-users-count');
+  elements.adminUsersTabCount = document.getElementById('admin-users-tab-count');
+  elements.adminSuggestionsTabCount = document.getElementById('admin-suggestions-tab-count');
 
   // Edit Festival Modal
   elements.editFestivalModal = document.getElementById('edit-festival-modal');
@@ -740,6 +742,8 @@ async function approveSuggestion(id) {
       // Mostrar mensaje segun el resultado
       alert(data.message);
       loadAdminSuggestions();
+      // Aprobar puede crear un festival: el conteo de sugerencias cambia.
+      loadAdminTabCounts();
     } else {
       alert(data.error || 'Error al aprobar la sugerencia');
     }
@@ -760,6 +764,7 @@ async function rejectSuggestion(id) {
 
     if (response.ok) {
       loadAdminSuggestions();
+      loadAdminTabCounts();
     }
   } catch (err) {
     console.error('Error rejecting suggestion:', err);
@@ -791,6 +796,42 @@ function formatProposalDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+// Contadores de los tabs "Usuarios" y "Sugerencias".
+//
+// Usuarios: siempre el número, en texto plano (`Usuarios: 5`). Es un dato
+// informativo, no una tarea pendiente.
+// Sugerencias: el número solo se pinta como píldora lima si hay pendientes
+// (> 0), igual que el tab de propuestas de lineup. En 0 queda como texto plano,
+// que es lo que se quiere ver cuando no hay nada por revisar.
+function updateAdminTabCounts(counts) {
+  const users = Number(counts && counts.users);
+  if (elements.adminUsersTabCount && Number.isFinite(users)) {
+    elements.adminUsersTabCount.textContent = String(users);
+  }
+
+  const pending = Number(counts && counts.suggestions && counts.suggestions.pending);
+  const suggestionsEl = elements.adminSuggestionsTabCount;
+  if (!suggestionsEl || !Number.isFinite(pending)) return;
+
+  suggestionsEl.textContent = String(pending);
+  suggestionsEl.classList.toggle('admin-tab-count', pending > 0);
+  suggestionsEl.classList.toggle('admin-tab-count-plain', pending <= 0);
+}
+
+async function loadAdminTabCounts() {
+  if (!isUserAdmin) return;
+
+  try {
+    const response = await fetch('/api/admin/counts', { credentials: 'include' });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error al contar');
+    updateAdminTabCounts(data);
+  } catch (err) {
+    // Los contadores son informativos: si fallan, el panel sigue funcionando.
+    console.error('Error loading admin tab counts:', err);
+  }
 }
 
 // Badge con el número de propuestas pendientes en el botón del tab.
@@ -1743,6 +1784,8 @@ async function loadAdminUsers() {
     const data = await response.json();
     adminUsersData = data.users;
     renderAdminUsersTable();
+    // Mantiene el número del tab alineado con la lista recién cargada.
+    updateAdminTabCounts({ users: adminUsersData.length });
   } catch (err) {
     console.error('Error loading admin users:', err);
     if (elements.adminUsersTbody) {
@@ -1903,6 +1946,7 @@ async function confirmDeleteUser() {
     if (response.ok) {
       adminUsersData = adminUsersData.filter(u => u.id !== userToDelete);
       renderAdminUsersTable();
+      loadAdminTabCounts();
       closeDeleteUserModal();
       alert('Usuario eliminado correctamente');
     } else {
@@ -3084,8 +3128,9 @@ function switchTab(tabName) {
   // Si es tab de admin, cargar sugerencias
   if (tabName === 'admin' && isUserAdmin) {
     loadAdminSuggestions();
-    // Badge de pendientes del radar de lineups: se pide al entrar al panel,
-    // no solo al abrir el tab de propuestas.
+    // Contadores de los tabs (usuarios, sugerencias) y badge de propuestas:
+    // se piden al entrar al panel, no solo al abrir cada tab.
+    loadAdminTabCounts();
     loadProposalPendingCount();
   }
 }

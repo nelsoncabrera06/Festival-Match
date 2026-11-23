@@ -3030,6 +3030,29 @@ body {
   color: var(--text-primary);
 }
 
+/* Contadores de los tabs del admin.
+   Usuarios va siempre en texto plano ("Usuarios: 5"); Sugerencias usa la píldora
+   lima solo cuando hay pendientes. */
+.admin-tab-count-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.admin-tab-count-sep {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.admin-tab-count-plain {
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 10px;
+  text-align: center;
+}
+
 /* Contador de propuestas pendientes en el tab "Propuestas de lineup".
    Usa el mismo --accent que el botón activo del filtro "Pendientes" (lima en
    theme.css) y se oculta cuando no hay nada por revisar. */

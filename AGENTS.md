@@ -250,6 +250,20 @@ soporte irregular de salida estructurada), aunque sirven para una comparación p
       `14-16 Mayo 2027`. No urge porque las fechas iguales ya no ofrecen el checkbox; el formateador
       en español vive en `scripts/festival-facts.js` y compartirlo sería un refactor aparte.
 
+### Contadores en los tabs del admin: Usuarios y Sugerencias (23/11/2026)
+
+- [x] `Usuarios` muestra la cantidad en texto plano (`Usuarios: 5`), sin color ni píldora: es un
+      dato informativo, no una tarea pendiente.
+- [x] `Sugerencias` muestra el número de **pendientes**. En 0 va como texto plano (`Sugerencias: 0`);
+      con > 0 se pinta con la misma píldora lima que "Propuestas de lineup".
+- [x] `GET /api/admin/counts` (protegido con `requireAuth` + `requireAdmin`) devuelve
+      `{ users, suggestions: { pending, total } }` en una sola query con subselects. El listado de
+      usuarios y el de sugerencias siguen siendo endpoints aparte: el badge no los carga.
+- [x] Se refresca al abrir el panel (`switchTab('admin')`), al cargar la tabla de usuarios y después
+      de aprobar, rechazar o eliminar (los conteos cambian con esas acciones).
+- [x] El tab de propuestas conserva su badge propio (`?counts=1` sobre `/api/admin/lineup-proposals`).
+      Quedaron dos consultas al abrir el panel; unificarlas no valía el refactor.
+
 ### Entradas en la ficha del festival (23/11/2026)
 
 - [x] **Problema real:** el estado de tickets que detecta el radar quedaba solo dentro de

@@ -1516,6 +1516,27 @@ async function createFestivalSuggestion({ userId, festivalName, country, city, d
   return result.rows[0];
 }
 
+// Contadores chicos para los tabs del panel admin (Usuarios / Sugerencias).
+// Una sola query con subselects: son tres COUNT sobre tablas chicas y evita tres
+// round-trips al abrir el panel. No devuelve filas de usuarios ni de
+// sugerencias, solo números.
+async function getAdminCounts() {
+  const result = await pool.query(`
+    SELECT
+      (SELECT COUNT(*)::int FROM users) AS users,
+      (SELECT COUNT(*)::int FROM festival_suggestions WHERE status = 'pending') AS pending_suggestions,
+      (SELECT COUNT(*)::int FROM festival_suggestions) AS suggestions
+  `);
+  const row = result.rows[0] || {};
+  return {
+    users: row.users || 0,
+    suggestions: {
+      pending: row.pending_suggestions || 0,
+      total: row.suggestions || 0,
+    },
+  };
+}
+
 async function getFestivalSuggestions(status = null) {
   let result;
   if (status) {
@@ -1656,6 +1677,8 @@ module.exports = {
   // Sugerencias de festivales
   createFestivalSuggestion,
   getFestivalSuggestions,
+  // Contadores de los tabs del panel admin (usuarios y sugerencias).
+  getAdminCounts,
   updateSuggestionStatus,
   getSuggestionById,
   deleteSuggestion,

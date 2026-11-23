@@ -535,6 +535,18 @@ function registerServer(app) {
     res.json({ suggestions });
   });
 
+  // Contadores para los tabs del panel admin. Endpoint aparte del listado para
+  // que el badge se pueda pintar al abrir el panel sin traer usuarios ni
+  // sugerencias completas.
+  app.get('/api/admin/counts', auth.requireAuth, requireAdmin, async (req, res) => {
+    try {
+      res.json(await db.getAdminCounts());
+    } catch (err) {
+      console.error('Error contando usuarios y sugerencias:', err.message);
+      res.status(500).json({ error: 'Error al contar usuarios y sugerencias' });
+    }
+  });
+
   // Aprobar sugerencia - auto-agrega a la tabla festivals
   app.post('/api/admin/suggestions/:id/approve', auth.requireAuth, requireAdmin, async (req, res) => {
     try {

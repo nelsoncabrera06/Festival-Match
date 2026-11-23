@@ -409,8 +409,12 @@
             <h3>Panel de Administracion</h3>
             <!-- Tabs internos del admin -->
             <div class="admin-tabs">
-              <button class="admin-tab-btn active" data-admin-tab="users">Usuarios</button>
-              <button class="admin-tab-btn" data-admin-tab="suggestions">Sugerencias</button>
+              <button class="admin-tab-btn active" data-admin-tab="users">
+                <span>Usuarios</span><span class="admin-tab-count-group"><span class="admin-tab-count-sep">:</span><span id="admin-users-tab-count" class="admin-tab-count-plain">—</span></span>
+              </button>
+              <button class="admin-tab-btn" data-admin-tab="suggestions">
+                <span>Sugerencias</span><span class="admin-tab-count-group"><span class="admin-tab-count-sep">:</span><span id="admin-suggestions-tab-count" class="admin-tab-count-plain">—</span></span>
+              </button>
               <button class="admin-tab-btn" data-admin-tab="festivals">Festivales</button>
               <button class="admin-tab-btn" data-admin-tab="proposals">
                 <span>Propuestas de lineup</span>

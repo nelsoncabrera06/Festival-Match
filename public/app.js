@@ -272,6 +272,7 @@ function cacheElements() {
   elements.adminSuggestionsSection = document.getElementById('admin-suggestions-section');
   elements.adminProposalsSection = document.getElementById('admin-proposals-section');
   elements.adminProposals = document.getElementById('admin-proposals');
+  elements.adminProposalsPendingBadge = document.getElementById('admin-proposals-pending-badge');
   elements.adminProposalFilterBtns = document.querySelectorAll('[data-proposal-status]');
   elements.adminFactsSection = document.getElementById('admin-facts-section');
   elements.adminFacts = document.getElementById('admin-facts');
@@ -783,6 +784,42 @@ function formatProposalDate(value) {
   return date.toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+// Badge con el número de propuestas pendientes en el botón del tab.
+// El conteo es global, no depende del filtro activo: el admin tiene que ver
+// cuántas le quedan por revisar aunque esté mirando "Aprobadas".
+function updateProposalPendingBadge(counts) {
+  const badge = elements.adminProposalsPendingBadge;
+  if (!badge) return;
+
+  const pending = Number(counts && counts.pending);
+  if (!Number.isFinite(pending) || pending <= 0) {
+    badge.textContent = '(0)';
+    badge.hidden = true;
+    return;
+  }
+
+  badge.textContent = `(${pending})`;
+  badge.hidden = false;
+}
+
+// Pide solo los contadores (sin traer las propuestas) para tener el número del
+// badge apenas se abre el panel, antes de que el admin entre al tab.
+async function loadProposalPendingCount() {
+  if (!isUserAdmin || !elements.adminProposalsPendingBadge) return;
+
+  try {
+    const response = await fetch('/api/admin/lineup-proposals?counts=1', {
+      credentials: 'include'
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error al contar propuestas');
+    updateProposalPendingBadge(data.counts);
+  } catch (err) {
+    // El badge es informativo: si falla, el panel funciona igual sin el número.
+    console.error('Error loading lineup proposal counts:', err);
+  }
+}
+
 async function loadAdminProposals() {
   if (!isUserAdmin || !elements.adminProposals) return;
 
@@ -802,6 +839,7 @@ async function loadAdminProposals() {
     if (!response.ok) throw new Error(data.error || 'Error al cargar propuestas');
 
     adminProposalsData = Array.isArray(data.proposals) ? data.proposals : [];
+    updateProposalPendingBadge(data.counts);
     renderAdminProposals(adminProposalsData, data.counts || {});
   } catch (err) {
     console.error('Error loading admin lineup proposals:', err);
@@ -3027,6 +3065,9 @@ function switchTab(tabName) {
   // Si es tab de admin, cargar sugerencias
   if (tabName === 'admin' && isUserAdmin) {
     loadAdminSuggestions();
+    // Badge de pendientes del radar de lineups: se pide al entrar al panel,
+    // no solo al abrir el tab de propuestas.
+    loadProposalPendingCount();
   }
 }
 

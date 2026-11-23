@@ -2934,6 +2934,10 @@ body {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .admin-tab-btn:hover {
@@ -2946,6 +2950,29 @@ body {
   border-color: rgba(255, 255, 255, 0.15);
   border-bottom-color: var(--bg-secondary);
   color: var(--text-primary);
+}
+
+/* Contador de propuestas pendientes en el tab "Propuestas de lineup".
+   Usa el mismo --accent que el botón activo del filtro "Pendientes" (lima en
+   theme.css) y se oculta cuando no hay nada por revisar. */
+.admin-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg-primary);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-tab-count[hidden] {
+  display: none;
 }
 
 /* Admin Sections */

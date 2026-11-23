@@ -745,11 +745,18 @@ function registerServer(app) {
       return res.status(400).json({ error: 'status inválido' });
     }
 
+    // `?counts=1` devuelve solo los contadores por estado. Lo usa el badge del
+    // tab "Propuestas de lineup", que necesita el número de pendientes al abrir
+    // el panel sin pagar el costo de traer las propuestas completas.
+    const countsOnly = req.query.counts === '1' || req.query.counts === 'true';
+
     try {
-      const [proposals, counts] = await Promise.all([
-        db.getLineupProposals(status),
-        db.getLineupProposalCounts(),
-      ]);
+      const counts = await db.getLineupProposalCounts();
+      if (countsOnly) {
+        return res.json({ counts });
+      }
+
+      const proposals = await db.getLineupProposals(status);
       res.json({ proposals, counts });
     } catch (err) {
       // 42P01 = undefined_table: falta aplicar la 019 en un entorno local.
